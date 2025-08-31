@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/xmlui-org/xmlui-test-server/api-schema.json",
+  "title": "xmlui-test-server API Configuration",
+  "description": "JSON schema for defining API endpoints in xmlui-test-server",
+  "type": "object",
+  "required": ["apiVersion", "name", "description", "basePath", "endpoints"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "Version of the API configuration format",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the API configuration",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the API",
+      "minLength": 1
+    },
+    "basePath": {
+      "type": "string",
+      "description": "Common prefix for all endpoints",
+      "pattern": "^/.*"
+    },
+    "endpoints": {
+      "type": "array",
+      "description": "Array of API endpoint definitions",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/endpoint"
+      }
+    }
+  },
+  "definitions": {
+    "endpoint": {
+      "type": "object",
+      "required": ["path", "methods"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "URL path pattern with optional :param placeholders",
+          "pattern": "^/.*"
+        },
+        "params": {
+          "type": "array",
+          "description": "Named parameter binding order for path parameters",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "methods": {
+          "type": "object",
+          "description": "HTTP method to SQL query mapping",
+          "minProperties": 1,
+          "patternProperties": {
+            "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$": {
+              "$ref": "#/definitions/methodConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "methodConfig": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Description of what this endpoint does",
+          "minLength": 1
+        },
+        "sql": {
+          "type": "string",
+          "description": "Inline SQL query to execute",
+          "minLength": 1
+        },
+        "sqlFile": {
+          "type": "string",
+          "description": "Path to external SQL file to execute",
+          "minLength": 1
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["sql"],
+          "not": {
+            "required": ["sqlFile"]
+          }
+        },
+        {
+          "required": ["sqlFile"],
+          "not": {
+            "required": ["sql"]
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}
