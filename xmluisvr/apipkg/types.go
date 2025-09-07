@@ -1,4 +1,4 @@
-package xmluisvr
+package apipkg
 
 import (
 	"context"

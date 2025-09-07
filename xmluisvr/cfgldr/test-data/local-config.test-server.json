@@ -1,0 +1,55 @@
+{
+	"$schema": "https://schemas.xmlui.org/v1/test-server-root-schema.json",
+	"$schemaVersion": 1,
+	"server": {
+		"$schema": "https://schemas.xmlui.org/v1/test-server-server-schema.json",
+		"$schemaVersion": 1,
+		"host": "127.0.0.1",
+		"port": 8080,
+		"api": {
+			"$schema": "https://schemas.xmlui.org/v2/test-server-api-schema.json",
+			"$schemaVersion": 2,
+			"name": "User-definable XMLUI Local Server API",
+			"base_path": "/api",
+			"webroot": ".",
+			"endpoints": [
+				{
+					"endpoint": "GET /hello",
+					"description": "Hello World Endpoint",
+					"query": "SELECT 'Hello World';",
+					"query_file": "",
+					"params": {},
+					"rows_expected": "one",
+					"row_type": "string",
+					"column_types": []
+				}
+			]
+		}
+	},
+	"database": {
+		"$schema": "https://schemas.xmlui.org/v1/test-server-sqlite3-schema.json",
+		"$schemaVersion": 1,
+		"filepath": "./data.db",
+		"type": "sqlite3",
+		"extensions": [
+			{
+				"id": "steampipe_sqlite_github",
+				"version": "v0.0.0",
+				"name": "steampipe_sqlite_github",
+				"docs_url": "",
+				"repo_url": "",
+				"download_urls": [],
+				"filepath": "steampipe_sqlite_github.so",
+				"load_order": 0,
+				"entry_point": "sqlite3_extension_init",
+				"depends_on": [],
+				"sha256s": {},
+				"on_failure": "warn",
+				"post_load_sql": [],
+				"env_vars": {},
+				"vars_scope": "app"
+			}
+		],
+		"init_sql": null
+	}
+}

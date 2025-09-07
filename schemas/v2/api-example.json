@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "2.0",
+  "name": "Demo API for xmlui-test-server",
+  "base_path": "/api",
+  "webroot": ".",
+  "endpoints": [
+    {
+      "endpoint": "GET /sqlite3",
+      "description": "Report sqlite3 version",
+      "query": "select sqlite_version() as version"
+    },
+    {
+      "endpoint": "GET /postgres",
+      "description": "Report Postgres version",
+      "query": "select version() as version"
+    },
+    {
+      "endpoint": "GET /query_from_file",
+      "description": "Run SQL found in query.sql",
+      "query_file": "query.sql"
+    }
+  ]
+}

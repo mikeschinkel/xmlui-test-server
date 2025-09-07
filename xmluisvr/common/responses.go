@@ -1,0 +1,60 @@
+package common
+
+import (
+	"bytes"
+	"encoding/json"
+	"log"
+	"net/http"
+
+	"github.com/xmlui-org/xmluisvr/cliutil"
+)
+
+// SendErrorResponse send an error response with the given status code from an HTTP Handler
+func SendErrorResponse(w http.ResponseWriter, message string, statusCode int) {
+	log.Printf("Error: %s (Status: %d)", message, statusCode)
+	http.Error(w, message, statusCode)
+}
+
+// Send JSON response with the given status code
+func maybeEchoResponse(r *http.Request, responseJSON []byte, statusCode int, verbose bool) {
+	var err error
+	var prettyJSON bytes.Buffer
+
+	// TODO Get Verbose from global Options
+	if !verbose {
+		goto end
+	}
+	err = json.Indent(&prettyJSON, responseJSON, "", "  ")
+	if err != nil {
+		cliutil.Errorf("Error prettifying JSON for logging: %v", err)
+		cliutil.Errorf("Raw response: %s", string(responseJSON))
+		goto end
+	}
+	cliutil.Printf("Request: %s", r.URL.String())
+	cliutil.Printf("Status:  %d", statusCode)
+	cliutil.Printf("Response:\n%s", prettyJSON.String())
+end:
+	return
+}
+
+// SendJSONResponse sends a JSON response with the given status code given an HTTP request
+func SendJSONResponse(w http.ResponseWriter, r *http.Request, data any, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	// Generate JSON response
+	responseJSON, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("Error encoding JSON response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Log the response if enabled - this is the ONLY place where responses should be logged
+	maybeEchoResponse(r, responseJSON, statusCode, true)
+
+	// Send the response
+	if _, err := w.Write(responseJSON); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
+}

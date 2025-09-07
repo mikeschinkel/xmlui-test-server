@@ -1,35 +1,23 @@
 {
-  "apiVersion": "1.0",
-  "name": "xmlui-test-server-demo-api",
-  "description": "Demo API for xmlui-test-server",
-  "basePath": "/api",
-  "endpoints": [
-    {
-      "path": "/sqlite",
-      "methods": {
-        "GET": {
-          "description": "Report SQLite version",
-          "sql": "select sqlite_version() as version"
-        }
+   "schemaVersion": "2.0",
+   "name": "xmlui-test-server-demo-api",
+   "description": "Demo API for xmlui-test-server",
+   "basePath": "/api",
+   "endpoints": [
+      {
+         "path": "GET /sqlite",
+         "description": "Report SQLite version",
+         "sql": "select sqlite_version() as version"
+      },
+      {
+         "path": "GET /postgres",
+         "description": "Report Postgres version",
+         "sql": "select version() as version"
+      },
+      {
+         "path": "GET /query_from_file",
+         "description": "Run SQl found in query.sql",
+         "sqlFile": "query.sql"
       }
-    },
-    {
-      "path": "/postgres",
-      "methods": {
-        "GET": {
-          "description": "Report Postgres version",
-          "sql": "select version() as version"
-        }
-      }
-    },
-    {
-      "path": "/query_from_file",
-      "methods": {
-        "GET": {
-          "description": "Report Postgres version",
-          "sqlFile": "query.sql"
-        }
-      }
-    }
-  ]
+   ]
 }

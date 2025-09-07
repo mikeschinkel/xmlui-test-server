@@ -1,4 +1,4 @@
-package dbutil
+package dbpkg
 
 type CLIWriter interface {
 	Printf(format string, args ...any)

@@ -1,0 +1,28 @@
+{
+   "title":        "Steampipe SQLite Extension for Github",
+   "id":           "steampipe-plugin-github",
+   "version":      "v1.5.0",
+   "binary_name":  "${ID}@${VERSION}.sqlite3-ext.${LIBEXT}",
+   "docs_url":     "https://hub.steampipe.io/plugins/turbot/github",
+   "repo_url":     "https://github.com/turbot/${ID}",
+   "download_urls": [
+      "https://github.com/turbot/steampipe-plugin-github/releases/download/${VERSION}/steampipe_sqlite_github.${OS}_${ARCH}.tar.gz"
+   ],
+   "filepath":     "",
+   "entry_point":  "",
+   "sha256s":      {
+      "darwin_amd64": "sha256:075e1797e97b8e9e1f329bef530eac0a44f212d47b2b294b188fefd7afdb30ab",
+      "darwin_arm64": "sha256:3ff91874560e45fff30a18de7e152bf63030704382ff539d6b7f518a776cdf1b",
+      "linux_amd64":  "sha256:774d4e2c66f42993b1dd383c9e774e3f475948527957f6ebc4545d4f1a43fa1f",
+      "linux_arm64":  "sha256:481b5a0e08c5298935df34da0e2d7ba059fa3188c958d45981c45793f77860d9"
+   },
+   "on_failure":   "warn",
+   "depends_on":   [],
+   "pragmas":      [],
+   "post_load_sql":  [
+      "ATTACH DATABASE ':memory:' AS extension_mem"
+   ],
+   "vars":         {
+      "STEAMPIPE_CACHE": "false"
+   }
+}
