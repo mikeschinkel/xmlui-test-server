@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // DefaultConfigDirType is currently hardcoded for ~/.config but having this
@@ -16,7 +18,7 @@ const DefaultConfigDirType = DotConfigDir
 
 const ConfigBaseDirName = ".config"
 
-// ConfigStore provides file operations for Gmail API
+// ConfigStore provides file operations for Gmail APIConfig
 type ConfigStore interface {
 	Load() ([]byte, error)
 	Save([]byte) error
@@ -164,8 +166,6 @@ func (s *configStore) Save(data []byte) (err error) {
 	var file *os.File
 	var fullPath string
 
-	ensureLogger()
-
 	fullPath, err = s.ensureFilepath()
 	if err != nil {
 		goto end
@@ -175,7 +175,7 @@ func (s *configStore) Save(data []byte) (err error) {
 	if err != nil {
 		goto end
 	}
-	defer mustClose(file)
+	defer common.CloseOrLog(file)
 
 	_, err = file.Write(data)
 
@@ -207,6 +207,9 @@ func (s *configStore) Load() (data []byte, err error) {
 	}
 
 	data, err = fs.ReadFile(fSys, s.filename)
+	if NoSuchFileOrDirectory(err) {
+		err = errors.Join(ErrFileDoesNotExist, err)
+	}
 	if err != nil {
 		err = errors.Join(ErrFailedToReadFile, err)
 		goto end

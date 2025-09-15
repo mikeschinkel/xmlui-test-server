@@ -8,7 +8,7 @@
 		"port": 8080,
 		"api": {
 			"$schema": "https://schemas.xmlui.org/v2/test-server-api-schema.json",
-			"$schemaVersion": 2,
+			"version": 2,
 			"name": "User-definable XMLUI Local Server API",
 			"base_path": "/api",
 			"webroot": ".",
@@ -19,7 +19,7 @@
 					"query": "SELECT 'Hello World';",
 					"query_file": "",
 					"params": {},
-					"rows_expected": "one",
+					"cardinality": "one",
 					"row_type": "string",
 					"column_types": []
 				}

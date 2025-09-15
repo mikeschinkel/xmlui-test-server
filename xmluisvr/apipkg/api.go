@@ -15,10 +15,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmluisvr/common"
-	"github.com/xmlui-org/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 )
 
 type API struct {
@@ -45,27 +45,24 @@ type APIArgs struct {
 	Logger     *slog.Logger
 }
 
-func NewAPI(args APIArgs) (api *API) {
-	return &API{
-		Name:        args.Name,
-		Webroot:     args.Webroot,
-		SourceFile:  args.SourceFile,
-		BasePath:    args.BasePath,
-		Endpoints:   args.Endpoints,
-		Verbose:     args.Verbose,
-		CLIWriter:   args.CLIWriter,
-		Logger:      args.Logger,
-		pathRegexps: make(map[common.URLPath]*regexp.Regexp),
-	}
+type CreateAPIArgs struct {
+	Config cfgldr.APIConfig
+	Writer cliutil.Writer
+	Logger *slog.Logger
 }
 
-func MakeAPIArgs(cfg cfgldr.APIConfig, w cliutil.Writer, l *slog.Logger) (apiArgs APIArgs, err error) {
+func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	var basePath common.URLPath
 	var sourceFile common.Filepath
 	var webroot common.Filepath
 	var endpoints []*Endpoint
 
-	cfgV2 := cfg.(*cfgldr.APIConfigV2)
+	cfg := args.Config
+
+	cfgV2, ok := cfg.(*cfgldr.APIConfigV2)
+	if !ok {
+		panic(fmt.Sprintf("Cannot type assert APIConfig config value of type %T to type %T", cfg, (*cfgldr.APIConfigV2)(nil)))
+	}
 	basePath, err = common.ParseURLPath(cfgV2.BasePath)
 	if err != nil {
 		goto end
@@ -82,23 +79,36 @@ func MakeAPIArgs(cfg cfgldr.APIConfig, w cliutil.Writer, l *slog.Logger) (apiArg
 	if err != nil {
 		goto end
 	}
-	apiArgs = APIArgs{
+	api = NewAPI(APIArgs{
 		Name:       cfgV2.Name,
 		Webroot:    webroot,
 		SourceFile: sourceFile,
 		BasePath:   basePath,
 		Endpoints:  endpoints,
-		CLIWriter:  w,
-		Logger:     l,
-	}
+		CLIWriter:  args.Writer,
+		Logger:     args.Logger,
+	})
 end:
-	return apiArgs, err
+	return api, err
 }
 
-//func (api *API) String() string {
-//	return fmt.Sprintf("URL Path: %s (Source: %s)", api.Name, api.SourceFile)
-//}
+func NewAPI(args APIArgs) (api *API) {
+	return &API{
+		Name:        args.Name,
+		Webroot:     args.Webroot,
+		SourceFile:  args.SourceFile,
+		BasePath:    args.BasePath,
+		Endpoints:   args.Endpoints,
+		Verbose:     args.Verbose,
+		CLIWriter:   args.CLIWriter,
+		Logger:      args.Logger,
+		pathRegexps: make(map[common.URLPath]*regexp.Regexp),
+	}
+}
 
+//	func (api *APIConfig) String() string {
+//		return fmt.Sprintf("URL Path: %s (Source: %s)", api.Name, api.SourceFile)
+//	}
 func (api *API) Initialize(_ context.Context) (err error) {
 	if api.initialized {
 		goto end
@@ -124,11 +134,11 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var result []map[string]any
 
-		cliutil.Errorf("API: %s %s", r.Method, r.URL.Path)
+		cliutil.Errorf("APIConfig: %s %s", r.Method, r.URL.Path)
 
 		if api == nil {
 			// IS THIS EVEN NEEDED?
-			common.SendErrorResponse(w, "API route not found; no API was loaded", http.StatusNotFound)
+			common.SendErrorResponse(w, "APIConfig route not found; no APIConfig was loaded", http.StatusNotFound)
 			return
 		}
 
@@ -152,12 +162,12 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 
 		// Check if SQL should be loaded from a file
 		if endpoint.QueryFile == "" {
-			// Use the inline SQL from the API definition
+			// Use the inline SQL from the APIConfig definition
 			query = endpoint.Query
 		} else {
-			// Determine the API description file's directory to make relative paths work
+			// Determine the APIConfig description file's directory to make relative paths work
 
-			// Build the SQL file path relative to the API description file
+			// Build the SQL file path relative to the APIConfig description file
 			queryFile := filepath.Join(
 				filepath.Dir(string(api.SourceFile)),
 				string(endpoint.QueryFile),

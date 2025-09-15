@@ -33,7 +33,7 @@ func (d *APIDescription) Migrate() *APIConfigV2 {
 		SchemaVersion: APIConfigV2SchemaVersion,
 		Name:          d.Description,
 		BasePath:      d.BasePath,
-		Webroot:       ".",
+		Webroot:       DefaultAPIWebroot,
 		Endpoints:     endpoints,
 		SourceFile:    "",
 	}
@@ -41,7 +41,7 @@ func (d *APIDescription) Migrate() *APIConfigV2 {
 
 func (*APIDescription) Config() {}
 
-// EndpointDefinition models an API endpoint in v1 api.json schema
+// EndpointDefinition models an APIConfig endpoint in v1 api.json schema
 // Deprecated — use APIEndpoint instead
 type EndpointDefinition struct {
 	Path    string                      `json:"path"`
@@ -58,21 +58,21 @@ func (d *EndpointDefinition) Migrate() (eps []*APIEndpointV2) {
 		}
 		name = strings.ToUpper(name)
 		eps = append(eps, &APIEndpointV2{
-			Endpoint:     fmt.Sprintf("%s %s", name, d.Path),
-			Description:  obj.Description,
-			Query:        obj.SQL,
-			QueryFile:    obj.SQLFile,
-			Params:       params,
-			RowsExpected: "many?", // TODO: Move the constants to common?
-			RowType:      "any",
-			method:       name,
-			path:         d.Path,
+			Endpoint:    fmt.Sprintf("%s %s", name, d.Path),
+			Description: obj.Description,
+			Query:       obj.SQL,
+			QueryFile:   obj.SQLFile,
+			Params:      params,
+			Cardinality: "many?", // TODO: Move the constants to common?
+			RowType:     "any",
+			Method:      name,
+			Path:        d.Path,
 		})
 	}
 	return eps
 }
 
-// MethodDefinition models an API endpoint method in v1 api.json schema
+// MethodDefinition models an APIConfig endpoint method in v1 api.json schema
 // Deprecated — use APIEndpoint instead
 type MethodDefinition struct {
 	Description string   `json:"description"`

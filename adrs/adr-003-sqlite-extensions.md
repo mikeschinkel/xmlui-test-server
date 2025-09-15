@@ -1,8 +1,9 @@
 # ADR-003: Deterministic, Dependency-Aware Loading of SQLite Extensions
 
-**Status:** Proposed
+* **Status:** Accepted
+* **Date:** 2025-09-02
+* **Authors:** Claude, Mike Schinkel <mike@newclarity.net>
 
-**Date:** 2025-09-02
 
 **Summary:** Defines a deterministic, auditable mechanism to discover, select, download, verify, load, and initialize SQLite extensions — including **SQL-only** initialization hooks at DB level and per-extension level, dependency ordering, platform suffix resolution, operator controls (disable, pin, or autoload), and a strict **PRAGMA validation** (SQL linter) that enforces assignment form, phase gating (core-only vs extension-defined), and override policy. Hardcoded connection defaults are applied first, then DB `init_sql`, then per-extension init, then DB `post_load_sql`. macOS suffix reality is handled (`.so` preferred, `.dylib` fallback).
 
@@ -111,7 +112,9 @@ If a URL/path **omits** `${LIBEXT}` and hardcodes a suffix, that literal is used
     ],
 
     "@note3": ["See §7 for allowed entries."],
-    "extensions": [ /* entries */ ]
+    "extensions": [ 
+       { "@note4": "entries go here" } 
+    ]
   }
 }
 ```
@@ -238,7 +241,7 @@ Any of `docs_url`, `repo_url`, `download_url[n]`, `filepath` may use ${OS}, ${AR
   ],
   "filepath": "string, optional; if present and readable, used directly",
 
-  "@note1": ["sha256 REQUIRED when download_url is used"],
+  "@note2": ["sha256 REQUIRED when download_url is used"],
   "sha256s": { 
     "darwin_arm64": "sha256:…", 
     "linux_amd64": "sha256:…", 
@@ -251,22 +254,22 @@ Any of `docs_url`, `repo_url`, `download_url[n]`, `filepath` may use ${OS}, ${AR
 
   "on_failure": "error | warn | ignore (default: warn)",
 
-  "@note2": ["Optional env vars available to extension at load time (string values)"],
+  "@note3": ["Optional env vars available to extension at load time (string values)"],
   "vars": { 
     "NAME": "VALUE", 
     "..." : "..." 
   },
-  "@note3": [
+  "@note4": [
     "vars are exported to the process environment",
     "if var_scope = app (default), they persist for the process lifetime",
     "if var_scope = load, set only during extension's load/init window"
   ],
-  "var_scope": "string, one of load or app; default app"
+  "var_scope": "string, one of load or app; default app",
 
-  "@note3": ["Run prior to loading"],
+  "@note5": ["Run prior to loading"],
   "pre_load_sql": ["SQL statement", "..."],
 
-  "@note4": ["Run after loading"],
+  "@note6": ["Run after loading"],
   "post_load_sql":  ["SQL statement", "..."]
 }
 ```
@@ -558,24 +561,25 @@ _Note:_ PRAGMA validation occurs via SQL linter against the SQL blocks (see §12
 ### 18.1 Disable one, pin one, autoload the rest
 
 ```json
-"extensions": [
-  { "disable": "legacy-vtable" },
-
-  {
-    "id": "steampipe-github",
-    "version": "v1.5.0",
-    "download_url": "https://cdn.example.com/${ID}/${VERSION}/${ID}@${VERSION}${LIBEXT}",
-    "sha256s": { "darwin_arm64": "sha256:…", "linux_amd64": "sha256:…" },
-    "on_failure": "warn",
-    "pre_load_sql": [
-      "PRAGMA trusted_schema=OFF;"
-    ],
-    "on_load_sql": [
-      "CREATE VIRTUAL TABLE IF NOT EXISTS gh_repos USING github_repos();"
-    ]
-  },
-  "@note1":["No explicit entry for 'csv' — if csv@*.so exists in the dirs, it autoloads."]
-]
+{
+   "extensions": [
+      { "disable": "legacy-vtable" },
+      {
+         "id": "steampipe-github",
+         "version": "v1.5.0",
+         "download_url": "https://cdn.example.com/${ID}/${VERSION}/${ID}@${VERSION}${LIBEXT}",
+         "sha256s": { "darwin_arm64": "sha256:…", "linux_amd64": "sha256:…" },
+         "on_failure": "warn",
+         "pre_load_sql": [
+            "PRAGMA trusted_schema=OFF;"
+         ],
+         "on_load_sql": [
+            "CREATE VIRTUAL TABLE IF NOT EXISTS gh_repos USING github_repos();"
+         ]
+      },
+      {"@note1":["No explicit entry for 'csv' — if csv@*.so exists in the dirs, it autoloads."]}
+   ]
+}
 ```
 
 ### 18.2 Shorthand include with warn-if-missing, plus a manifest reference
@@ -583,10 +587,12 @@ _Note:_ PRAGMA validation occurs via SQL linter against the SQL blocks (see §12
 Warn if fts5 not found:
 
 ```json
-"extensions": [
-  { "id": "fts5" },
-  { "manifest": "./exts/geojson.sqlite3-ext.json" }
-]
+{
+   "extensions": [
+      { "id": "fts5" },
+      { "manifest": "./exts/geojson.sqlite3-ext.json" }
+    ]
+}
 ```
 
 ### 18.3 DB-level SQL before/after all extensions
@@ -618,26 +624,28 @@ Warn if fts5 not found:
 ### 18.4 Inline with deps and on-load SQL
 
 ```json
-"extensions": [
-  {
-    "id": "mytokenizer",
-    "version": "1.2.0",
-    "download_url": "https://dl.example.com/${ID}/${ID}@${VERSION}${LIBEXT}",
-    "sha256s": {
-      "darwin_arm64": "sha256:…",
-      "linux_arm64": "sha256:…"
-    },
-    "depends_on": ["icu"],
-    "on_failure": "error",
-    "pre_load_sql": [
-      "PRAGMA trusted_schema=OFF",
-      "PRAGMA case_sensitive_like=ON"
-    ],
-    "on_load_sql": [
-      "CREATE VIRTUAL TABLE IF NOT EXISTS toks USING mytokenizer_vtab();"
+{
+   "extensions": [
+      {
+        "id": "mytokenizer",
+        "version": "1.2.0",
+        "download_url": "https://dl.example.com/${ID}/${ID}@${VERSION}${LIBEXT}",
+        "sha256s": {
+          "darwin_arm64": "sha256:…",
+          "linux_arm64": "sha256:…"
+        },
+        "depends_on": ["icu"],
+        "on_failure": "error",
+        "pre_load_sql": [
+          "PRAGMA trusted_schema=OFF",
+          "PRAGMA case_sensitive_like=ON"
+        ],
+        "on_load_sql": [
+          "CREATE VIRTUAL TABLE IF NOT EXISTS toks USING mytokenizer_vtab();"
+        ]
+      }
     ]
-  }
-]
+}
 ```
 
 ---

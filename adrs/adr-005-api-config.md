@@ -2,7 +2,7 @@
 
 * **Status:** Accepted
 * **Date:** 2025-09-03
-* **Authors:** XMLUI team
+* **Authors:** Claude, Mike Schinkel <mike@newclarity.net>
 * **Related:** ADR-0001 (overall config & single-DB), ADR-0002 (load/validate/migrate)
 
 ---

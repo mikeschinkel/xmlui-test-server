@@ -18,7 +18,6 @@
    },
    "on_failure":   "warn",
    "depends_on":   [],
-   "pragmas":      [],
    "post_load_sql":  [
       "ATTACH DATABASE ':memory:' AS extension_mem"
    ],

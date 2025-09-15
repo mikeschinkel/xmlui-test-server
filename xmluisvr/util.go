@@ -2,8 +2,6 @@ package xmluisvr
 
 import (
 	"errors"
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -30,23 +28,6 @@ func launchBrowser(url string) {
 	if err != nil {
 		log.Printf("Failed to launch browser: %v", err)
 	}
-}
-
-func closeOrLog(c io.Closer) {
-	if err := c.Close(); err != nil {
-		log.Printf("ERROR: Failed to close: %v", err)
-	}
-}
-
-func nilOrLog(err error) {
-	if err != nil {
-		log.Printf("ERROR: %v", err)
-	}
-}
-
-func fprintf(w io.Writer, format string, a ...any) {
-	_, err := fmt.Fprintf(w, format, a...)
-	nilOrLog(err)
 }
 
 func checkFileExists(path string) error {

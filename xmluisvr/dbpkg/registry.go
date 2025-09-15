@@ -4,20 +4,22 @@ import (
 	"fmt"
 )
 
-var databases = make([]Database, 0)
+var databaseMap = make(map[DatabaseType]Database, 0)
 
 func RegisterDatabase(db Database) {
-	databases = append(databases, db)
+
+	db.SetBaseDatabase(NewBaseDatabase(db, DatabaseArgs{
+		DatabaseType: db.Type(),
+	}))
+
+	databaseMap[db.Type()] = db
 }
+
 func GetRegisteredDatabase(dt DatabaseType) (db Database, err error) {
-	for _, db := range databases {
-		if db.Type() != dt {
-			continue
-		}
-		goto end
+	var ok bool
+	db, ok = databaseMap[dt]
+	if !ok {
+		err = fmt.Errorf("database type '%s' not supported", dt)
 	}
-	err = fmt.Errorf("database type '%s' not supported", dt)
-	db = nil
-end:
 	return db, err
 }

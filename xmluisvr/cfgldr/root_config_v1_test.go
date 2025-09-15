@@ -5,35 +5,36 @@ import (
 
 	"github.com/mikeschinkel/go-jsontest"
 	"github.com/stretchr/testify/require"
-	"github.com/xmlui-org/xmluisvr/apipkg"
-	"github.com/xmlui-org/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmluisvr/common"
-	"github.com/xmlui-org/xmluisvr/fsutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/fsutil"
 
 	_ "github.com/mikeschinkel/go-jsontest/pipefuncs"
 )
 
 func TestCreateGoldenData(t *testing.T) {
-	root := cfgldr.NewRootConfigV1()
 	api := cfgldr.NewAPIConfigV2(".")
 	api.AddEndpoint(cfgldr.NewAPIEndpointV2("GET /hello", cfgldr.APIEndpointV2Args{
-		Description:  "Hello World Endpoint",
-		Query:        "SELECT 'Hello World';",
-		RowsExpected: string(apipkg.OneRow),
-		RowType:      string(apipkg.StringRowType),
+		Description: "Hello World Endpoint",
+		Query:       "SELECT 'Hello World';",
+		Cardinality: "one",
+		RowType:     "string",
 	}))
-	root.Server = cfgldr.NewServerConfigV1(common.LocalHostIP, cfgldr.ServerConfigV1Args{
-		Port: 8080,
-		API:  api,
-	})
 	db := cfgldr.NewSQLite3ConfigV1("data.db")
-	err := db.AddExtension(common.AppConfigPath, &cfgldr.SQLite3ExtensionConfigV1{
+	err := db.AddExtension(&cfgldr.SQLite3ExtensionConfigV1{
 		Filepath: "steampipe_sqlite_github.so",
 	})
 	if err != nil {
 		t.Error(err.Error())
 	}
-	root.Database = db
+	server := cfgldr.NewServerConfigV1(common.LocalHostIP, cfgldr.ServerConfigV1Args{
+		Port: 8080,
+		API:  api,
+	})
+	root := cfgldr.NewRootConfigV1(cfgldr.RootConfigV1Args{
+		ServerConfig: server,
+		DBConfig:     db,
+	})
 	err = fsutil.WriteJSONFile("./test-data/test-server.json", root, 0644, 0755)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -64,7 +65,7 @@ func TestLoadRootConfigV1(t *testing.T) {
 				"server.api|exists()":                  true,
 				"server.api.$schema":                   "https://schemas.xmlui.org/v2/test-server-api-schema.json",
 				"server.api.$schemaVersion":            2,
-				"server.api.name":                      "User-definable XMLUI Local Server API",
+				"server.api.name":                      "User-definable XMLUI Local Server APIConfig",
 				"server.api.base_path":                 "/api",
 				"server.api.webroot":                   ".",
 				"server.api.endpoints|exists()":        true,

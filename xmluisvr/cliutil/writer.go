@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -35,6 +36,14 @@ func (c *cliWriter) Printf(format string, args ...any) {
 
 // Errorf writes formatted error writer to stderr
 func (c *cliWriter) Errorf(format string, args ...any) {
+	for i, arg := range args {
+		err, ok := arg.(error)
+		if !ok {
+			continue
+		}
+		// Replace newlines in errors with semicolons
+		args[i] = strings.Replace(err.Error(), "\n", "; ", -1)
+	}
 	_, _ = fmt.Fprintf(c.stderr, format, args...)
 }
 

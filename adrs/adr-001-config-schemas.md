@@ -1,8 +1,8 @@
 # ADR-001: Configuration Schema and Directory Structure
 
-**Status:** Accepted  
-**Date:** 2025-09-03  
-**Authors:** XMLUI team
+* **Status:** Accepted
+* **Date:** 2025-09-01
+* **Authors:** Claude, Mike Schinkel <mike@newclarity.net>
 
 ---
 
@@ -27,8 +27,8 @@ Adopt a **versioned schema system** with **standardized well-known directories**
 {
   "$schema": "https://xmlui-org.github.io/schemas/v1/test-server.schema.json",
   "$schemaVersion": 1,
-  "server": { ... },
-  "database": { ... }
+  "server": { "@note1": "server config goes here" },
+  "database": { "@note2": "database config goes here" }
 }
 ```
 
@@ -143,10 +143,19 @@ Adopt a **versioned schema system** with **standardized well-known directories**
 **Future-proof**: New database types can be added without schema changes
 
 **Examples**:
+SQLite3
 ```json
-{"type": "sqlite3", "filepath": "...", "extensions": [...]}
-{"type": "postgres", "connection_string": "..."}
-{"type": "mongodb", "connection_uri": "...", "collection_defaults": {...}}
+{"type": "sqlite3", "filepath": "...", "extensions": []}
+```
+
+Postgres
+```json
+{"type": "postgres", "connect_string": "..."}
+```
+
+DuckDB
+```json
+{"type": "duckdb", "filepath": "...", "extensions": []}
 ```
 
 ---

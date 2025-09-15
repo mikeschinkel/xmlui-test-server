@@ -1,4 +1,4 @@
-package apipkg
+package common
 
 import (
 	"errors"
@@ -55,7 +55,7 @@ func ParseDataType(s string) (dt DataType, err error) {
 	}
 	dt = DataType(strings.ToLower(s))
 	switch dt {
-	case IntegerRowType, RealRowType, StringRowType, ColumnsRowType, JSONRowType, IntegerRowOrNULLType, RealRowOrNULLType, StringRowOrNULLType, JSONRowOrNULLType:
+	case AnyRowType, IntegerRowType, RealRowType, StringRowType, ColumnsRowType, JSONRowType, IntegerRowOrNULLType, RealRowOrNULLType, StringRowOrNULLType, JSONRowOrNULLType:
 		// Nothing to do
 	default:
 		err = errors.Join(ErrInvalidDataType, fmt.Errorf("data_type=%s", s))

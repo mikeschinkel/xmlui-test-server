@@ -7,8 +7,7 @@ import (
 type DatabaseType string
 
 const (
-	GenericDatabase  DatabaseType = "generic"
-	Sqlite3Database  DatabaseType = "sqlite3"
+	SQLite3Database  DatabaseType = "sqlite3"
 	PostgresDatabase DatabaseType = "postgres"
 	DuckDBDatabase   DatabaseType = "duckdb"
 	MySQLDatabase    DatabaseType = "mysql"

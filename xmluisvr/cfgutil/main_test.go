@@ -4,14 +4,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/xmlui-org/xmluisvr/cfgutil"
-	"github.com/xmlui-org/xmluisvr/testutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
 )
 
 func TestMain(m *testing.M) {
 	// Setup code here if needed
 	// For example: initialize test data, mock services, etc.
-	cfgutil.SetLogger(testutil.NullLogger())
+	common.SetLogger(testutil.NullLogger())
 
 	// Run tests
 	code := m.Run()

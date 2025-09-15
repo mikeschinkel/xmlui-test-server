@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/mattn/go-sqlite3"
-	"github.com/xmlui-org/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmluisvr/common"
-	"github.com/xmlui-org/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 )
 
 type (
@@ -37,12 +37,16 @@ type Extension struct {
 	dependsOn    []DependsOn
 	sha256s      map[common.OSArch]common.SHA256
 	onFailure    common.OnFailure
-	onLoadSQL    []SQLQuery
+	preLoadSQL   []SQLQuery
+	postLoadSQL  []SQLQuery
 	envVars      common.EnvironmentVars
+	allowVTable  bool
 	varScope     EnvVarScope // load or app
 }
+type ExtensionArgs struct {
+}
 
-func NewExtension(filePath common.Filepath) *Extension {
+func NewExtension(filePath common.Filepath, args ExtensionArgs) *Extension {
 	name := filepath.Base(string(filePath))
 	name = name[:len(name)-len(filepath.Ext(name))]
 	return &Extension{
@@ -56,34 +60,58 @@ func NewExtension(filePath common.Filepath) *Extension {
 		dependsOn:    make([]DependsOn, 0),
 		sha256s:      make(map[common.OSArch]common.SHA256),
 		onFailure:    cfgldr.DefaultOnFailurePolicy,
-		onLoadSQL:    make([]SQLQuery, 0),
+		preLoadSQL:   make([]SQLQuery, 0),
+		postLoadSQL:  make([]SQLQuery, 0),
 		envVars:      make(common.EnvironmentVars),
+		allowVTable:  false,
 		varScope:     cfgldr.DefaultVarScope,
 	}
 }
 
-type ExtensionOptions struct {
-	// Dev escape hatch: if true, also enable SQL `load_extension()` globally.
-	AllowPragmaOverload bool
-}
-
-func (ext *Extension) Load(conn *sqlite3.SQLiteConn, opts ExtensionOptions) (err error) {
+func (ext *Extension) Load(conn *sqlite3.SQLiteConn, db *SQLite3) (err error) {
 	var path string
+
 	// Important: do NOT globally enable load_extension via SQL unless explicitly requested.
-	path, err = ext.Resolve(opts)
-	if err != nil || path == "" {
-		return err
+	path, err = ext.Resolve(db)
+	if err != nil {
+		goto end
+	}
+	if path == "" {
+		goto end
+	}
+	err = ext.runOnEventSQL(conn, "preLoad", ext.preLoadSQL)
+	if err != nil {
+		goto end
 	}
 	err = conn.LoadExtension(path, "")
 	if err != nil {
 		return fmt.Errorf("LoadExtension(%s): %w", path, err)
 	}
-	// Optional: enable arbitrary SQL `load_extension()` only if explicitly requested.
-	if opts.AllowPragmaOverload {
-		// Not recommended; requires C call. Keep this off by default.
-		// conn.EnableLoadExtension(true) doesn't exist; LoadExtension already toggles on/off per call.
+	err = ext.runOnEventSQL(conn, "postLoad", ext.postLoadSQL)
+	if err != nil {
+		goto end
 	}
+end:
 	return err
+}
+
+func (ext *Extension) runOnEventSQL(conn *sqlite3.SQLiteConn, et string, onEventSQL []SQLQuery) (err error) {
+	var errs []error
+	for _, sqlQuery := range onEventSQL {
+		q := strings.TrimSpace(string(sqlQuery))
+		if q == "" {
+			continue
+		}
+		_, err = conn.Exec(q, nil)
+		if err != nil {
+			errs = append(errs, errors.Join(ErrInEventQueryForSQLite3Extension,
+				fmt.Errorf("event_query=%s", et),
+				fmt.Errorf("extension=%s", ext.Name()),
+				err,
+			))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (ext *Extension) Name() string {
@@ -93,7 +121,8 @@ func (ext *Extension) Name() string {
 func (ext *Extension) DBExtension() {}
 
 // Resolve decides which file to load and where it came from.
-func (ext *Extension) Resolve(opts ExtensionOptions) (path string, err error) {
+func (ext *Extension) Resolve(db *SQLite3) (path string, err error) {
+	panic("IMPLEMENT EXTENSION RESOLVER")
 	return "", nil
 }
 

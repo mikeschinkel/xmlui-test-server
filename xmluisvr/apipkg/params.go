@@ -3,10 +3,10 @@ package apipkg
 import (
 	"errors"
 
-	"github.com/xmlui-org/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
-type Params map[common.Identifier]DataType
+type Params map[common.Identifier]common.DataType
 
 func ParseParams(cfgParams map[string]string) (params Params, err error) {
 	var errs []error
@@ -18,7 +18,7 @@ func ParseParams(cfgParams map[string]string) (params Params, err error) {
 			errs = append(errs, err)
 			continue
 		}
-		dt, err := ParseDataType(typ)
+		dt, err := common.ParseDataType(typ)
 		if err != nil {
 			errs = append(errs, err)
 			continue

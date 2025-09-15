@@ -1,23 +1,34 @@
 {
-  "schemaVersion": "2.0",
-  "name": "Demo API for xmlui-test-server",
+  "$schema": "https://schemas.xmlui.org/v2/api-schema.json",
+  "version": 2,
+  "name": "Example API configuration for xmlui-test-server",
   "base_path": "/api",
   "webroot": ".",
   "endpoints": [
     {
       "endpoint": "GET /sqlite3",
       "description": "Report sqlite3 version",
-      "query": "select sqlite_version() as version"
+      "query": "select sqlite_version() as version",
+      "params": {},
+      "cardinality": "one",
+      "row_type": "int"
     },
     {
       "endpoint": "GET /postgres",
       "description": "Report Postgres version",
-      "query": "select version() as version"
+      "query": "select version() as version",
+      "params": {},
+      "cardinality": "one",
+      "row_type": "int"
     },
     {
       "endpoint": "GET /query_from_file",
       "description": "Run SQL found in query.sql",
-      "query_file": "query.sql"
+      "query_file": "query.sql",
+      "params": {},
+      "cardinality": "many?",
+      "row_type": "columns",
+      "column_types": []
     }
   ]
 }

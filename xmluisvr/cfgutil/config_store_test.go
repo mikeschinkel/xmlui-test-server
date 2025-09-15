@@ -1,7 +1,6 @@
 package cfgutil_test
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,10 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmlui-org/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
-
-var logger *slog.Logger
 
 type testData struct {
 	Name string
@@ -20,13 +18,15 @@ type testData struct {
 }
 
 func getConfigStore(filename string, dirType cfgutil.ConfigDirType) cfgutil.ConfigStore {
-	return cfgutil.NewConfigStoreWithFilename("test-app", filename, &dirType).(cfgutil.ConfigStore)
+	return cfgutil.NewConfigStoreWithFilename("test-app", filename, dirType).(cfgutil.ConfigStore)
 }
 
 func TestConfigStore_SaveLoadExists(t *testing.T) {
 	var err error
 	dir := filepath.Join(os.TempDir(), "xmlui-test-"+uuid.NewString())
-	t.Cleanup(func() { must(os.RemoveAll(dir)) })
+	t.Cleanup(func() {
+		common.LogOnError(os.RemoveAll(dir))
+	})
 
 	filename := "config/testdata.json"
 	cs := getConfigStore(filename, cfgutil.DefaultConfigDirType)
@@ -76,10 +76,4 @@ func TestConfigStore_ConfigDir(t *testing.T) {
 	cfgDir, err := cs.ConfigDir()
 	assert.NoError(t, err)
 	assert.Equal(t, dir, cfgDir)
-}
-
-func must(err error) {
-	if err != nil {
-		logger.Error(err.Error())
-	}
 }

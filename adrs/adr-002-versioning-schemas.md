@@ -2,7 +2,7 @@
 
 * **Status:** Accepted
 * **Date:** 2025-09-01
-* **Authors:** XMLUI team
+* **Authors:** Claude, Mike Schinkel <mike@newclarity.net>
 * **Supersedes / Depends on:** Complements ADR-0001 (schemas & single-DB design)
 
 ---

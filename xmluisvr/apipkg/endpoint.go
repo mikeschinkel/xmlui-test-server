@@ -3,8 +3,8 @@ package apipkg
 import (
 	"errors"
 
-	"github.com/xmlui-org/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 type Endpoint struct {
@@ -13,9 +13,9 @@ type Endpoint struct {
 	Query        string
 	QueryFile    common.Filepath
 	Params       Params
-	RowsExpected RowsExpected
-	RowType      DataType
-	ColumnTypes  []DataType // TODO make this a bespoke column type
+	RowsExpected common.Cardinality
+	RowType      common.DataType
+	ColumnTypes  []common.DataType // TODO make this a bespoke column type
 }
 
 func ParseEndpoints(cfgEPs []*cfgldr.APIEndpointV2) (eps []*Endpoint, err error) {
@@ -41,11 +41,11 @@ func ParseEndpoint(cfgEP *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
 	errs = append(errs, err)
 	ep.Params, err = ParseParams(cfgEP.Params)
 	errs = append(errs, err)
-	ep.RowsExpected, err = ParseRowsExpected(cfgEP.RowsExpected)
+	ep.RowsExpected, err = common.ParseCardinality(cfgEP.Cardinality)
 	errs = append(errs, err)
-	ep.RowType, err = ParseRowType(cfgEP.RowType)
+	ep.RowType, err = common.ParseRowType(cfgEP.RowType)
 	errs = append(errs, err)
-	ep.ColumnTypes, err = ParseColumnTypes(cfgEP.ColumnTypes)
+	ep.ColumnTypes, err = common.ParseColumnTypes(cfgEP.ColumnTypes)
 	errs = append(errs, err)
 	if len(errs) != 0 {
 		err = errors.Join(errs...)

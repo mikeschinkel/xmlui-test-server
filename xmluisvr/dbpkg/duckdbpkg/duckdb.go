@@ -1,10 +1,12 @@
 package duckdbpkg
 
 import (
-	"github.com/xmlui-org/xmluisvr/dbpkg"
-)
+	"context"
 
-const DuckDBDatabase dbpkg.DatabaseType = "duckdb"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+)
 
 func init() {
 	dbpkg.RegisterDatabase(&DuckDB{})
@@ -18,6 +20,25 @@ type DuckDB struct {
 	*database
 }
 
+func (d *DuckDB) CreateNewFromConfig(config cfgldr.DatabaseConfig) (dbpkg.Database, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (d *DuckDB) SetBaseDatabase(db *dbpkg.BaseDatabase) {
+	d.database = db
+}
+
+func (d *DuckDB) Open(_ context.Context) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (*DuckDB) ParseQueryString(query string) (_ common.QueryString, err error) {
+	// Add SQL Query validation
+	return common.QueryString(query), err
+}
+
 func (d *DuckDB) String() string {
 	return d.HomeRelativeFile()
 }
@@ -26,17 +47,25 @@ func (d *DuckDB) TypeName() string {
 	return "DuckDB"
 }
 
-func (d *DuckDB) CheckConnection(cs string) (err error) {
-	return d.CheckFileConnection(d, cs)
+func (d *DuckDB) CheckConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, connStr common.ConnectString) (err error) {
+	var fp common.Filepath
+	fp, err = common.ParseFilepath(string(connStr))
+	if err != nil {
+		goto end
+	}
+	err = d.CheckFileConnection(ctx, dbType, fp)
+end:
+	return err
+}
+
+// ParseConnectString injects or overrides the port in a Postgres connection string (URL or DSN format)
+func (d *DuckDB) ParseConnectString(cs string) (_ common.ConnectString, err error) {
+	// TODO Add validation
+	return common.ConnectString(cs), err
 }
 
 func (*DuckDB) Type() dbpkg.DatabaseType {
-	return DuckDBDatabase
-}
-
-func (d *DuckDB) Open() error {
-	//TODO implement me
-	panic("implement me")
+	return dbpkg.DuckDBDatabase
 }
 
 func NewDuckDB(args dbpkg.DatabaseArgs) *DuckDB {
@@ -44,6 +73,6 @@ func NewDuckDB(args dbpkg.DatabaseArgs) *DuckDB {
 	db.database = dbpkg.NewBaseDatabase(db, args)
 	return db
 }
-func (*DuckDB) CreateNew(args dbpkg.DatabaseArgs) dbpkg.Database {
-	return NewDuckDB(args)
+func (*DuckDB) CreateNew(args dbpkg.DatabaseArgs) (_ dbpkg.Database, err error) {
+	return NewDuckDB(args), err
 }

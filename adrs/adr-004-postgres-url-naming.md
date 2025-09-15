@@ -1,7 +1,9 @@
 # ADR-004: Use `pg_url` for Postgres Connection String Variables
 
-## Status
-Accepted
+* **Status:** Accepted
+* **Date:** 2025-09-07
+* **Authors:** Claude, Mike Schinkel <mike@newclarity.net>
+
 
 ## Context
 We need a consistent, shorter alternative to `connection_string` for Postgres connection string variables and properties throughout the codebase.

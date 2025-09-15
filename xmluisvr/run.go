@@ -3,21 +3,12 @@ package xmluisvr
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 
-	"github.com/xmlui-org/xmluisvr/apipkg"
-	"github.com/xmlui-org/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmluisvr/common"
-	"github.com/xmlui-org/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 )
-
-type RunArgs struct {
-	Options   *Options
-	Config    *cfgldr.RootConfigV1
-	CLIWriter cliutil.Writer
-	Logger    *slog.Logger
-}
 
 var (
 	ErrServerError = fmt.Errorf("server terminated with an error")
@@ -25,8 +16,11 @@ var (
 
 func Run(ctx Context, args *RunArgs) (err error) {
 	var server *Server
-	var api *apipkg.API
 	var db dbpkg.Database
+	var api *apipkg.API
+	var opts *common.Options
+
+	rawOpts := args.Options
 
 	writer := args.CLIWriter
 
@@ -37,27 +31,39 @@ func Run(ctx Context, args *RunArgs) (err error) {
 		goto end
 	}
 
-	db, err = parseDatabase(args)
+	opts, err = args.parseOptions()
 	if err != nil {
 		goto end
 	}
 
-	api, err = parseAPI(args)
+	db, err = args.parseDatabase(ctx, opts)
 	if err != nil {
 		goto end
 	}
 
-	// TODO LoadJSON config, apply to options
-	// Initialize server
-	server = NewServer(ServerArgs{
-		API:      api,
-		Database: db,
+	api, err = args.parseAPI(rawOpts.APIFile)
+	if err != nil {
+		goto end
+	}
+
+	server, err = args.parseServer(parseServerArgs{
+		db:      db,
+		api:     api,
+		rawOpts: rawOpts,
+		opts:    opts,
+		config:  args.Config.ServerConfig,
 	})
+	if err != nil {
+		goto end
+	}
+
 	err = server.Initialize(ctx)
 	if err != nil {
 		goto end
 	}
+
 	server.showConfig()
+
 	err = server.ListenAndServe(ctx)
 	if err != nil {
 		err = errors.Join(ErrServerError, err)
@@ -74,62 +80,7 @@ func Initialize(_ Context, args *RunArgs) (err error) {
 
 	// Setting the logger sets the package level logger variable so it is accessible
 	// throughout the package.
-	SetLogger(args.Logger)
+	common.SetLogger(args.Logger)
 
 	return err
-}
-
-func parseAPI(args *RunArgs) (api *apipkg.API, err error) {
-	var apiCfg cfgldr.APIConfig
-	var apiArgs apipkg.APIArgs
-
-	opts := args.Options
-
-	if opts.API != "" {
-		apiCfg, err = cfgldr.LoadAPIFile(opts.API)
-	}
-	if apiCfg == nil {
-		apiCfg = args.Config.Server.API
-	}
-	if apiCfg == nil {
-		goto end
-	}
-	apiArgs, err = apipkg.MakeAPIArgs(apiCfg, args.CLIWriter, args.Logger)
-	if err != nil {
-		goto end
-	}
-	api = apipkg.NewAPI(apiArgs)
-end:
-	return api, err
-}
-
-func parseDatabase(args *RunArgs) (db dbpkg.Database, err error) {
-	var dbArgs dbpkg.DatabaseArgs
-	opts := args.Options
-	dbCfg := args.Config.Database
-
-	if opts.Database == "" {
-		opts.Database = cfgldr.DefaultSqlite3Database
-	}
-
-	if dbCfg == nil {
-		dbCfg = cfgldr.NewGenericDBConfig(cfgldr.GenericDBConfigArgs{
-			ConnectString: opts.Database,
-			Port:          opts.DatabasePort,
-			Extensions:    opts.DBExtensions,
-		})
-	}
-
-	dbArgs, err = dbpkg.MakeDatabaseArgs(dbCfg, args.CLIWriter, args.Logger)
-	if err != nil {
-		goto end
-	}
-
-	db, err = dbpkg.CreateDatabase(dbArgs)
-	if err != nil {
-		goto end
-	}
-
-end:
-	return db, err
 }

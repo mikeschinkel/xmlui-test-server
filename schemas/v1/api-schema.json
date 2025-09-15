@@ -1,12 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/xmlui-org/xmlui-test-server/api-schema.json",
-  "title": "xmlui-test-server API Configuration",
+  "$id": "https://schemas.xmlui-org/v1/test-server/api-schema.json",
+  "title": "xmlui-test-server API Description file schema",
   "description": "JSON schema for defining API endpoints in xmlui-test-server",
   "type": "object",
   "required": ["apiVersion", "name", "description", "basePath", "endpoints"],
   "properties": {
-    "apiVersion": {
+    "$schemaVersion": {
       "type": "string",
       "description": "Version of the API configuration format",
       "pattern": "^\\d+\\.\\d+$"
@@ -16,15 +16,14 @@
       "description": "Name of the API configuration",
       "minLength": 1
     },
-    "description": {
-      "type": "string",
-      "description": "Description of the API",
-      "minLength": 1
-    },
-    "basePath": {
+    "base_path": {
       "type": "string",
       "description": "Common prefix for all endpoints",
       "pattern": "^/.*"
+    },
+    "webroot": {
+      "type": "string",
+      "description": "Root directory for files to serve"
     },
     "endpoints": {
       "type": "array",
@@ -69,11 +68,11 @@
     },
     "methodConfig": {
       "type": "object",
-      "required": ["description"],
+      "required": ["name"],
       "properties": {
-        "description": {
+        "name": {
           "type": "string",
-          "description": "Description of what this endpoint does",
+          "description": "What this endpoint does",
           "minLength": 1
         },
         "sql": {

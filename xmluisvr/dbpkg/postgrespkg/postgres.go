@@ -1,6 +1,7 @@
 package postgrespkg
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -10,11 +11,11 @@ import (
 	"strconv"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
-	"github.com/xmlui-org/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 )
-
-const PostgresDatabase dbpkg.DatabaseType = "postgres"
 
 func init() {
 	dbpkg.RegisterDatabase(&Postgres{})
@@ -30,8 +31,17 @@ type Postgres struct {
 	logger *slog.Logger
 }
 
-func (p *Postgres) CreateNew(args dbpkg.DatabaseArgs) dbpkg.Database {
-	return NewPostgres(args)
+func (p *Postgres) CreateNewFromConfig(config cfgldr.DatabaseConfig) (dbpkg.Database, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (*Postgres) ParseQueryString(query string) (_ common.QueryString, err error) {
+	// Add SQL Query validation
+	return common.QueryString(query), err
+}
+func (p *Postgres) CreateNew(args dbpkg.DatabaseArgs) (_ dbpkg.Database, err error) {
+	return NewPostgres(args), err
 }
 
 func (p *Postgres) TypeName() string {
@@ -44,7 +54,7 @@ func (p *Postgres) String() string {
 }
 
 func (*Postgres) Type() dbpkg.DatabaseType {
-	return PostgresDatabase
+	return dbpkg.PostgresDatabase
 }
 
 func NewPostgres(args dbpkg.DatabaseArgs) *Postgres {
@@ -56,21 +66,21 @@ func NewPostgres(args dbpkg.DatabaseArgs) *Postgres {
 	return pdb
 }
 
-func (p *Postgres) isConnectionString(cs string) bool {
-	_, err := p.formatConnectionString(cs)
+func (p *Postgres) IsConnectString(cs string) bool {
+	_, err := p.ParseConnectString(cs)
 	return err == nil
 }
 
-func (p *Postgres) Open() (err error) {
-	var cs string
+func (p *Postgres) Open(_ context.Context) (err error) {
+	var cs common.ConnectString
 	p.writer.Printf("Using PostgreSQL database\n")
 	p.logger.Info("Opening PostgreSQL database")
-	cs, err = p.formatConnectionString(p.ConnectString())
+	cs, err = p.ParseConnectString(p.ConnectString())
 	if err != nil {
 		err = errors.Join(dbpkg.ErrInvalidConnString, err)
 		goto end
 	}
-	p.DB, err = sql.Open("postgres", cs)
+	p.DB, err = sql.Open("postgres", string(cs))
 	if err != nil {
 		err = errors.Join(dbpkg.ErrConnFailed, err)
 		goto end
@@ -78,31 +88,28 @@ func (p *Postgres) Open() (err error) {
 end:
 	return err
 }
+func (p *Postgres) SetBaseDatabase(db *dbpkg.BaseDatabase) {
+	p.database = db
+}
 
 func (p *Postgres) Query(ctx dbpkg.Context, q string, params ...any) (*sql.Rows, error) {
 	return p.database.Query(ctx, FormatQueryForPostgres(q), params...)
 }
 
-func (p *Postgres) CheckConnection(cs string) (err error) {
-	if !p.isConnectionString(cs) {
-		// TODO Make this check more robust
-		goto end
-	}
-	err = p.database.CheckConnection(cs)
-end:
-	return err
+func (p *Postgres) CheckConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, connStr common.ConnectString) (err error) {
+	return p.CheckDBConnection(nil, dbType, connStr)
 }
 
-// formatConnectionString injects or overrides the port in a Postgres connection string (URL or DSN format)
-func (p *Postgres) formatConnectionString(cs string) (_ string, err error) {
-	return FormatPGConnectString(cs, p.port)
+// ParseConnectString injects or overrides the port in a Postgres connection string (URL or DSN format)
+func (p *Postgres) ParseConnectString(cs string) (common.ConnectString, error) {
+	return ParsePGConnectString(cs, p.port)
 }
 
 var postgresPrefixRE = regexp.MustCompile(`^\s*postgres(ql)?://`)
 var dsnFormatRE = regexp.MustCompile(`port=\\d+`)
 
-// FormatPGConnectString injects or overrides the port in a Postgres connection string (URL or DSN format)
-func FormatPGConnectString(cs string, port int) (_ string, err error) {
+// ParsePGConnectString injects or overrides the port in a Postgres connection string (URL or DSN format)
+func ParsePGConnectString(cs string, port int) (_ common.ConnectString, err error) {
 	if port == 0 {
 		goto end
 	}
@@ -134,7 +141,7 @@ func FormatPGConnectString(cs string, port int) (_ string, err error) {
 	}
 	cs = fmt.Sprintf("%s port=%d", cs, port)
 end:
-	return cs, err
+	return common.ConnectString(cs), err
 }
 
 // FormatQueryForPostgres replaces ? in query w/numbered params in $n format

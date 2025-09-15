@@ -6,11 +6,10 @@ import (
 	"testing"
 
 	"github.com/mikeschinkel/go-fsfix"
-	"github.com/xmlui-org/xmluisvr"
-	"github.com/xmlui-org/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmluisvr/cfgutil"
-	"github.com/xmlui-org/xmluisvr/common"
-	"github.com/xmlui-org/xmluisvr/testutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
 )
 
 const testDataDir = "./test-data"
@@ -19,7 +18,7 @@ const testDataDir = "./test-data"
 func TestMain(m *testing.M) {
 
 	logger := testutil.NewNullLogger()
-	xmluisvr.SetLogger(logger) // TODO Change to a buffered logger
+	common.SetLogger(logger) // TODO Change to a buffered logger
 
 	// Run tests
 	code := m.Run()
