@@ -12,5 +12,5 @@ type Options struct {
 	ConnectString    ConnectString
 	DBPort           ServerPort
 	DBSchemaFile     Filepath
-	Verbose          bool
+	Quiet            bool
 }

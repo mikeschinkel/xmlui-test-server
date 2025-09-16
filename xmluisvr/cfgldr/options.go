@@ -17,7 +17,7 @@ type Options struct {
 	ConnectString    string
 	DBPort           int
 	DBSchemaFile     string
-	Verbose          bool
+	Quiet            bool
 }
 
 var options *Options
@@ -38,7 +38,7 @@ func GetOptions() (opts *Options) {
 			dbPort       *int
 			dbSchemaFile *string
 			dbExtensions stringSliceFlag
-			verbose      *bool
+			quiet        *bool
 		}{
 			port:         new(int),
 			apiFile:      new(string),
@@ -46,7 +46,7 @@ func GetOptions() (opts *Options) {
 			dbPort:       new(int),
 			dbSchemaFile: new(string),
 			dbExtensions: stringSliceFlag{},
-			verbose:      new(bool),
+			quiet:        new(bool),
 		}
 
 		// Set custom flag usage to display double dashes for word options
@@ -72,8 +72,8 @@ func GetOptions() (opts *Options) {
 		flag.IntVar(flags.dbPort, "db-port", 0, "PostgreSQL port (optional, overrides port in --db if provided)")
 		flag.Var(&flags.dbExtensions, "db-ext", "One or more paths to connStr extensions to load (currently only SQLite3.)")
 
-		flag.BoolVar(flags.verbose, "verbose", false, "Enable logging of SQL query responses")
-		flag.BoolVar(flags.verbose, "v", false, "Enable logging of SQL query responses (shorthand)")
+		flag.BoolVar(flags.quiet, "quiet", false, "Disable display of most command line output")
+		flag.BoolVar(flags.quiet, "q", false, "Disable display of most command line output (shorthand)")
 
 		flag.Parse()
 		options = &Options{
@@ -82,7 +82,7 @@ func GetOptions() (opts *Options) {
 			ConnectString:    *flags.connStr,
 			DBPort:           *flags.dbPort,
 			DBSchemaFile:     *flags.dbSchemaFile,
-			Verbose:          *flags.verbose,
+			Quiet:            *flags.quiet,
 			DBExtensionFiles: flags.dbExtensions.values(),
 		}
 	}

@@ -90,7 +90,7 @@ end:
 }
 
 func (s *Server) ListenAndServe(_ Context) (err error) {
-	cliutil.Printf("Listening on %s...\n", s.friendlyHost())
+	cliutil.Loud().Printf("Listening on %s...\n", s.friendlyHost())
 	return http.ListenAndServe(s.Host(), s.corsMiddleware(s.mux))
 }
 
@@ -113,10 +113,7 @@ func (s *Server) showConfig() {
 	if len(s.db.Extensions()) != 0 {
 		cliutil.Printf("- Extension:   %s\n", s.extensionPaths())
 	}
-	if s.options.Verbose {
-		cliutil.Printf("- Verbose:    true\n")
-	}
-	cliutil.Printf("\n")
+	cliutil.Loud().Printf("\n")
 
 }
 

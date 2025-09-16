@@ -20,7 +20,9 @@ func RunCLI() {
 	var logger *slog.Logger
 	var config *cfgldr.RootConfigV1
 
+	options := cfgldr.GetOptions()
 	writer := cliutil.NewWriter()
+	writer.SetQuiet(options.Quiet)
 	logger, err = createFileLogger(logFile)
 	if err != nil {
 		writer.Errorf("Failed to create and/or open log file %s: %v\n", logFile, err)
@@ -36,7 +38,7 @@ func RunCLI() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	err = Run(ctx, &RunArgs{
-		Options:   cfgldr.GetOptions(),
+		Options:   options,
 		Config:    config,
 		CLIWriter: writer,
 		Logger:    logger,

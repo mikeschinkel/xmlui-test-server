@@ -1,6 +1,7 @@
 package xmluisvr
 
-type CLIWriter interface {
-	Printf(format string, args ...any)
-	Errorf(format string, args ...any)
-}
+import (
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
+)
+
+type CLIWriter = cliutil.Writer
