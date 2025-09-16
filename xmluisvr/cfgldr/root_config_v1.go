@@ -148,6 +148,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	var fp string
 
 	api = NewAPIConfigV2(DefaultAPIWebroot)
+	// TODO Add numerous examples of endpoints for all form of C.R.U.D.
 	api.AddEndpoint(NewAPIEndpointV2("GET /hello", APIEndpointV2Args{
 		Description: "Hello World Endpoint",
 		Query:       "SELECT 'Hello World';",
