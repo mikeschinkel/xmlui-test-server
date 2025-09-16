@@ -79,7 +79,7 @@ end:
 }
 
 func (s *Server) ListenAndServe(_ Context) (err error) {
-	cliutil.Printf("Listening on %s...", s.friendlyHost())
+	cliutil.Printf("Listening on %s...\n", s.friendlyHost())
 	return http.ListenAndServe(s.Host(), s.corsMiddleware(s.mux))
 }
 
