@@ -123,9 +123,9 @@ func (s *Server) handleProxyFunc() http.HandlerFunc {
 		proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 		// Build a Director that *only* mutates the outbound request.
-		proxy.Director = s.proxyDirector(proxy.Director, proxy, r, targetURL, rest)
+		proxy.Director = s.proxyDirectorFunc(proxy.Director, proxy, r, targetURL, rest)
 		// Give yourself visibility vs “mystery crash”
-		proxy.ErrorHandler = s.proxyErrorHandler(targetURL)
+		proxy.ErrorHandler = s.proxyErrorHandlerFunc(targetURL)
 
 		// (Optional) Hardened Transport (timeouts, no HTTP/2 if you suspect issues, etc.)
 		proxy.Transport = &http.Transport{
@@ -143,7 +143,7 @@ func (s *Server) handleProxyFunc() http.HandlerFunc {
 	}
 }
 
-func (s *Server) proxyErrorHandler(targetURL *url.URL) func(http.ResponseWriter, *http.Request, error) {
+func (s *Server) proxyErrorHandlerFunc(targetURL *url.URL) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, req *http.Request, err error) {
 		// Log and convert to a 502 (or 504 on timeout)
 		status := http.StatusBadGateway
@@ -161,7 +161,7 @@ func (s *Server) proxyErrorHandler(targetURL *url.URL) func(http.ResponseWriter,
 	}
 }
 
-func (s *Server) proxyDirector(priorDirector func(*http.Request), proxy *httputil.ReverseProxy, in *http.Request, targetURL *url.URL, rest string) func(*http.Request) {
+func (s *Server) proxyDirectorFunc(priorDirector func(*http.Request), proxy *httputil.ReverseProxy, in *http.Request, targetURL *url.URL, rest string) func(*http.Request) {
 	return func(out *http.Request) {
 		// Start with stdlib’s defaults.
 		priorDirector(out)
