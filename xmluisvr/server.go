@@ -179,7 +179,8 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, filePath comm
 	case errors.Is(ErrPathIsDir, err):
 		s.serveFile(w, r, common.Filepath(fmt.Sprintf("%s/index.html", filePath)))
 	default:
-		http.ServeFile(w, r, string(filePath))
+		// TODO Make this safe from path traversal exploit
+		http.ServeFile(w, r, filepath.Join(string(s.api.Webroot), string(filePath)))
 	}
 }
 
