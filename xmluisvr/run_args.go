@@ -26,7 +26,8 @@ func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 	rawOpts := args.Options
 
 	opts = &common.Options{
-		Quiet: rawOpts.Quiet,
+		Quiet:                 rawOpts.Quiet,
+		AllowUntrustedQueries: rawOpts.AllowUntrustedQueries,
 	}
 	opts.Timeout, err = common.ParseTimeDurationEx(strconv.Itoa(rawOpts.Timeout))
 	errs = append(errs, err)

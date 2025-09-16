@@ -265,6 +265,10 @@ func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFun
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Query: %s", r.URL.Path)
 
+		if !s.options.AllowUntrustedQueries {
+			common.SendErrorResponse(w, "Currently not allowing untrusted SQL to run", http.StatusNotImplemented)
+			return
+		}
 		// Use io.TeeReader to log the body while still allowing it to be read
 		var bodyBuffer bytes.Buffer
 		teeReader := io.TeeReader(r.Body, &bodyBuffer)
@@ -280,10 +284,6 @@ func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFun
 		var req struct {
 			SQL    string `json:"sql"`
 			Params []any  `json:"params"`
-		}
-		if !ask("Do we *REALLY* want to allow untrusted SQL to run?") {
-			common.SendErrorResponse(w, "Currently not allowing untrusted SQL to run", http.StatusNotImplemented)
-			return
 		}
 		err = json.NewDecoder(&bodyBuffer).Decode(&req)
 		if err != nil {
@@ -301,10 +301,6 @@ func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFun
 		// Return response
 		common.SendJSONResponse(w, r, result, http.StatusOK)
 	}
-}
-func ask(msg string) bool {
-	cliutil.Errorf("%s\n", msg)
-	return false
 }
 
 // Handle proxy requests

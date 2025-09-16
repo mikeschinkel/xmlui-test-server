@@ -10,14 +10,15 @@ import (
 )
 
 type Options struct {
-	Timeout          int
-	HTTPPort         int
-	DBExtensionFiles []string
-	APIFile          string
-	ConnectString    string
-	DBPort           int
-	DBSchemaFile     string
-	Quiet            bool
+	Timeout               int
+	HTTPPort              int
+	DBExtensionFiles      []string
+	APIFile               string
+	ConnectString         string
+	DBPort                int
+	DBSchemaFile          string
+	Quiet                 bool
+	AllowUntrustedQueries bool
 }
 
 var options *Options
@@ -32,21 +33,23 @@ func GetOptions() (opts *Options) {
 		// variable's lifetime is limited to the scope of the function.
 		// See: https://github.com/golang/go/issues/26058
 		flags := struct {
-			port         *int
-			apiFile      *string
-			connStr      *string
-			dbPort       *int
-			dbSchemaFile *string
-			dbExtensions stringSliceFlag
-			quiet        *bool
+			port                  *int
+			apiFile               *string
+			connStr               *string
+			dbPort                *int
+			dbSchemaFile          *string
+			dbExtensions          stringSliceFlag
+			quiet                 *bool
+			allowUntrustedQueries *bool
 		}{
-			port:         new(int),
-			apiFile:      new(string),
-			connStr:      new(string),
-			dbPort:       new(int),
-			dbSchemaFile: new(string),
-			dbExtensions: stringSliceFlag{},
-			quiet:        new(bool),
+			port:                  new(int),
+			apiFile:               new(string),
+			connStr:               new(string),
+			dbPort:                new(int),
+			dbSchemaFile:          new(string),
+			dbExtensions:          stringSliceFlag{},
+			quiet:                 new(bool),
+			allowUntrustedQueries: new(bool),
 		}
 
 		// Set custom flag usage to display double dashes for word options
@@ -74,6 +77,7 @@ func GetOptions() (opts *Options) {
 
 		flag.BoolVar(flags.quiet, "quiet", false, "Disable display of most command line output")
 		flag.BoolVar(flags.quiet, "q", false, "Disable display of most command line output (shorthand)")
+		flag.BoolVar(flags.allowUntrustedQueries, "dangerously-allow-untrusted-db-queries", false, "Allow UNTRUSTED Database Queries to be submitted via the API")
 
 		flag.Parse()
 		options = &Options{
