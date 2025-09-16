@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
@@ -20,6 +23,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/fsutil"
 )
+
+const InboundProxyProtocol = "http"
 
 type API struct{}
 
@@ -30,6 +35,8 @@ type Server struct {
 	port       common.ServerPort
 	sourceFile common.Filepath
 	mux        *http.ServeMux
+	Writer     CLIWriter
+	Logger     *slog.Logger
 }
 
 type ServerArgs struct {
@@ -38,6 +45,8 @@ type ServerArgs struct {
 	Port       common.ServerPort
 	SourceFile common.Filepath
 	Options    *common.Options
+	Writer     CLIWriter
+	Logger     *slog.Logger
 }
 
 func NewServer(args ServerArgs) *Server {
@@ -51,6 +60,8 @@ func NewServer(args ServerArgs) *Server {
 		options:    args.Options,
 		sourceFile: args.SourceFile,
 		mux:        http.NewServeMux(),
+		Writer:     args.Writer,
+		Logger:     args.Logger,
 	}
 }
 
@@ -148,17 +159,17 @@ func (s *Server) addRoutes(ctx Context) {
 
 	// Handle proxy next
 	for _, method := range common.HTTPMethods {
-		s.mux.HandleFunc(method+" /proxy/", s.handleProxy)
+		s.mux.HandleFunc(method+" /proxy/", s.handleProxyFunc())
 	}
 
 	// Then handle query endpoint
 	s.mux.HandleFunc("POST /query", s.handleQueryFunc(ctx, s.db))
 
-	s.mux.HandleFunc("GET /", s.handleRoot())
+	s.mux.HandleFunc("GET /", s.handleRootFunc())
 
 }
 
-func (s *Server) handleRoot() http.HandlerFunc {
+func (s *Server) handleRootFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cliutil.Printf("Received request for: %s\n", r.URL.Path)
 		if r.URL.Path != "/" {
@@ -300,43 +311,102 @@ func ask(msg string) bool {
 }
 
 // Handle proxy requests
-func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
-	// 1. Parse off the part after "/proxy/".
-	targetPath := strings.TrimPrefix(r.URL.Path, "/proxy/")
-	targetQuery := r.URL.RawQuery
+func (s *Server) handleProxyFunc() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Parse "/proxy/<host>/<subpath...>?<query>"
+		targetPath := strings.TrimPrefix(r.URL.Path, "/proxy/")
+		hostPart, rest, _ := strings.Cut(targetPath, "/")
+		if hostPart == "" {
+			s.Writer.Errorf("missing host after /proxy/")
+			http.Error(w, "missing host after /proxy/", http.StatusBadRequest)
+			return
+		}
 
-	// 2. Split off the first segment as the actual host.
-	pathParts := strings.SplitN(targetPath, "/", 2)
-	hostPart := pathParts[0]
+		// (Optional but wise) guard against Server-Side Request Forgery (SSRF) / illegal hosts
+		// if !s.allowedHost(hostPart) { http.Error(...); return }
 
-	// 3. The remainder is your path on that host.
-	var subPath string
-	if len(pathParts) > 1 {
-		subPath = "/" + pathParts[1]
-	} else {
-		subPath = "/"
+		// Construct a "bare" target with no path so the Director won't double up paths.
+		rawTarget := "https://" + hostPart
+		targetURL, err := url.Parse(rawTarget)
+		if err != nil || targetURL.Host == "" {
+			s.Writer.Errorf("invalid target host: %s\n", hostPart)
+			http.Error(w, "invalid target host: "+hostPart, http.StatusBadRequest)
+			return
+		}
+
+		proxy := httputil.NewSingleHostReverseProxy(targetURL)
+
+		// Build a Director that *only* mutates the outbound request.
+		proxy.Director = s.proxyDirector(proxy.Director, proxy, r, targetURL, rest)
+		// Give yourself visibility vs “mystery crash”
+		proxy.ErrorHandler = s.proxyErrorHandler(targetURL)
+
+		// (Optional) Hardened Transport (timeouts, no HTTP/2 if you suspect issues, etc.)
+		proxy.Transport = &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			// DisableCompression:  true, // sometimes useful when chasing bugs
+		}
+		proxy.ServeHTTP(w, r) // do not mutate r beforehand
+
 	}
+}
 
-	// 4. Construct a "bare" target with no path so the default Director won't double up paths.
-	rawTarget := "https://" + hostPart
-	targetURL, err := url.Parse(rawTarget)
-	if err != nil {
-		common.SendErrorResponse(w, "Invalid target URL: "+err.Error(), http.StatusBadRequest)
-		return
+func (s *Server) proxyErrorHandler(targetURL *url.URL) func(http.ResponseWriter, *http.Request, error) {
+	return func(w http.ResponseWriter, req *http.Request, err error) {
+		// Log and convert to a 502 (or 504 on timeout)
+		status := http.StatusBadGateway
+		var nErr net.Error
+		if errors.As(err, &nErr) && nErr.Timeout() {
+			status = http.StatusGatewayTimeout
+		}
+		s.Writer.Errorf("Proxy error for https://%s%s; %v\n", targetURL.Host, req.URL.Path, err)
+		s.Logger.Error("Proxy error",
+			"target_host", targetURL.Host,
+			"url_path", req.URL.Path,
+			"error", err,
+		)
+		http.Error(w, http.StatusText(status), status)
 	}
+}
 
-	// 5. Create the reverse proxy.
-	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+func (s *Server) proxyDirector(priorDirector func(*http.Request), proxy *httputil.ReverseProxy, in *http.Request, targetURL *url.URL, rest string) func(*http.Request) {
+	return func(out *http.Request) {
+		// Start with stdlib’s defaults.
+		priorDirector(out)
 
-	// 6. Update the inbound request with subPath and query
-	r.URL.Scheme = targetURL.Scheme
-	r.URL.Host = targetURL.Host
-	r.URL.Path = subPath
-	r.URL.RawQuery = targetQuery
+		// Then apply our mapping.
+		subPath := "/"
+		if rest != "" {
+			subPath = "/" + rest
+		}
+		out.URL.Path = subPath
+		out.URL.RawQuery = in.URL.RawQuery
+		out.URL.Scheme = targetURL.Scheme
+		out.URL.Host = targetURL.Host
 
-	// 7. (Optional) Reassign the host header to match target
-	r.Host = targetURL.Host
+		// Host header to upstream (avoid surprises)
+		out.Host = targetURL.Host
 
-	// 8. Finally, run the proxy
-	proxy.ServeHTTP(w, r)
+		s.Writer.Printf("Proxying %s to %s\n", in.URL.Path, targetURL.Host)
+
+		// Forward the client IP chain
+		out.Header.Set("X-Forwarded-Host", in.Host)
+		out.Header.Set("X-Forwarded-Proto", InboundProxyProtocol)
+		xff := out.Header.Get("X-Forwarded-For")
+		ip, _, err := net.SplitHostPort(in.RemoteAddr)
+		if err != nil {
+			goto end
+		}
+		if xff != "" {
+			ip = xff + ", " + ip
+		}
+		out.Header.Set("X-Forwarded-For", ip)
+	end:
+	}
 }

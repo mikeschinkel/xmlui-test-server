@@ -122,6 +122,8 @@ func (args *RunArgs) parseServer(sArgs parseServerArgs) (svr *Server, err error)
 		Port:       opts.HTTPPort,
 		SourceFile: sourceFile,
 		Options:    opts,
+		Writer:     args.CLIWriter,
+		Logger:     args.Logger,
 	})
 end:
 	return svr, err
