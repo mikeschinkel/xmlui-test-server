@@ -7,4 +7,4 @@
 /xmluisvr/sqlite3
 /xmluisvr/sqlite3/**
 
-dbroot/data.db
+/dbroot/data.db

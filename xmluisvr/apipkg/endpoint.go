@@ -44,7 +44,7 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
 	errs = append(errs, err)
 	ep.RowsExpected, err = common.ParseCardinality(cfg.Cardinality)
 	errs = append(errs, err)
-	ep.RowType, err = common.ParseRowType(cfg.RowType)
+	ep.RowType, err = common.ParseDBRowType(cfg.RowType)
 	errs = append(errs, err)
 	ep.ColumnTypes, err = common.ParseColumnTypes(cfg.ColumnTypes)
 	errs = append(errs, err)
@@ -69,8 +69,8 @@ type Endpoint struct {
 	queryFilepath common.Filepath
 	Params        []Param
 	RowsExpected  common.Cardinality
-	RowType       common.DBDataType
-	ColumnTypes   []common.DBDataType // TODO make this a bespoke column type
+	RowType       common.DBRowType
+	ColumnTypes   []common.DBDataType
 	method        common.HTTPMethod
 	path          common.URLPath
 }

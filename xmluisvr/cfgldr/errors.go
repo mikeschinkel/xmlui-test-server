@@ -23,3 +23,9 @@ var (
 	ErrAPIParamsMapTrailingData       = errors.New("API parameter map has trailing data after object")
 	ErrAPIParamsMapInvalidComments    = errors.New("API parameter map contains invalid comments; must contain only strings")
 )
+
+var (
+	ErrFailedToLoadAPIConfigFile      = errors.New("failed to load APIConfig config file")
+	ErrFailedToUnmarshalAPIConfigFile = errors.New("failed to unmarshal APIConfig config file")
+	ErrFailedToLoadDBSchemaFile       = errors.New("failed to load DB schema file")
+)

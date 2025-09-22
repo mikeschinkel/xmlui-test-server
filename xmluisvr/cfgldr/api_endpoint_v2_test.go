@@ -442,7 +442,7 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 			jsonData: `{
 				"endpoint": "GET /tasks/search/{project_id:int}",
 				"description": "Search tasks within a given project (path param project_id + query-string param q)",
-				"query": "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id ASC;",
+				"query": "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id;",
 				"params": {
 					"q": "string",
 					"sort": "string:enum[asc,desc]",
@@ -474,9 +474,9 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 		{
 			name: "tasks by project endpoint",
 			jsonData: `{
-				"endpoint": "GET /tasks/by-project/{project_name:string}",
-				"description": "Tasks for a project using project_name in the path and owner email as a query-string parameter",
-				"query": "SELECT t.id, t.title, t.status, t.priority, t.due_date, au.email AS assignee_email, au.name AS assignee_name, t.created_at FROM tasks t JOIN projects p ON p.id = t.project_id JOIN users ou ON ou.id = p.owner_id LEFT JOIN users au ON au.id = t.assignee_id WHERE ou.email = :email AND p.name = :project_name ORDER BY t.priority DESC, t.created_at ASC;",
+				"endpoint": "GET /tasks/by-project/{project:string}",
+				"description": "Tasks for a project using project in the path and owner email as a query-string parameter",
+				"query": "SELECT t.id, t.title, t.status, t.priority, t.due_date, au.email AS assignee_email, au.name AS assignee_name, t.created_at FROM tasks t JOIN projects p ON p.id = t.project_id JOIN users ou ON ou.id = p.owner_id LEFT JOIN users au ON au.id = t.assignee_id WHERE ou.email = :email AND p.name = :project ORDER BY t.priority DESC, t.created_at;",
 				"params": [
 					{
 						"name": "email",

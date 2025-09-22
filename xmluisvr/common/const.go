@@ -11,5 +11,5 @@ const (
 const (
 	DefaultCardinality = ManyRowsOrNone
 	DefaultRowType     = ColumnsRowType
-	DefaultDataType    = StringRowType
+	DefaultDBDataType  = StringDBDataType
 )

@@ -79,10 +79,6 @@ func (c *RootConfigV1) Normalize(sourceFile string) {
 	return
 }
 
-func (c *RootConfigV1) Validate() (err error) {
-	return err
-}
-
 func (c *RootConfigV1) String() string {
 	return string(c.Bytes())
 }
@@ -138,7 +134,6 @@ end:
 	return err
 }
 
-// Rest of your functions remain unchanged...
 func LoadRootConfigV1(appName string) (rc *RootConfigV1, err error) {
 	typeMap := cfgutil.GetConfigStoreDirTypeMap(appName, RootConfigFile)
 	return LoadRootConfigV1FromConfigStoreMap(typeMap)
@@ -157,8 +152,6 @@ func ensureConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 		goto end
 	}
 
-	err = rc.Validate()
-
 end:
 	return rc, err
 }
@@ -170,20 +163,91 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	var fp string
 
 	api = NewAPIConfigV2(DefaultWebroot)
-	// TODO Add numerous examples of endpoints for all form of C.R.U.D.
+
+	m := &APIParamsMap{}
+	m.Set("q", "string")
+	m.Set("sort", "string:enum[asc,desc]")
+	m.Set("limit", "int:range[1..50]")
+	m.Set("@note", "Just a little bit of info\nfor posterity")
+
+	// Add tasks search endpoint with path parameter and params map
+	api.AddEndpoint(NewAPIEndpointV2("GET /tasks/search/{project_id:int}", APIEndpointV2Args{
+		Description: "Search tasks within a given project (path param project_id + query-string param q)",
+		Query:       "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id;",
+		Cardinality: string(common.ManyRows),
+		RowType:     string(common.ColumnsRowType),
+		ColumnTypes: []string{
+			string(common.IntegerDBDataType),
+			string(common.StringDBDataType),
+			string(common.StringDBDataType),
+			string(common.IntegerDBDataType),
+			string(common.StringDBDataType),
+		},
+		Params: m,
+	}))
+
+	// Add tasks by project endpoint with array params
+	api.AddEndpoint(NewAPIEndpointV2("GET /tasks/by-project/{project:string}", APIEndpointV2Args{
+		Description: "Tasks for a project using project in the path and owner email as a query-string parameter",
+		Query:       "SELECT t.id, t.title, t.status, t.priority, t.due_date, au.email AS assignee_email, au.name AS assignee_name, t.created_at FROM tasks t JOIN projects p ON p.id = t.project_id JOIN users ou ON ou.id = p.owner_id LEFT JOIN users au ON au.id = t.assignee_id WHERE ou.email = :email AND p.name = :project ORDER BY t.priority DESC, t.created_at;",
+		Cardinality: string(common.ManyRows),
+		RowType:     string(common.ColumnsRowType),
+		ColumnTypes: []string{
+			string(common.IntegerDBDataType),
+			string(common.StringDBDataType),
+			string(common.StringDBDataType),
+			string(common.IntegerDBDataType),
+			string(common.StringDBDataTypeOrNULL),
+			string(common.StringDBDataTypeOrNULL),
+			string(common.StringDBDataTypeOrNULL),
+			string(common.StringDBDataType),
+		},
+		Params: APIParamsV1{
+			{Name: "email", Type: "string"},
+		},
+	}))
+
+	// Add user by ID endpoint
+	api.AddEndpoint(NewAPIEndpointV2("GET /users/{id:int}", APIEndpointV2Args{
+		Description: "Get a single user by numeric id (path parameter only)",
+		Query:       "SELECT id, email, name, created_at FROM users WHERE id = :id;",
+		Cardinality: string(common.OneRow),
+		RowType:     string(common.ColumnsRowType),
+		ColumnTypes: []string{
+			string(common.IntegerDBDataType),
+			string(common.StringDBDataType),
+			string(common.StringDBDataType),
+			string(common.StringDBDataType),
+		},
+	}))
+
+	// Add hello world endpoint
 	api.AddEndpoint(NewAPIEndpointV2("GET /hello", APIEndpointV2Args{
 		Description: "Hello World Endpoint",
 		Query:       "SELECT 'Hello World';",
 		Cardinality: string(common.OneRow),
 		RowType:     string(common.StringRowType),
+		Params:      APIParamsV1{},
 	}))
-	db = NewSQLite3ConfigV1("data.db")
-	//err = db.AddExtension(common.AppConfigPath, &SQLite3ExtensionConfigV1{
-	//	Filepath: "steampipe_sqlite_github.so",
-	//})
-	//if err != nil {
-	//	goto end
-	//}
+
+	// Add projects by owner endpoint
+	api.AddEndpoint(NewAPIEndpointV2("GET /projects/by-owner/{email:string}", APIEndpointV2Args{
+		Description: "Projects owned by a given user (owner email as a path parameter)",
+		Query:       "SELECT p.id, p.name, p.status, p.created_at FROM projects p WHERE p.owner_id = (SELECT id FROM users WHERE email = :email) ORDER BY p.created_at DESC;",
+		Cardinality: string(common.ManyRows),
+		RowType:     string(common.ColumnsRowType),
+		ColumnTypes: []string{
+			string(common.IntegerDBDataType),
+			string(common.StringDBDataType),
+			string(common.StringDBDataType),
+			string(common.StringDBDataType),
+		},
+	}))
+
+	db = NewSQLite3ConfigV1(DefaultSQLite3Database)
+	db.Extensions = nil
+	db.OnOpenSQL = []string{"PRAGMA foreign_keys = OFF;"}
+
 	server = NewServerConfigV1(common.DefaultServerHost, ServerConfigV1Args{
 		Port: 8080,
 		API:  api,
@@ -226,12 +290,6 @@ func loadConfigIfExists(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 end:
 	return rc, err
 }
-
-var (
-	ErrFailedToLoadAPIConfigFile      = errors.New("failed to load APIConfig config file")
-	ErrFailedToUnmarshalAPIConfigFile = errors.New("failed to unmarshal APIConfig config file")
-	ErrFailedToLoadDBSchemaFile       = errors.New("failed to load DB schema file")
-)
 
 // LoadRootConfigV1FromConfigStoreMap also specifying the config stores in a map to enable unit testing
 func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (rc *RootConfigV1, err error) {
