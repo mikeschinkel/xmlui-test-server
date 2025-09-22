@@ -10,6 +10,19 @@ BIN_DIR := $(shell bash -c 'source scripts/vars.sh && echo $$BIN_DIR')
 BINARY_NAME := $(shell bash -c 'source scripts/vars.sh && echo $$BINARY_NAME')
 BINARY_PATH := $(shell bash -c 'source scripts/vars.sh && echo $$BINARY_PATH')
 STEAMPIPE_EXTENSION := $(shell bash -c 'source scripts/vars.sh && echo $$STEAMPIPE_EXTENSION')
+TEST_DIRS := $(shell bash -c 'source scripts/vars.sh && get_test_directories $(filter-out test,$(MAKECMDGOALS))')
+
+# Prevent Make from interpreting test directory arguments as targets
+# It creates a rule that matches any argument that isn't "test" (like xmluisvr/cfgldr)
+# and does nothing when Make tries to "build" it. It's essentially telling Make "yes,
+# this target exists, but there's nothing to do for it."
+#
+# So @: = "silently do nothing and succeed" - the perfect dummy action for arguments
+# we want to capture but not actually execute as targets.
+ifneq ($(filter test,$(MAKECMDGOALS)),)
+$(filter-out test,$(MAKECMDGOALS)):
+	@:
+endif
 
 ## help: Show this help message
 .PHONY: help
@@ -70,10 +83,7 @@ run-ext:
 ## test: Run tests
 .PHONY: test
 test:
-	@go test -v \
-		./xmluisvr/... \
-		./cmd/... \
-	  	./test/...
+	@GOEXPERIMENT=jsonv2 go test $(TEST_DIRS)
 
 ## clean: Clean build artifacts
 .PHONY: clean

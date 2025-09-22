@@ -83,5 +83,48 @@ check_patched_sqlite3() {
     fi
 }
 
+# Test directory discovery
+discover_test_directories() {
+    local base_dirs=()
+
+    # Find directories with Go files that have test files or could have tests
+    while IFS= read -r -d '' dir; do
+        # Skip vendor, .git, and build directories
+        if [[ "$dir" == *"vendor"* || "$dir" == *".git"* || "$dir" == *"${BUILD_DIR}"* ]]; then
+            continue
+        fi
+
+        # Check if directory contains Go files (*.go) and has test potential
+        if find "$dir" -maxdepth 1 -name "*.go" | grep -q .; then
+            # Convert absolute path to relative and add ./
+            local rel_dir=$(realpath --relative-to=. "$dir" 2>/dev/null || echo "$dir")
+            base_dirs+=("./$rel_dir/...")
+        fi
+    done < <(find . -type d -print0)
+
+    # Remove duplicates and sort
+    printf '%s\n' "${base_dirs[@]}" | sort -u
+}
+
+# Get test directories - either discovered or from arguments
+get_test_directories() {
+    if [[ $# -gt 0 ]]; then
+        # Use provided directories
+        for dir in "$@"; do
+            # Ensure ./ prefix and /... suffix for Go module paths
+            if [[ "$dir" != ./* ]]; then
+                dir="./$dir"
+            fi
+            if [[ "$dir" != */... ]]; then
+                dir="$dir/..."
+            fi
+            echo "$dir"
+        done
+    else
+        # Discover directories automatically
+        discover_test_directories
+    fi
+}
+
 # Initialize platform detection when sourced
 detect_platform
