@@ -13,61 +13,95 @@ import (
 type Writer interface {
 	Printf(string, ...any)
 	Errorf(string, ...any)
-	Quiet() bool
-	SetQuiet(verbose bool)
 	Loud() Writer
+	V2() Writer
+	V3() Writer
 }
 
 var _ Writer = (*cliWriter)(nil)
 
 // outputWriter writes to stdout/stderr for normal CLI usage
 type cliWriter struct {
-	stdout io.Writer
-	stderr io.Writer
-	quiet  bool
-	loud   *loudWriter
+	stdout    io.Writer
+	stderr    io.Writer
+	quiet     bool
+	loud      Writer
+	v2        Writer
+	v3        Writer
+	useLevel  int
+	verbosity int
 }
-type loudWriter struct {
-	cliWriter
+
+func (c *cliWriter) V2() Writer {
+	if c.v2 != nil {
+		goto end
+	}
+	c.v2 = &cliWriter{
+		stdout:    os.Stdout,
+		stderr:    os.Stderr,
+		verbosity: c.verbosity,
+		useLevel:  2,
+	}
+end:
+	return c.v2
+}
+
+func (c *cliWriter) V3() Writer {
+	if c.v3 != nil {
+		goto end
+	}
+	c.v3 = &cliWriter{
+		stdout:    os.Stdout,
+		stderr:    os.Stderr,
+		verbosity: c.verbosity,
+		useLevel:  3,
+	}
+end:
+	return c.v3
 }
 
 func (c *cliWriter) Loud() Writer {
 	if c.loud != nil {
 		goto end
 	}
-	c.loud = &loudWriter{
-		cliWriter: cliWriter{
-			stdout: os.Stdout,
-			stderr: os.Stderr,
-			quiet:  false,
-		},
+	c.loud = &cliWriter{
+		stdout: os.Stdout,
+		stderr: os.Stderr,
+		quiet:  false,
 	}
 end:
 	return c.loud
 }
 
-func (c *cliWriter) Quiet() bool {
-	return c.quiet
-}
-
-func (c *cliWriter) SetQuiet(quiet bool) {
-	c.quiet = quiet
+type WriterArgs struct {
+	Quiet     bool
+	Verbosity int
 }
 
 // NewWriter creates a console writer writer
-func NewWriter() Writer {
+func NewWriter(args WriterArgs) Writer {
+	if args.Verbosity < 1 || 3 < args.Verbosity {
+		panic(fmt.Sprintf("Invalid verbosity for cliutil.Writer.SetVerbosity(); must be between 1-3; got %d", args.Verbosity))
+	}
 	return &cliWriter{
-		stdout: os.Stdout,
-		stderr: os.Stderr,
+		stdout:    os.Stdout,
+		stderr:    os.Stderr,
+		quiet:     args.Quiet,
+		verbosity: args.Verbosity,
 	}
 }
 
 // Printf writes formatted writer to stdout
 func (c *cliWriter) Printf(format string, args ...any) {
 	if c.quiet {
-		return
+		goto end
+	}
+	if c.verbosity < c.useLevel {
+		goto end
 	}
 	_, _ = fmt.Fprintf(c.stdout, format, args...)
+end:
+	return
 }
 
 // Errorf writes formatted error writer to stderr

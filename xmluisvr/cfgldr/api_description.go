@@ -2,12 +2,14 @@ package cfgldr
 
 import (
 	"context"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 type Context = context.Context
@@ -30,12 +32,12 @@ func (d *APIDescription) Migrate() *APIConfigV2 {
 		endpoints = append(endpoints, ep.Migrate()...)
 	}
 	return &APIConfigV2{
-		SchemaVersion: APIConfigV2SchemaVersion,
-		Name:          d.Description,
-		BasePath:      d.BasePath,
-		Webroot:       DefaultAPIWebroot,
-		Endpoints:     endpoints,
-		SourceFile:    "",
+		Version:    APIConfigV2Version,
+		Name:       d.Description,
+		BasePath:   d.BasePath,
+		Webroot:    DefaultWebroot,
+		Endpoints:  endpoints,
+		SourceFile: "",
 	}
 }
 
@@ -51,23 +53,26 @@ type EndpointDefinition struct {
 // Migrate migrates an EndpointDefinition to an APIEndpointV2
 func (d *EndpointDefinition) Migrate() (eps []*APIEndpointV2) {
 	eps = make([]*APIEndpointV2, 0, len(d.Methods))
-	for name, obj := range d.Methods {
-		params := make(map[string]string, len(d.Methods))
-		for _, p := range obj.Params {
-			params[p] = "any"
+	for name, m := range d.Methods {
+		params := make(APIParamsV1, len(d.Methods))
+		for i, p := range m.Params {
+			params[i] = APIParamV1{
+				Name: p,
+				Type: string(common.AnyRowType),
+			}
 		}
 		name = strings.ToUpper(name)
-		eps = append(eps, &APIEndpointV2{
-			Endpoint:    fmt.Sprintf("%s %s", name, d.Path),
-			Description: obj.Description,
-			Query:       obj.SQL,
-			QueryFile:   obj.SQLFile,
-			Params:      params,
-			Cardinality: "many?", // TODO: Move the constants to common?
-			RowType:     "any",
-			Method:      name,
-			Path:        d.Path,
-		})
+		eps = append(eps, NewAPIEndpointV2(
+			fmt.Sprintf("%s %s", name, d.Path),
+			APIEndpointV2Args{
+				Description: m.Description,
+				Query:       m.SQL,
+				QueryFile:   m.SQLFile,
+				Params:      params,
+				Cardinality: "many?", // TODO: Move the constants to common?
+				RowType:     "any",
+			},
+		))
 	}
 	return eps
 }
@@ -92,7 +97,7 @@ func LoadAPIDescriptionFromFile(file string) (d *APIDescription, err error) {
 		goto end
 	}
 	d = &APIDescription{}
-	err = json.Unmarshal(data, &d)
+	err = jsonv2.Unmarshal(data, &d)
 	if err != nil {
 		d = nil
 		err = errors.Join(ErrParseFailed, err)

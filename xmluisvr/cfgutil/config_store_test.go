@@ -41,7 +41,7 @@ func TestConfigStore_SaveLoadExists(t *testing.T) {
 	assert.True(t, exists)
 
 	var loaded testData
-	err = cs.LoadJSON(&loaded)
+	err = cs.LoadJSON(&loaded, nil)
 	require.NoError(t, err)
 	assert.Equal(t, data, loaded)
 }
@@ -52,7 +52,7 @@ func TestConfigStore_LoadNonexistent(t *testing.T) {
 	cs := getConfigStore("does-not-exist.json", cfgutil.DefaultConfigDirType)
 	cs.SetConfigDir(t.TempDir())
 
-	err = cs.LoadJSON(&testData{})
+	err = cs.LoadJSON(&testData{}, nil)
 	assert.Error(t, err)
 }
 

@@ -1,7 +1,8 @@
 package cfgldr
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -11,19 +12,24 @@ import (
 
 // TODO — Convince Gent that we should publish schemas on schemas.xmlui.org
 const (
-	RootConfigV1SchemaVersion = 1
-	RootConfigFile            = "test-server.json"
-	RootConfigV1Schema        = "https://schemas.xmlui.org/v1/test-server-root-schema.json"
+	RootConfigV1Version = 1
+	RootConfigFile      = "test-server.json"
+	RootConfigV1Schema  = "https://schemas.xmlui.org/v1/test-server/root-schema.json"
 )
 
 var _ Config = (*RootConfigV1)(nil)
 
 // RootConfigV1 represents the root configuration structure as defined in ADR-001
 type RootConfigV1 struct {
-	Schema        string          `json:"$schema"`
-	SchemaVersion int             `json:"$schemaVersion"`
-	ServerConfig  *ServerConfigV1 `json:"server"`
-	DBConfig      DatabaseConfig  `json:"database"`
+	rootConfigV1Base `json:",inline"`
+	DBConfig         DatabaseConfig `json:"database"`
+}
+
+// Base struct with non-polymorphic fields
+type rootConfigV1Base struct {
+	Schema       string          `json:"$schema"`
+	Version      int             `json:"version"`
+	ServerConfig *ServerConfigV1 `json:"server"`
 }
 
 type RootConfigV1Args struct {
@@ -33,10 +39,12 @@ type RootConfigV1Args struct {
 
 func NewRootConfigV1(args RootConfigV1Args) *RootConfigV1 {
 	return &RootConfigV1{
-		Schema:        RootConfigV1Schema,
-		SchemaVersion: RootConfigV1SchemaVersion,
-		ServerConfig:  args.ServerConfig,
-		DBConfig:      args.DBConfig,
+		rootConfigV1Base: rootConfigV1Base{
+			Schema:       RootConfigV1Schema,
+			Version:      RootConfigV1Version,
+			ServerConfig: args.ServerConfig,
+		},
+		DBConfig: args.DBConfig,
 	}
 }
 
@@ -51,27 +59,36 @@ func (c *RootConfigV1) APIConfig() (ac APIConfig) {
 end:
 	return ac
 }
+
 func (c *RootConfigV1) Config() {}
-func (c *RootConfigV1) Normalize(sourceFile string) (err error) {
-	var errs []error
+
+func (c *RootConfigV1) Normalize(sourceFile string) {
 	c.Schema = RootConfigV1Schema
-	c.SchemaVersion = RootConfigV1SchemaVersion
-	err = c.ServerConfig.Normalize(sourceFile)
-	if err != nil {
-		errs = append(errs, err)
+	c.Version = RootConfigV1Version
+	if c.ServerConfig == nil {
+		c.ServerConfig = NewServerConfigV1(common.DefaultServerHost, ServerConfigV1Args{
+			Port: common.DefaultServerPort,
+			API:  NewAPIConfigV2("."),
+		})
 	}
-	err = c.DBConfig.Normalize(sourceFile)
-	if err != nil {
-		errs = append(errs, err)
+	c.ServerConfig.Normalize(sourceFile)
+	if c.DBConfig == nil {
+		c.DBConfig = NewSQLite3ConfigV1(DefaultSQLite3Database)
 	}
-	return errors.Join(errs...)
+	c.DBConfig.Normalize(sourceFile)
+	return
+}
+
+func (c *RootConfigV1) Validate() (err error) {
+	return err
 }
 
 func (c *RootConfigV1) String() string {
 	return string(c.Bytes())
 }
+
 func (c *RootConfigV1) Bytes() []byte {
-	b, err := json.MarshalIndent(c, "", "\t")
+	b, err := jsonv2.Marshal(c, jsontext.WithIndent("  "))
 	if err != nil {
 		panic(err)
 	}
@@ -81,24 +98,26 @@ func (c *RootConfigV1) Bytes() []byte {
 func (c *RootConfigV1) UnmarshalJSON(data []byte) (err error) {
 	var dbc DatabaseConfig
 
-	// Create a temporary struct that matches RootConfigV1 but with DBConfig as RawMessage
+	// Create temp struct with inline base and RawMessage for polymorphic field
 	var temp struct {
-		Schema        string          `json:"$schema"`
-		SchemaVersion int             `json:"$schemaVersion"`
-		Server        *ServerConfigV1 `json:"server"`
-		Database      json.RawMessage `json:"database"`
+		rootConfigV1Base `json:",inline"`
+		Database         jsontext.Value `json:"database"`
 	}
 
 	var typeInfo struct {
 		Type DatabaseType `json:"type"`
 	}
 
-	err = json.Unmarshal(data, &temp)
+	err = jsonv2.Unmarshal(data, &temp)
 	if err != nil {
 		goto end
 	}
 
-	err = json.Unmarshal(temp.Database, &typeInfo)
+	// Copy non-polymorphic fields from temp
+	c.rootConfigV1Base = temp.rootConfigV1Base
+
+	// Handle polymorphic database field
+	err = jsonv2.Unmarshal(temp.Database, &typeInfo)
 	if err != nil {
 		goto end
 	}
@@ -108,35 +127,38 @@ func (c *RootConfigV1) UnmarshalJSON(data []byte) (err error) {
 		goto end
 	}
 
-	err = json.Unmarshal(temp.Database, &dbc)
+	err = jsonv2.Unmarshal(temp.Database, &dbc)
 	if err != nil {
 		goto end
 	}
 
-	c.Schema = temp.Schema
-	c.SchemaVersion = temp.SchemaVersion
-	c.ServerConfig = temp.Server
 	c.DBConfig = dbc
 
 end:
 	return err
 }
 
+// Rest of your functions remain unchanged...
 func LoadRootConfigV1(appName string) (rc *RootConfigV1, err error) {
 	typeMap := cfgutil.GetConfigStoreDirTypeMap(appName, RootConfigFile)
 	return LoadRootConfigV1FromConfigStoreMap(typeMap)
 }
+
 func ensureConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
-	rc, err = maybeLoadConfig(cs)
+	rc, err = loadConfigIfExists(cs)
 	if err != nil {
 		// A real error occurred, bail out
 		goto end
 	}
-	if rc != nil {
-		// Config was loaded, no need to create config
+
+	if rc == nil {
+		// Config not loaded, need to create config
+		rc, err = createConfig(cs)
 		goto end
 	}
-	rc, err = createConfig(cs)
+
+	err = rc.Validate()
+
 end:
 	return rc, err
 }
@@ -147,7 +169,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	var server *ServerConfigV1
 	var fp string
 
-	api = NewAPIConfigV2(DefaultAPIWebroot)
+	api = NewAPIConfigV2(DefaultWebroot)
 	// TODO Add numerous examples of endpoints for all form of C.R.U.D.
 	api.AddEndpoint(NewAPIEndpointV2("GET /hello", APIEndpointV2Args{
 		Description: "Hello World Endpoint",
@@ -162,7 +184,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	//if err != nil {
 	//	goto end
 	//}
-	server = NewServerConfigV1(common.LocalHostIP, ServerConfigV1Args{
+	server = NewServerConfigV1(common.DefaultServerHost, ServerConfigV1Args{
 		Port: 8080,
 		API:  api,
 	})
@@ -174,10 +196,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	if err != nil {
 		goto end
 	}
-	err = rc.Normalize(fp)
-	if err != nil {
-		goto end
-	}
+	rc.Normalize(fp)
 	err = cs.SaveJSON(rc)
 	if err != nil {
 		goto end
@@ -186,18 +205,24 @@ end:
 	return rc, err
 }
 
-func maybeLoadConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
+func loadConfigIfExists(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	var fp string
+	var opts *cfgutil.LoadJSONOpts
 	if !cs.Exists() {
 		goto end
 	}
+
 	rc = &RootConfigV1{}
-	err = cs.LoadJSON(&rc)
+	opts = &cfgutil.LoadJSONOpts{}
+	err = cs.LoadJSON(&rc, opts)
+	if err != nil {
+		goto end
+	}
 	fp, err = cs.GetFilepath()
 	if err != nil {
 		goto end
 	}
-	err = rc.Normalize(fp)
+	rc.Normalize(fp)
 end:
 	return rc, err
 }
@@ -215,16 +240,33 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (r
 	var schemaBytes []byte
 	var apiConfig *APIConfigV2
 	var opts *Options
+	var fp string
 
 	cs = stores[cfgutil.DotConfigDir]
 	userConfig, err = ensureConfig(cs)
 	if err != nil {
+		var err2 error
+		fp, err2 = cs.GetFilepath()
+		if err2 != nil {
+			err = errors.Join(err, err2)
+		}
+		if fp != "" {
+			err = errors.Join(err, fmt.Errorf("filepath=%s", fp))
+		}
 		goto end
 	}
 
 	cs = stores[cfgutil.LocalConfigDir]
-	localConfig, err = maybeLoadConfig(cs)
+	localConfig, err = loadConfigIfExists(cs)
 	if err != nil {
+		var err2 error
+		fp, err2 = cs.GetFilepath()
+		if err2 != nil {
+			err = errors.Join(err, err2)
+		}
+		if fp != "" {
+			err = errors.Join(err, fmt.Errorf("filepath=%s", fp))
+		}
 		goto end
 	}
 
@@ -232,7 +274,10 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (r
 	common.Noop(localConfig)
 	rc = userConfig
 
-	opts = GetOptions()
+	opts, err = GetOptions()
+	if err != nil {
+		goto end
+	}
 	apiConfig, err = loadAPIFileIfExists(opts.APIFile)
 	if err != nil {
 		goto end
@@ -240,17 +285,14 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (r
 	if apiConfig != nil {
 		rc.ServerConfig.APIConfig = apiConfig
 	}
-	if rc.DBConfig == nil {
-		rc.DBConfig = NewSQLite3ConfigV1(DefaultSQLite3Database)
-	}
 
-	schemaBytes, err = cfgutil.ReadFileIfExists(opts.DBSchemaFile)
+	schemaBytes, err = cfgutil.ReadFileIfExists(opts.DBBootstrapFile)
 	if err != nil {
-		err = errors.Join(ErrFailedToLoadDBSchemaFile, fmt.Errorf("dbschema_file=%s", opts.DBSchemaFile), err)
+		err = errors.Join(ErrFailedToLoadDBSchemaFile, fmt.Errorf("dbschema_file=%s", opts.DBBootstrapFile), err)
 		goto end
 	}
 	if len(schemaBytes) != 0 {
-		rc.DBConfig.SetSchemaQueries([]string{string(schemaBytes)})
+		rc.DBConfig.SetBootstrapQueries([]string{string(schemaBytes)})
 	}
 
 end:
@@ -269,7 +311,7 @@ func loadAPIFileIfExists(apiFile string) (api *APIConfigV2, err error) {
 		goto end
 	}
 	api = &APIConfigV2{}
-	err = json.Unmarshal(apiBytes, &api)
+	err = jsonv2.Unmarshal(apiBytes, &api)
 	if err != nil {
 		errs = [2]error{ErrFailedToUnmarshalAPIConfigFile, err}
 		goto end

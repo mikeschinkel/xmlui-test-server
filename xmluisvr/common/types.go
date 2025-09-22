@@ -13,7 +13,6 @@ type (
 	LoadOrder       int
 	OSArch          string
 	SHA256          string
-	URLPath         string
 	Version         string
 	Host            string
 	ServerPort      int

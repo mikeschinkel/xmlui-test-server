@@ -66,7 +66,7 @@ func NewQuerySource(start, end int, src common.QueryString, fp common.Filepath) 
 type QueryResult []map[string]any
 
 // ExecuteQuery and return results as a map of any
-func ExecuteQuery(ctx Context, db Database, query string, params []any) (result QueryResult, err error) {
+func ExecuteQuery(ctx Context, db Database, query common.QueryString, params []any) (result QueryResult, err error) {
 	var rows *sql.Rows
 	var columns []string
 
@@ -79,7 +79,7 @@ func ExecuteQuery(ctx Context, db Database, query string, params []any) (result 
 	cliutil.Printf("SQL: %s", query)
 
 	// Execute the query
-	rows, err = db.Query(ctx, query, params...)
+	rows, err = db.Query(ctx, string(query), params...)
 	if err != nil {
 		goto end
 	}

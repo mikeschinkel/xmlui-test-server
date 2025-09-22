@@ -24,8 +24,7 @@ type Server struct {
 	port       common.ServerPort
 	sourceFile common.Filepath
 	mux        *http.ServeMux
-	Writer     CLIWriter
-	Logger     *slog.Logger
+	cliutil.WriterLogger
 }
 
 type ServerArgs struct {
@@ -43,21 +42,21 @@ func NewServer(args ServerArgs) *Server {
 		args.Port = common.DefaultServerPort
 	}
 	return &Server{
-		db:         args.Database,
-		api:        args.API,
-		port:       args.Port,
-		options:    args.Options,
-		sourceFile: args.SourceFile,
-		mux:        http.NewServeMux(),
-		Writer:     args.Writer,
-		Logger:     args.Logger,
+		db:           args.Database,
+		api:          args.API,
+		port:         args.Port,
+		options:      args.Options,
+		sourceFile:   args.SourceFile,
+		mux:          http.NewServeMux(),
+		WriterLogger: cliutil.NewWriterLogger(args.Writer, args.Logger),
 	}
 }
 
 func (s *Server) Initialize(ctx Context) (err error) {
+	s.V2().InfoPrint("Initializing server")
 	err = s.api.Initialize(ctx)
 	if errors.Is(err, common.ErrNoAPIProvided) {
-		cliutil.Printf("No APIConfig loaded")
+		s.Printf("No APIConfig loaded")
 		err = nil
 	}
 	if err != nil {
@@ -70,16 +69,17 @@ func (s *Server) Initialize(ctx Context) (err error) {
 
 	err = s.db.Open(ctx)
 	if err != nil {
-		err = fmt.Errorf("failed to open database: %w", err)
+		err = s.ErrorError("Failed to opened database", "database_type", s.db.Type(), "error", err)
 		goto end
 	}
 
+	s.V2().InfoPrint("Server initialized")
 end:
 	return err
 }
 
 func (s *Server) ListenAndServe(_ Context) (err error) {
-	cliutil.Loud().Printf("Listening on %s...\n", s.displayHost())
+	s.InfoLoud("Server listening", "on", s.displayHost())
 	return http.ListenAndServe(s.Host(), s.corsMiddleware(s.mux))
 }
 
@@ -100,31 +100,40 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 }
 
 func (s *Server) Host() string {
-	return fmt.Sprintf("%s:%d", common.LocalHostIP, s.port)
+	return fmt.Sprintf("%s:%d", common.DefaultServerHost, s.port)
 }
 func (s *Server) Port() common.ServerPort {
 	return s.port
 }
 
 func (s *Server) addRoutes(ctx Context) {
-
+	s.V2().InfoPrint("Adding HTTP server routes")
 	// Handle APIConfig routes first (to match /apiFile/* before static files)
 	if s.api != nil {
-		apiWebroot := string(s.api.Webroot)
-		if !strings.HasSuffix(apiWebroot, "/") {
-			apiWebroot += "/"
+		apiBasePath := string(s.api.BasePath)
+		if !strings.HasSuffix(apiBasePath, "/") {
+			apiBasePath += "/"
 		}
-		s.mux.HandleFunc("GET "+apiWebroot, s.api.HandleAPIFunc(ctx, s.db))
+		route := fmt.Sprintf("GET  %s", apiBasePath)
+		s.V3().Printf("  — %s\n", route)
+		s.mux.HandleFunc(route, s.api.HandleAPIFunc(ctx, s.db))
 	}
 
 	// Handle proxy next
+	s.V3().Printf("  — ANY  /proxy/\n")
 	for _, method := range common.HTTPMethods {
-		s.mux.HandleFunc(method+" /proxy/", s.handleProxyFunc())
+		s.mux.HandleFunc(fmt.Sprintf("%s /proxy/", method), s.handleProxyFunc(method))
 	}
 
 	// Then handle query endpoint
-	s.mux.HandleFunc("POST /query", s.handleQueryFunc(ctx, s.db))
+	route := "POST /query"
+	s.V3().Printf("  — %s\n", route)
+	s.mux.HandleFunc(route, s.handleQueryFunc(ctx, s.db))
 
-	s.mux.HandleFunc("GET /", s.handleRootFunc())
+	route = "GET  /"
+	s.V3().Printf("  — %s\n", route)
+	s.mux.HandleFunc(route, s.handleRootFunc())
+
+	s.V3().InfoPrint("HTTP server routes added")
 
 }

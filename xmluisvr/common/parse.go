@@ -6,21 +6,6 @@ import (
 	"time"
 )
 
-var (
-	ErrURLPathMustNotBeEmpty = errors.New("URL path must not be empty")
-	ErrHostMustNotBeEmpty    = errors.New("host must not be empty")
-	ErrPortMustNotBeZero     = errors.New("port must not be zero")
-	ErrPortMustBeZero        = errors.New("port must be zero")
-)
-
-func ParseURLPath(p string) (up URLPath, err error) {
-	if p == "" {
-		err = ErrURLPathMustNotBeEmpty
-	}
-	// TODO Add some validation here
-	up = URLPath(p)
-	return up, err
-}
 func ParseHost(h string) (_ Host, err error) {
 	if h == "" {
 		err = ErrHostMustNotBeEmpty

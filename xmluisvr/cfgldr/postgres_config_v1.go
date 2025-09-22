@@ -7,12 +7,12 @@ type PostgresConfig struct {
 	URL string `json:"pg_url"`
 }
 
-func (c *PostgresConfig) SetSchemaQueries(strings []string) {
+func (c *PostgresConfig) SetBootstrapQueries(strings []string) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (c *PostgresConfig) SchemaQueries() []string {
+func (c *PostgresConfig) BootstrapQueries() []string {
 	//TODO implement me
 	panic("implement me")
 }
@@ -51,7 +51,7 @@ func (c *PostgresConfig) DBExtensions() []DBExtensionConfig {
 	panic("implement me")
 }
 
-func (c *PostgresConfig) Normalize(sourceFile string) error {
+func (c *PostgresConfig) Normalize(sourceFile string) {
 	//TODO implement me
 	panic("implement me")
 }

@@ -11,7 +11,6 @@ type Options struct {
 	APIFile               Filepath
 	ConnectString         ConnectString
 	DBPort                ServerPort
-	DBSchemaFile          Filepath
-	Quiet                 bool
+	DBBootstrapFile       Filepath
 	AllowUntrustedQueries bool
 }

@@ -1,6 +1,7 @@
 package cfgldr
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,14 +17,16 @@ type Options struct {
 	APIFile               string
 	ConnectString         string
 	DBPort                int
-	DBSchemaFile          string
+	DBBootstrapFile       string
 	Quiet                 bool
+	Verbosity             int
 	AllowUntrustedQueries bool
 }
 
 var options *Options
+var ErrVerbosityMustBe1To3 = errors.New("verbosity must be between 1 to 3")
 
-func GetOptions() (opts *Options) {
+func GetOptions() (opts *Options, err error) {
 
 	if options != nil {
 		goto end
@@ -37,18 +40,20 @@ func GetOptions() (opts *Options) {
 			apiFile               *string
 			connStr               *string
 			dbPort                *int
-			dbSchemaFile          *string
+			dbBootstrapFile       *string
 			dbExtensions          stringSliceFlag
 			quiet                 *bool
+			verbosity             *int
 			allowUntrustedQueries *bool
 		}{
 			port:                  new(int),
 			apiFile:               new(string),
 			connStr:               new(string),
 			dbPort:                new(int),
-			dbSchemaFile:          new(string),
+			dbBootstrapFile:       new(string),
 			dbExtensions:          stringSliceFlag{},
 			quiet:                 new(bool),
+			verbosity:             new(int),
 			allowUntrustedQueries: new(bool),
 		}
 
@@ -71,7 +76,9 @@ func GetOptions() (opts *Options) {
 
 		flag.StringVar(flags.apiFile, "api", "", "Path to APIConfig description file")
 		flag.StringVar(flags.connStr, "db", "data.db", "Path to SQLite connStr file or PostgreSQL connection string or DB description file")
-		flag.StringVar(flags.dbSchemaFile, "db-schema", "schema.sql", "Path to idempotent SQL file containing SQL to create your desired connStr schema")
+		flag.StringVar(flags.dbBootstrapFile, "db-bootstrap", DefaultDBBootstrapFilepath,
+			fmt.Sprintf("Path to database query file containing idempotent queries to run on start of server (default %s)", DefaultDBBootstrapFilepath),
+		)
 		flag.IntVar(flags.dbPort, "db-port", 0, "PostgreSQL port (optional, overrides port in --db if provided)")
 		flag.Var(&flags.dbExtensions, "db-ext", "One or more paths to connStr extensions to load (currently only SQLite3.)")
 
@@ -79,19 +86,29 @@ func GetOptions() (opts *Options) {
 		flag.BoolVar(flags.quiet, "q", false, "Disable display of most command line output (shorthand)")
 		flag.BoolVar(flags.allowUntrustedQueries, "dangerously-allow-untrusted-db-queries", false, "Allow UNTRUSTED Database Queries to be submitted via the API")
 
+		flag.IntVar(flags.verbosity, "verbosity", 1, "Verbosity of most command line output (1 to 3, default 1)")
+		flag.IntVar(flags.verbosity, "v", 1, "Verbosity of most command line output (shorthand, 1 to 3, default 1)")
+
 		flag.Parse()
+
+		if !(1 <= *flags.verbosity && *flags.verbosity <= 3) {
+			err = errors.Join(ErrVerbosityMustBe1To3, fmt.Errorf("verbosity=%d", *flags.verbosity))
+			goto end
+		}
+
 		options = &Options{
 			HTTPPort:         *flags.port,
 			APIFile:          *flags.apiFile,
 			ConnectString:    *flags.connStr,
 			DBPort:           *flags.dbPort,
-			DBSchemaFile:     *flags.dbSchemaFile,
+			DBBootstrapFile:  *flags.dbBootstrapFile,
 			Quiet:            *flags.quiet,
+			Verbosity:        *flags.verbosity,
 			DBExtensionFiles: flags.dbExtensions.values(),
 		}
 	}
 end:
-	return options
+	return options, err
 }
 
 type stringSliceFlag []string

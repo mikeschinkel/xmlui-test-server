@@ -2,6 +2,8 @@ package xmluisvr
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -41,4 +43,12 @@ func checkFileExists(path string) error {
 	}
 end:
 	return err
+}
+
+func fprintf(w io.Writer, format string, a ...any) int {
+	n, err := fmt.Fprintf(w, format, a...)
+	if err != nil {
+		log.Printf("Failed to print to %v; %v", w, err)
+	}
+	return n
 }

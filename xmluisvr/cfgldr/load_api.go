@@ -49,7 +49,7 @@ end:
 	if apiV2 != nil {
 		cliutil.Printf("APIConfig loaded successfully: %s (v%d)",
 			apiV2.Name,
-			apiV2.SchemaVersion,
+			apiV2.Version,
 		)
 	}
 	return apiV2, err

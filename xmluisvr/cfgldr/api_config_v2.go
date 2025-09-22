@@ -1,7 +1,7 @@
 package cfgldr
 
 import (
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"os"
@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	APIConfigV2SchemaVersion = 2
-	APIConfigV2Schema        = "https://schemas.xmlui.org/v2/test-server-api-schema.json"
+	APIConfigV2Version = 2
+	APIConfigV2Schema  = "https://schemas.xmlui.org/v2/test-server/api-schema.json"
 )
 
 type APIConfig interface {
@@ -23,13 +23,13 @@ type APIConfig interface {
 var _ APIConfig = (*APIConfigV2)(nil)
 
 type APIConfigV2 struct {
-	Schema        string           `json:"$schema"`
-	SchemaVersion int              `json:"version"`
-	Name          string           `json:"name"`
-	BasePath      string           `json:"base_path"`
-	Webroot       string           `json:"webroot"`
-	Endpoints     []*APIEndpointV2 `json:"endpoints"`
-	SourceFile    string           `json:"-"`
+	Schema     string           `json:"$schema"`
+	Version    int              `json:"version"`
+	Name       string           `json:"name"`
+	BasePath   string           `json:"base_path"`
+	Webroot    string           `json:"webroot"`
+	Endpoints  []*APIEndpointV2 `json:"endpoints"`
+	SourceFile string           `json:"-"`
 }
 
 func (c *APIConfigV2) IsNil() (isNil bool) {
@@ -52,20 +52,19 @@ end:
 
 func NewAPIConfigV2(webroot string) *APIConfigV2 {
 	return &APIConfigV2{
-		Schema:        APIConfigV2Schema,
-		SchemaVersion: APIConfigV2SchemaVersion,
-		Name:          fmt.Sprintf("User-definable %s APIConfig", common.AppName),
-		BasePath:      "/api",
-		Webroot:       webroot,
-		Endpoints:     make([]*APIEndpointV2, 0),
-		SourceFile:    "./api.json",
+		Schema:     APIConfigV2Schema,
+		Version:    APIConfigV2Version,
+		Name:       fmt.Sprintf("User-definable %s APIConfig", common.AppName),
+		BasePath:   "/api",
+		Webroot:    webroot,
+		Endpoints:  make([]*APIEndpointV2, 0),
+		SourceFile: "./api.json",
 	}
 }
 
 func (*APIConfigV2) Config() {}
 
-func (c *APIConfigV2) normalizeEndpoints() (err error) {
-	var errs []error
+func (c *APIConfigV2) normalizeEndpoints() {
 	if c.Endpoints == nil {
 		c.Endpoints = make([]*APIEndpointV2, 0)
 	}
@@ -73,32 +72,30 @@ func (c *APIConfigV2) normalizeEndpoints() (err error) {
 		goto end
 	}
 	for _, ep := range c.Endpoints {
-		errs = append(errs, ep.Normalize())
+		ep.Normalize()
 	}
-	err = errors.Join(errs...)
 end:
-	return err
+	return
 }
 
-func (c *APIConfigV2) Normalize(sourceFile string) (err error) {
+func (c *APIConfigV2) Normalize(sourceFile string) {
 	c.SourceFile = sourceFile
 	if c.Schema == "" {
 		c.Schema = APIConfigV2Schema
 	}
-	if c.SchemaVersion == 0 {
-		c.SchemaVersion = APIConfigV2SchemaVersion
+	if c.Version == 0 {
+		c.Version = APIConfigV2Version
 	}
 	if c.BasePath == "" {
 		c.BasePath = DefaultAPIBasePath
 	}
 	if c.Webroot == "" {
-		c.Webroot = DefaultAPIWebroot
+		c.Webroot = DefaultWebroot
 	}
 	if c.Webroot == "" {
-		c.Webroot = DefaultAPIWebroot
+		c.Webroot = DefaultWebroot
 	}
-	err = c.normalizeEndpoints()
-	return err
+	c.normalizeEndpoints()
 }
 
 func (c *APIConfigV2) AddEndpoint(endpoint *APIEndpointV2) {
@@ -126,7 +123,7 @@ func LoadAPIConfigV2(apiFile string) (c *APIConfigV2, err error) {
 		goto end
 	}
 	c = new(APIConfigV2)
-	err = json.Unmarshal(data, c)
+	err = jsonv2.Unmarshal(data, c)
 	if err != nil {
 		c = nil
 		// TODO: Provide user better feedback as to what actually failed.

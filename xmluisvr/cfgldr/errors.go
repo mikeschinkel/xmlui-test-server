@@ -13,3 +13,13 @@ var (
 	ErrParseFailed                 = errors.New("parse failed")
 	ErrReadFailed                  = errors.New("read failed")
 )
+
+var (
+	ErrAPIParamsMapCannotBeNested     = errors.New("API parameter map cannot be nested JSON")
+	ErrAPIParamsMapCannotContainArray = errors.New("API parameter map cannot contain a JSON array")
+	ErrAPIParamsMapExpectedObject     = errors.New("API parameter map expects a JSON object")
+	ErrAPIParamsMapStringsOnly        = errors.New("API parameter map values must be JSON strings")
+	ErrAPIParamsMapDuplicateKey       = errors.New("API parameter map contains a duplicate key")
+	ErrAPIParamsMapTrailingData       = errors.New("API parameter map has trailing data after object")
+	ErrAPIParamsMapInvalidComments    = errors.New("API parameter map contains invalid comments; must contain only strings")
+)

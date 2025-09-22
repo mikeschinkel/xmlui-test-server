@@ -26,7 +26,6 @@ func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 	rawOpts := args.Options
 
 	opts = &common.Options{
-		Quiet:                 rawOpts.Quiet,
 		AllowUntrustedQueries: rawOpts.AllowUntrustedQueries,
 	}
 	opts.Timeout, err = common.ParseTimeDurationEx(strconv.Itoa(rawOpts.Timeout))
@@ -41,7 +40,7 @@ func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 	errs = append(errs, err)
 	opts.DBPort, err = common.ParseServerPort(rawOpts.DBPort, common.ZeroOk)
 	errs = append(errs, err)
-	opts.DBSchemaFile, err = common.ParseFilepath(rawOpts.DBSchemaFile)
+	opts.DBBootstrapFile, err = common.ParseFilepath(rawOpts.DBBootstrapFile)
 	errs = append(errs, err)
 
 	return opts, errors.Join(errs...)
@@ -70,7 +69,7 @@ func (args *RunArgs) parseDatabase(ctx Context, opts *common.Options) (db dbpkg.
 	dbCfg := args.Config.DBConfig
 
 	if opts.ConnectString == "" {
-		opts.ConnectString = cfgldr.DefaultSQLite3Database
+		opts.ConnectString = common.ConnectString(cfgldr.DefaultSQLite3Database)
 	}
 
 	db, err = dbpkg.ParseDatabase(ctx, dbCfg, dbpkg.ParseDatabaseArgs{

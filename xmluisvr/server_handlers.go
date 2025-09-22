@@ -2,7 +2,7 @@ package xmluisvr
 
 import (
 	"bytes"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -21,7 +21,7 @@ import (
 
 func (s *Server) handleRootFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.Writer.Printf("Received request for: %s\n", r.URL.Path)
+		s.Printf("Request: %s\n", r.URL.Path)
 		if r.URL.Path != "/" {
 			s.serveFile(w, r, common.Filepath("."+r.URL.Path))
 			return
@@ -48,10 +48,10 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, filePath comm
 // Handle direct SQL query requests
 func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.Writer.Printf("Query request: %s", r.URL.Path)
+		s.V2().Printf("Query request: %s", r.URL.Path)
 
 		if !s.options.AllowUntrustedQueries {
-			s.Writer.Errorf("Query disallowed!")
+			s.WarnError("Query disallowed!")
 			common.SendErrorResponse(w, "Currently not allowing untrusted database queries to run", http.StatusNotImplemented)
 			return
 		}
@@ -67,10 +67,9 @@ func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFun
 		}
 
 		query := string(bodyBuffer.Bytes())
-		s.Writer.Printf("Query: %s", strings.Replace(query, "\n", " ", -1))
-		s.Logger.Info("Database query submitted",
+		s.V3().InfoPrint("Database query submitted.",
 			"requestor_ip", r.RemoteAddr,
-			"query", query,
+			"query", strings.Replace(query, "\n", " ", -1),
 		)
 
 		// Decode the body into the queryRequest struct
@@ -78,14 +77,19 @@ func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFun
 			SQL    string `json:"sql"`
 			Params []any  `json:"params"`
 		}
-		err = json.NewDecoder(&bodyBuffer).Decode(&req)
+		err = jsonv2.UnmarshalRead(&bodyBuffer, &req)
 		if err != nil {
 			common.SendErrorResponse(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		qs, err := db.ParseQueryString(req.SQL)
+		if err != nil {
+			common.SendErrorResponse(w, "failed to parse database query", http.StatusInternalServerError)
+			return
+		}
 
 		// Execute the query
-		result, err := dbpkg.ExecuteQuery(ctx, db, req.SQL, req.Params)
+		result, err := dbpkg.ExecuteQuery(ctx, db, qs, req.Params)
 		if err != nil {
 			common.SendErrorResponse(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -97,13 +101,13 @@ func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFun
 }
 
 // Handle proxy requests
-func (s *Server) handleProxyFunc() http.HandlerFunc {
+func (s *Server) handleProxyFunc(method common.HTTPMethod) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Parse "/proxy/<host>/<subpath...>?<query>"
 		targetPath := strings.TrimPrefix(r.URL.Path, "/proxy/")
 		hostPart, rest, _ := strings.Cut(targetPath, "/")
 		if hostPart == "" {
-			s.Writer.Errorf("missing host after /proxy/")
+			s.Errorf("missing host after /proxy/")
 			http.Error(w, "missing host after /proxy/", http.StatusBadRequest)
 			return
 		}
@@ -115,7 +119,7 @@ func (s *Server) handleProxyFunc() http.HandlerFunc {
 		rawTarget := "https://" + hostPart
 		targetURL, err := url.Parse(rawTarget)
 		if err != nil || targetURL.Host == "" {
-			s.Writer.Errorf("invalid target host: %s\n", hostPart)
+			s.Errorf("invalid target host: %s\n", hostPart)
 			http.Error(w, "invalid target host: "+hostPart, http.StatusBadRequest)
 			return
 		}
@@ -151,8 +155,8 @@ func (s *Server) proxyErrorHandlerFunc(targetURL *url.URL) func(http.ResponseWri
 		if errors.As(err, &nErr) && nErr.Timeout() {
 			status = http.StatusGatewayTimeout
 		}
-		s.Writer.Errorf("Proxy error for https://%s%s; %v\n", targetURL.Host, req.URL.Path, err)
-		s.Logger.Error("Proxy error",
+		s.Errorf("Proxy error for https://%s%s; %v\n", targetURL.Host, req.URL.Path, err)
+		s.Error("Proxy error",
 			"target_host", targetURL.Host,
 			"url_path", req.URL.Path,
 			"error", err,
@@ -179,7 +183,7 @@ func (s *Server) proxyDirectorFunc(priorDirector func(*http.Request), proxy *htt
 		// Host header to upstream (avoid surprises)
 		out.Host = targetURL.Host
 
-		s.Writer.Printf("Proxying %s to %s\n", in.URL.Path, targetURL.Host)
+		s.Printf("Proxying %s to %s\n", in.URL.Path, targetURL.Host)
 
 		// Forward the client IP chain
 		out.Header.Set("X-Forwarded-Host", in.Host)

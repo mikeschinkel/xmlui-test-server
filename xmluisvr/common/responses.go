@@ -1,8 +1,8 @@
 package common
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"log"
 	"net/http"
 
@@ -18,13 +18,15 @@ func SendErrorResponse(w http.ResponseWriter, message string, statusCode int) {
 // Send JSON response with the given status code
 func maybeEchoResponse(r *http.Request, responseJSON []byte, statusCode int, verbose bool) {
 	var err error
-	var prettyJSON bytes.Buffer
+	var prettyJSON jsontext.Value
 
 	// TODO Get Verbose from global Options
 	if !verbose {
 		goto end
 	}
-	err = json.Indent(&prettyJSON, responseJSON, "", "  ")
+
+	prettyJSON = responseJSON
+	err = prettyJSON.Indent(jsontext.WithIndent("  "))
 	if err != nil {
 		cliutil.Errorf("Error prettifying JSON for logging: %v", err)
 		cliutil.Errorf("Raw response: %s", string(responseJSON))
@@ -43,7 +45,7 @@ func SendJSONResponse(w http.ResponseWriter, r *http.Request, data any, statusCo
 	w.WriteHeader(statusCode)
 
 	// Generate JSON response
-	responseJSON, err := json.Marshal(data)
+	responseJSON, err := jsonv2.Marshal(data)
 	if err != nil {
 		log.Printf("Error encoding JSON response: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

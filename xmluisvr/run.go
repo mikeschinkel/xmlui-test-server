@@ -64,6 +64,7 @@ func Run(ctx Context, args *RunArgs) (err error) {
 
 	server.showConfig()
 
+	server.V2().InfoPrint("Starting server")
 	err = server.ListenAndServe(ctx)
 	if err != nil {
 		err = errors.Join(ErrServerError, err)

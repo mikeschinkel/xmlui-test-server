@@ -1,7 +1,8 @@
 package fsutil
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,13 +16,13 @@ func WriteJSONFile(file string, value any, filePerms, dirPerms os.FileMode) (err
 		goto end
 	}
 
-	bytes, err = json.MarshalIndent(value, "", "\t")
+	bytes, err = jsonv2.Marshal(value, jsontext.WithIndent("\t"))
 	if err != nil {
 		err = fmt.Errorf("failed to marshal value of type '%T' to json", value)
 		goto end
 	}
 
-	err = os.WriteFile(file, []byte(bytes), filePerms)
+	err = os.WriteFile(file, bytes, filePerms)
 	if err != nil {
 		err = fmt.Errorf("failed to write test file; %s", file)
 		goto end

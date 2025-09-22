@@ -9,12 +9,12 @@ type DatabaseConfig interface {
 	DatabaseType() DatabaseType
 	ConnectString() string
 	Port() int
-	SchemaQueries() []string
-	SetSchemaQueries([]string)
+	BootstrapQueries() []string
+	SetBootstrapQueries([]string)
 	OnOpenQueries() []string
 	SourceFile() string
 	DBExtensions() []DBExtensionConfig
-	Normalize(sourceFile string) error // TODO MAYBE Change to accept an any parameter
+	Normalize(sourceFile string) // TODO MAYBE Change to accept an any parameter
 }
 
 type DBExtensionConfig interface {

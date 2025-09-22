@@ -4,27 +4,26 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/fsutil"
 )
 
 type BaseDatabase struct {
 	*sql.DB
-	dbType        DatabaseType
-	conn          string
-	Writer        CLIWriter
-	Logger        *slog.Logger
-	parent        Database
-	SchemaQueries *MultipartQuery
-	OnOpenQueries *MultipartQuery
-	extensions    []DBExtension
-	sourceFile    common.Filepath
-	options       *common.Options
-	AccessMode    AccessMode
-	Initialized   bool
+	cliutil.WriterLogger
+	dbType           DatabaseType
+	conn             string
+	parent           Database
+	BootstrapQueries *MultipartQuery
+	OnOpenQueries    *MultipartQuery
+	extensions       []DBExtension
+	sourceFile       common.Filepath
+	options          *common.Options
+	AccessMode       AccessMode
+	Initialized      bool
 }
 
 func NewBaseDatabase(parent Database, args DatabaseArgs) *BaseDatabase {
@@ -32,17 +31,16 @@ func NewBaseDatabase(parent Database, args DatabaseArgs) *BaseDatabase {
 		args.AccessMode = ReadWriteMode
 	}
 	return &BaseDatabase{
-		parent:        parent,
-		dbType:        args.DatabaseType,
-		conn:          args.ConnectString,
-		SchemaQueries: args.SchemaQueries,
-		OnOpenQueries: args.OnOpenQueries,
-		extensions:    args.Extensions,
-		options:       args.Options,
-		AccessMode:    args.AccessMode,
-		sourceFile:    args.SourceFile,
-		Writer:        args.CLIWriter,
-		Logger:        args.Logger,
+		parent:           parent,
+		dbType:           args.DatabaseType,
+		conn:             args.ConnectString,
+		BootstrapQueries: args.BootstrapQueries,
+		OnOpenQueries:    args.OnOpenQueries,
+		extensions:       args.Extensions,
+		options:          args.Options,
+		AccessMode:       args.AccessMode,
+		sourceFile:       args.SourceFile,
+		WriterLogger:     cliutil.NewWriterLogger(args.CLIWriter, args.Logger),
 	}
 }
 

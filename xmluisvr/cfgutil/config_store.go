@@ -1,7 +1,8 @@
 package cfgutil
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -22,7 +23,7 @@ const ConfigBaseDirName = ".config"
 type ConfigStore interface {
 	Load() ([]byte, error)
 	Save([]byte) error
-	LoadJSON(data any) error
+	LoadJSON(data any, opts *LoadJSONOpts) error
 	SaveJSON(data any) error
 	Exists() bool
 	GetFilepath() (string, error)
@@ -186,7 +187,8 @@ end:
 func (s *configStore) SaveJSON(data any) (err error) {
 	var jsonData []byte
 
-	jsonData, err = json.MarshalIndent(data, "", "  ")
+	// Use JSON v2 with pretty printing via jsontext.WithIndent
+	jsonData, err = jsonv2.Marshal(data, jsontext.WithIndent("  "))
 	if err != nil {
 		goto end
 	}
@@ -219,16 +221,28 @@ end:
 	return data, err
 }
 
-func (s *configStore) LoadJSON(data any) (err error) {
-	var jsonData []byte
+type LoadJSONOpts struct {
+	Options []jsonv2.Options
+}
 
+func (opts *LoadJSONOpts) AddOption(opt jsonv2.Options) {
+	opts.Options = append(opts.Options, opt)
+}
+
+func (s *configStore) LoadJSON(data any, opts *LoadJSONOpts) (err error) {
+	var jsonData []byte
 	jsonData, err = s.Load()
 	if err != nil {
 		err = errors.Join(ErrFailedToReadConfigFile, err)
 		goto end
 	}
 
-	err = json.Unmarshal(jsonData, data)
+	// Use JSON v2 with any provided options (including custom unmarshalers)
+	if opts == nil {
+		err = jsonv2.Unmarshal(jsonData, data)
+	} else {
+		err = jsonv2.Unmarshal(jsonData, data, opts.Options...)
+	}
 	if err != nil {
 		err = errors.Join(ErrFailedToUnmarshalConfigFile, err)
 		goto end

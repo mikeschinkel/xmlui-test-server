@@ -1,142 +1,37 @@
 package cfgldr
 
 import (
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
-	"fmt"
-	"regexp"
-	"strings"
+	"reflect"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
+// APIEndpointV2 is the main endpoint struct using JSONV2 inline to flatten the JSON
 type APIEndpointV2 struct {
-	Endpoint    string            `json:"endpoint"`
-	Description string            `json:"description"`
-	Query       string            `json:"query"`
-	QueryFile   string            `json:"query_file"`
-	Params      map[string]string `json:"params"`
-	Cardinality string            `json:"cardinality"`  // 'one' or 'many'
-	RowType     string            `json:"row_type"`     // 'int','real','string','json','columns'
-	ColumnTypes []string          `json:"column_types"` // used when row_type="columns"
-	Method      string            `json:"-"`
-	Path        string            `json:"-"`
+	apiEndpointBase `json:",inline"`
+	Params          APIParamsMapper `json:"params"`
+	paramsType      reflect.Type
 }
 
-var httpMethodsForRegexp = strings.Join(common.HTTPMethods, "|")
-
-var endpointRegexp = regexp.MustCompile(`^(` + httpMethodsForRegexp + `)\s*(.*)$`)
-
-func (ep *APIEndpointV2) Normalize() (err error) {
-	var errs []error
-
-	chkPath := true
-	chkMethod := true
-
-	if ep.Endpoint == "" {
-		errs = append(errs, ErrAPIEndpointMustNotBeEmpty)
-	} else {
-		matches := endpointRegexp.FindAllStringSubmatch(ep.Endpoint, 2)
-		switch {
-		case matches != nil:
-			ep.Method = matches[0][1]
-			ep.Path = matches[0][2]
-			chkMethod = false
-		default:
-			errs = append(errs, ErrInvalidAPIEndpoint)
-			chkPath = false
-		}
-	}
-	if chkMethod && ep.Endpoint != "" && ep.Method == "" {
-		errs = append(errs, ErrInvalidAPIEndpointMethod)
-	}
-	if chkPath {
-		_, err = common.ParseURLPath(ep.Path)
-		errs = append(errs, ErrInvalidAPIEndpointPath)
-	}
-	if ep.Description == "" {
-		ep.Description = ep.Endpoint
-	}
-	if ep.Query == "" && ep.QueryFile == "" {
-		errs = append(errs, ErrAPIEndpointHasNoQueryOrFile)
-	}
-	if ep.Cardinality == "" {
-		ep.Cardinality = string(common.DefaultCardinality)
-	}
-	var re common.Cardinality
-	re, err = common.ParseCardinality(ep.Cardinality)
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		ep.Cardinality = string(re)
-	}
-	if ep.RowType == "" {
-		ep.RowType = string(common.DefaultRowType)
-	}
-	var rt common.DataType
-	rt, err = common.ParseRowType(ep.RowType)
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		ep.RowType = string(rt)
-	}
-	if ep.ColumnTypes == nil {
-		ep.ColumnTypes = make([]string, 0)
-	}
-	errs = append(errs, ep.NormalizeParams())
-	errs = append(errs, ep.NormalizeColumnTypes())
-
-	if len(errs) > 0 {
-		err = errors.Join(append(errs, fmt.Errorf("endpoint=%s", ep.Endpoint))...)
-	}
-	return err
-}
-
-func (ep *APIEndpointV2) NormalizeColumnTypes() (err error) {
-	var errs []error
-	if ep.ColumnTypes == nil {
-		ep.ColumnTypes = make([]string, 0)
-	}
-	if len(ep.ColumnTypes) == 0 {
-		goto end
-	}
-	for i, ct := range ep.ColumnTypes {
-		value, err := common.ParseDataType(ct)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		ep.ColumnTypes[i] = string(value)
-	}
-end:
-	return errors.Join(errs...)
-}
-
-func (ep *APIEndpointV2) NormalizeParams() (err error) {
-	var errs []error
-	if ep.Params == nil {
-		ep.Params = make(map[string]string)
-	}
-	if len(ep.Params) == 0 {
-		goto end
-	}
-	for k, v := range ep.Params {
-		id, err := common.ParseIdentifier(k)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		// TODO Do values need to be validated?
-		ep.Params[string(id)] = v
-	}
-end:
-	return errors.Join(errs...)
+// APIEndpointV2 is the main endpoint struct using JSONV2 inline to flatten the JSON
+type apiEndpointBase struct {
+	Endpoint    string   `json:"endpoint"`
+	Description string   `json:"description"`
+	Query       string   `json:"query"`
+	QueryFile   string   `json:"query_file"`
+	Cardinality string   `json:"cardinality"`  // 'one' or 'many'
+	RowType     string   `json:"row_type"`     // 'int', 'real','string','json','columns'
+	ColumnTypes []string `json:"column_types"` // used when row_type="columns"
 }
 
 type APIEndpointV2Args struct {
 	Description string
 	Query       string
 	QueryFile   string
-	Params      map[string]string
+	Params      APIParamsMapper
 	Cardinality string
 	RowType     string
 	ColumnTypes []string
@@ -144,19 +39,161 @@ type APIEndpointV2Args struct {
 
 func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
 	if args.Params == nil {
-		args.Params = make(map[string]string)
+		args.Params = APIParamsV1{}
 	}
 	if args.ColumnTypes == nil {
 		args.ColumnTypes = make([]string, 0)
 	}
 	return &APIEndpointV2{
-		Endpoint:    endpoint,
-		Description: args.Description,
-		Query:       args.Query,
-		QueryFile:   args.QueryFile,
-		Params:      args.Params,
-		Cardinality: args.Cardinality,
-		RowType:     args.RowType,
-		ColumnTypes: args.ColumnTypes,
+		apiEndpointBase: apiEndpointBase{
+			Endpoint:    endpoint,
+			Description: args.Description,
+			Query:       args.Query,
+			QueryFile:   args.QueryFile,
+			Cardinality: args.Cardinality,
+			RowType:     args.RowType,
+			ColumnTypes: args.ColumnTypes,
+		},
+		Params:     args.Params,
+		paramsType: reflect.TypeOf(([]APIParamV1)(nil)),
 	}
 }
+
+func (ep *APIEndpointV2) Normalize() {
+	if ep.Description == "" {
+		ep.Description = ep.Endpoint
+	}
+	if ep.Cardinality == "" {
+		ep.Cardinality = string(common.DefaultCardinality)
+	}
+	if ep.RowType == "" {
+		ep.RowType = string(common.DefaultRowType)
+	}
+	if ep.Params == nil {
+		ep.Params = APIParamsV1{}
+	}
+}
+
+func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
+	var isMap bool
+	var errs []error
+
+	// Create a temporary struct that matches RootConfigV1 but with DBConfig as RawMessage
+	var temp struct {
+		apiEndpointBase `json:",inline"`
+		Params          jsontext.Value `json:"params"`
+	}
+
+	var params []APIParamV1
+	var paramsMap APIParamsMap
+
+	err = jsonv2.Unmarshal(data, &temp)
+	if err != nil {
+		goto end
+	}
+
+	ep.apiEndpointBase = temp.apiEndpointBase
+
+	if []byte(temp.Params) == nil {
+		ep.Params = APIParamsV1{}
+		ep.paramsType = reflect.TypeOf(([]APIParamV1)(nil))
+		goto end
+	}
+
+	err = jsonv2.Unmarshal(temp.Params, &params)
+	if err != nil {
+		isMap = true
+		err = jsonv2.Unmarshal(temp.Params, &paramsMap)
+	}
+	if err != nil {
+		goto end
+	}
+	if !isMap {
+		ep.Params = APIParamsV1(params)
+		ep.paramsType = reflect.TypeOf(([]APIParamV1)(nil))
+		goto end
+	}
+	for name, spec := range paramsMap.Iterator() {
+		if name != "" && name[0] == '@' {
+			// Ignore comments
+			continue
+		}
+		param, err := ParseAPIParamV1(string(name), string(spec))
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		params = append(params, param)
+	}
+	ep.Params = APIParamsV1(params)
+	ep.paramsType = reflect.TypeOf((*APIParamsMap)(nil))
+	err = errors.Join(errs...)
+
+end:
+	return err
+}
+
+//func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
+//	var isMap bool
+//	// Create a temporary struct that matches RootConfigV1 but with DBConfig as RawMessage
+//	var temp struct {
+//		Endpoint    string          `json:"endpoint"`
+//		Description string          `json:"description"`
+//		Query       string          `json:"query"`
+//		QueryFile   string          `json:"query_file"`
+//		Params      json.RawMessage `json:"params"`
+//		Cardinality string          `json:"cardinality"`  // 'one' or 'many'
+//		RowType     string          `json:"row_type"`     // 'int', 'real','string','json','columns'
+//		ColumnTypes []string        `json:"column_types"` // used when row_type="columns"
+//	}
+//
+//	var params []APIParamV1
+//	var paramsMapInfo struct {
+//		Params apiParams `json:"params"`
+//	}
+//
+//	err = jsonv2.Unmarshal(data, &temp)
+//	if err != nil {
+//		goto end
+//	}
+//
+//	ep.Endpoint = temp.Endpoint
+//	ep.Description = temp.Description
+//	ep.Query = temp.Query
+//	ep.QueryFile = temp.QueryFile
+//	ep.Cardinality = temp.Cardinality
+//	ep.RowType = temp.RowType
+//	ep.ColumnTypes = temp.ColumnTypes
+//
+//	if temp.Params == nil {
+//		ep.Params = APIParamsV1{}
+//		goto end
+//	}
+//
+//	err = jsonv2.Unmarshal(temp.Params, &params)
+//	if err != nil {
+//		isMap = true
+//		err = jsonv2.Unmarshal(temp.Params, &paramsMapInfo)
+//	}
+//	if err != nil {
+//		goto end
+//	}
+//	if !isMap {
+//		ep.Params = APIParamsV1(params)
+//		goto end
+//	}
+//
+//	for name, details := range paramsMapInfo.Params {
+//		typ, cs, found := strings.Cut(string(details), ":")
+//		if !found {
+//			typ = string(details)
+//		}
+//		params = append(params,
+//			NewAPIParamV1WithConstraints(string(name), typ, cs),
+//		)
+//	}
+//	ep.Params = APIParamsV1(params)
+//
+//end:
+//	return err
+//}

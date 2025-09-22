@@ -3,30 +3,29 @@ package apipkg
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 type API struct {
-	Name        string
-	Webroot     common.Filepath
-	SourceFile  common.Filepath // Source filepath where the API file is defined
-	BasePath    common.URLPath
-	Endpoints   []*Endpoint
-	Verbose     bool
-	CLIWriter   cliutil.Writer
-	Logger      *slog.Logger
-	pathRegexps map[common.URLPath]*regexp.Regexp
+	Name       string
+	Webroot    common.Filepath
+	SourceFile common.Filepath // Source filepath where the API file is defined
+	BasePath   common.URLPath
+	Endpoints  []*Endpoint
+	Verbose    bool
+	cliutil.WriterLogger
+	Router      *pathvars.Router
 	initialized bool
 }
 
@@ -90,15 +89,14 @@ end:
 
 func NewAPI(args APIArgs) (api *API) {
 	return &API{
-		Name:        args.Name,
-		Webroot:     args.Webroot,
-		SourceFile:  args.SourceFile,
-		BasePath:    args.BasePath,
-		Endpoints:   args.Endpoints,
-		Verbose:     args.Verbose,
-		CLIWriter:   args.CLIWriter,
-		Logger:      args.Logger,
-		pathRegexps: make(map[common.URLPath]*regexp.Regexp),
+		Name:         args.Name,
+		Webroot:      args.Webroot,
+		SourceFile:   args.SourceFile,
+		BasePath:     args.BasePath,
+		Endpoints:    args.Endpoints,
+		Verbose:      args.Verbose,
+		Router:       pathvars.NewRouter(),
+		WriterLogger: cliutil.NewWriterLogger(args.CLIWriter, args.Logger),
 	}
 }
 
@@ -109,48 +107,48 @@ func (api *API) Initialize(_ context.Context) (err error) {
 	if api.initialized {
 		goto end
 	}
-	err = api.compileEndpoints()
+	err = api.initializeRouter()
 	api.initialized = true
 end:
 	return err
 }
 
 // Find the matching endpoint for a request path
-func (api *API) compileEndpoints() error {
+func (api *API) initializeRouter() (err error) {
 	var errs []error
 	for _, ep := range api.Endpoints {
-		re, err := common.CompileURLPathToRegexp(ep.Endpoint)
-		errs = append(errs, err)
-		api.pathRegexps[ep.Endpoint] = re
+		err = api.Router.AddRoute(pathvars.PathSpec(ep.path), ep.PathVarsParameters())
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
-	return errors.Join(errs...)
+	if len(errs) != 0 {
+		err = errors.Join(errs...)
+	}
+	if err == nil {
+		err = api.Router.Compile()
+	}
+	return err
 }
 
 type qpArgs struct {
-	pathParams map[common.Identifier]string
-	urlParams  map[common.Identifier]string
-	bodyJSON   map[common.Identifier]any
+	params   map[common.Identifier]string
+	bodyJSON map[common.Identifier]any
 }
 
 // Extract query parameters from database query
 func extractQueryParams(endpoint *Endpoint, args qpArgs) (queryParams []any) {
 	var query string
-	for paramName := range endpoint.Params {
-		colonName := string(":" + paramName)
+	for _, param := range endpoint.Params {
+		colonName := fmt.Sprintf(":%s", param.Name)
 		// Check path params first, then query params, then body params
-		if value, ok := args.pathParams[paramName]; ok {
+		if value, ok := args.params[param.Name]; ok {
 			queryParams = append(queryParams, value)
 			query = strings.Replace(query, colonName, "?", 1)
 			continue
 		}
 
-		if value, ok := args.urlParams[paramName]; ok {
-			queryParams = append(queryParams, value)
-			query = strings.Replace(query, colonName, "?", 1)
-			continue
-		}
-
-		value, ok := args.bodyJSON[paramName]
+		value, ok := args.bodyJSON[param.Name]
 		if ok {
 			queryParams = append(queryParams, value)
 			query = strings.Replace(query, colonName, "?", 1)
@@ -163,76 +161,6 @@ func extractQueryParams(endpoint *Endpoint, args qpArgs) (queryParams []any) {
 
 	}
 	return queryParams
-}
-
-// Find the matching endpoint for a request path
-func (api *API) findMatchingEndpoint(requestPath common.URLPath) (endpoint *Endpoint, params map[common.Identifier]string) {
-
-	rp := string(requestPath)
-	// Strip base path if present
-	basePath := string(api.BasePath)
-	if basePath != "" && strings.HasPrefix(rp, basePath) {
-		rp = strings.TrimPrefix(rp, basePath)
-		if rp == "" {
-			rp = "/"
-		}
-	}
-
-	// Normalize the path by removing trailing slashes
-	normalizedPath := strings.TrimSuffix(rp, "/")
-	if normalizedPath == "" {
-		normalizedPath = "/"
-	}
-
-	// First try exact match with normalized path
-	for _, ep := range api.Endpoints {
-		re, exists := api.pathRegexps[ep.Endpoint]
-		if !exists {
-			// This shouldn't happen as we precompile all regexps
-			cliutil.Printf("Warning: No regexp for path %s", ep.Endpoint)
-			logger.Warn("No regexp for endpoint path", "endpoint_path", ep.Endpoint)
-			continue
-		}
-
-		if !re.MatchString(normalizedPath) {
-			continue
-		}
-		endpoint = ep
-		params = extractPathParams(common.URLPath(normalizedPath), ep.Endpoint, re)
-		goto end
-	}
-
-	// If we reach here, try matching with the original path as a fallback
-	if normalizedPath != rp {
-		for _, ep := range api.Endpoints {
-			re, exists := api.pathRegexps[ep.Endpoint]
-			if !exists {
-				continue
-			}
-
-			if !re.MatchString(rp) {
-				continue
-			}
-
-			endpoint = ep
-			params = extractPathParams(common.URLPath(rp), ep.Endpoint, re)
-			goto end
-		}
-	}
-end:
-	return endpoint, params
-}
-
-// Extract url parameters from request URL
-func extractURLParams(r *http.Request) map[common.Identifier]string {
-	urlParams := make(map[common.Identifier]string)
-	for key, values := range r.URL.Query() {
-		if len(values) == 0 {
-			continue
-		}
-		urlParams[common.Identifier(key)] = values[0]
-	}
-	return urlParams
 }
 
 // Extract JSON body parameters from request
@@ -252,7 +180,7 @@ func extractBodyJSON(r *http.Request) (params map[common.Identifier]any, err err
 	}
 
 	if len(jsonBytes) > 0 {
-		err = json.Unmarshal(jsonBytes, &params)
+		err = jsonv2.Unmarshal(jsonBytes, &params)
 		if err != nil {
 			goto end
 		}
@@ -263,34 +191,4 @@ func extractBodyJSON(r *http.Request) (params map[common.Identifier]any, err err
 
 end:
 	return params, err
-}
-
-// Extract path parameters from a URL based on the endpoint path template
-// Example: extractPathParams("/clients/123", "/clients/:id") -> {"id": "123"}
-func extractPathParams(requestPath, endpointPath common.URLPath, re *regexp.Regexp) map[common.Identifier]string {
-	params := make(map[common.Identifier]string)
-
-	// Extract param names from the path template
-	paramNames := make([]string, 0)
-	pathParts := strings.Split(string(endpointPath), "/")
-	for _, part := range pathParts {
-		if strings.HasPrefix(part, ":") {
-			paramNames = append(paramNames, part[1:])
-		}
-	}
-
-	// Extract values using regexp
-	matches := re.FindStringSubmatch(string(requestPath))
-	if len(matches) <= 1 {
-		goto end
-	}
-	// First match is the whole string, subsequent matches are capture groups
-	for i, name := range paramNames {
-		if i+1 >= len(matches) {
-			continue
-		}
-		params[common.Identifier(name)] = matches[i+1]
-	}
-end:
-	return params
 }

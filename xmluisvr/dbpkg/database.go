@@ -45,18 +45,18 @@ type Database interface {
 }
 
 type DatabaseArgs struct {
-	DatabaseType  DatabaseType
-	ConnectString string
-	Port          int
-	Extensions    []DBExtension
-	SchemaQueries *MultipartQuery
-	OnOpenQueries *MultipartQuery
-	Options       *common.Options
-	AccessMode    AccessMode
-	SourceFile    common.Filepath
-	CLIWriter     CLIWriter
-	Logger        *slog.Logger
-	Config        cfgldr.DatabaseConfig
+	DatabaseType     DatabaseType
+	ConnectString    string
+	Port             int
+	Extensions       []DBExtension
+	BootstrapQueries *MultipartQuery
+	OnOpenQueries    *MultipartQuery
+	Options          *common.Options
+	AccessMode       AccessMode
+	SourceFile       common.Filepath
+	CLIWriter        CLIWriter
+	Logger           *slog.Logger
+	Config           cfgldr.DatabaseConfig
 }
 
 type ParseQueriesArgs struct {
@@ -121,7 +121,7 @@ type ParseDatabaseArgs struct {
 func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArgs) (db Database, err error) {
 	var dt DatabaseType
 	var exts []DBExtension
-	var schemaQueries, onOpenQueries *MultipartQuery
+	var bootstrapQueries, onOpenQueries *MultipartQuery
 	var sourceFile common.Filepath
 
 	dt, err = ParseDatabaseType(ctx, cfg.ConnectString())
@@ -145,9 +145,9 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 		goto end
 	}
 
-	schemaQueries, err = ParseQueries(cfg.SchemaQueries(), ParseQueriesArgs{
+	bootstrapQueries, err = ParseQueries(cfg.BootstrapQueries(), ParseQueriesArgs{
 		Database:     db,
-		BaseFilename: "schema",
+		BaseFilename: "bootstrap",
 		ConfigSource: sourceFile,
 	})
 	if err != nil {
@@ -164,18 +164,18 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 	}
 
 	db, err = db.CreateNew(DatabaseArgs{
-		DatabaseType:  dt,
-		ConnectString: cfg.ConnectString(),
-		Port:          cfg.Port(),
-		Extensions:    exts,
-		SchemaQueries: schemaQueries,
-		OnOpenQueries: onOpenQueries,
-		AccessMode:    0,
-		SourceFile:    sourceFile,
-		Config:        cfg,
-		Options:       args.Options,
-		CLIWriter:     args.Writer,
-		Logger:        args.Logger,
+		DatabaseType:     dt,
+		ConnectString:    cfg.ConnectString(),
+		Port:             cfg.Port(),
+		Extensions:       exts,
+		BootstrapQueries: bootstrapQueries,
+		OnOpenQueries:    onOpenQueries,
+		AccessMode:       0,
+		SourceFile:       sourceFile,
+		Config:           cfg,
+		Options:          args.Options,
+		CLIWriter:        args.Writer,
+		Logger:           args.Logger,
 	})
 end:
 	return db, err

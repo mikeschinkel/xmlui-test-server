@@ -39,7 +39,10 @@ func (s *SQLite3) allowVTable(extName string) (allow bool) {
 	for _, ext := range s.Extensions() {
 		sExt, ok := ext.(*Extension)
 		if !ok {
-			s.Logger.Warn("Extension %s of type %t cannot type assert to %T", ext.Name(), ext, (*Extension)(nil))
+			s.WarnError(dbpkg.ErrFailedToTypeAssertToExtensionType.Error(),
+				"name", ext.Name(),
+				"type", fmt.Sprintf("%T", ext),
+				"target_type", fmt.Sprintf("%T", (*Extension)(nil)))
 			continue
 		}
 		if sExt.Name() != extName {
@@ -176,8 +179,7 @@ func (s *SQLite3) String() string {
 func (s *SQLite3) Open(ctx context.Context) (err error) {
 	var cancel context.CancelFunc
 
-	// Default to SQLite
-	s.Logger.Info("Opening SQLite DB", "db_file", s.HomeRelativeFile())
+	s.V2().InfoPrint("Opening SQLite database", "database_file", s.HomeRelativeFile())
 
 	sql.Register("sqlite3_ext", &sqlite3.SQLiteDriver{
 		ConnectHook: s.ConnectHook(),
@@ -193,29 +195,49 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 	// SQLite specific configurations Limiting to 1 connection means we don't have to
 	// manage concurrent database connections, and since this is intended as a local
 	// dev server and not a production server that should be more than sufficient.
+	s.V3().Printf("Setting MaxOpenConnections to 1\n")
 	s.DB.SetMaxOpenConns(1)
+	s.V3().Printf("Setting MaxIdleConnections to 1\n")
 	s.DB.SetMaxIdleConns(1)
 
 	// Sanity ping with deadline
+	s.V3().Printf("Setting Timeout to 3 seconds\n")
 	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
+	s.V3().Printf("Pinging database to confirm connection\n")
 	err = s.DB.PingContext(ctx)
 	if err != nil {
 		goto end
 	}
+	s.V3().Printf("Connection confirmed\n")
 
-	// Run initialization SQL, if exists
-	if s.SchemaQueries.HasQueries() {
-		_, err = s.DB.Exec(string(s.SchemaQueries.Source()))
-	}
+	err = s.execQueriesIfExists("bootstrap", s.BootstrapQueries)
 	if err != nil {
-		// TODO: Do we want to fail to run the server or allow failed initialization SQL?
-		s.Writer.Errorf("Failed to run initialization query; %v; %v", err, s.SchemaQueries)
-		s.Logger.Warn("Failed to run initialization query", "error", err, "query", s.SchemaQueries)
 		goto end
 	}
 
+	err = s.execQueriesIfExists("on_open", s.OnOpenQueries)
+	if err != nil {
+		goto end
+	}
+
+	s.V2().InfoPrint("Database opened")
+
 end:
+	return err
+}
+
+func (s *SQLite3) execQueriesIfExists(qt string, q *dbpkg.MultipartQuery) (err error) {
+	if q.HasQueries() {
+		s.V2().InfoPrint("Running queries", "query_type", qt)
+		// TODO Split out individual queries and run the separately to allow for more
+		//      targeted error messages.
+		_, err = s.DB.Exec(string(q.Source()))
+	}
+	if err != nil {
+		// TODO: Do we want to fail to run the server or allow failed initialization SQL?
+		s.WarnError("Failed to run query", "type", qt, "error", err, "query", q)
+	}
 	return err
 }
 
@@ -228,8 +250,7 @@ func (s *SQLite3) ConnectHook() func(*sqlite3.SQLiteConn) error {
 			pragma := fmt.Sprintf("PRAGMA %s=%s", p, pv)
 			_, err := conn.Exec(pragma, nil)
 			if err != nil {
-				s.Logger.Warn("Failed to execute SQLite3 PRAGMA", "pragma", p, "value", pv, "error", err)
-				s.Writer.Errorf("could not execute SQLite3 PRAGMA %s=%v; %v", p, pv, err)
+				s.WarnError("Failed to execute SQLite3 PRAGMA", "pragma", p, "value", pv, "error", err)
 			}
 		}
 
@@ -238,8 +259,7 @@ func (s *SQLite3) ConnectHook() func(*sqlite3.SQLiteConn) error {
 		_, err = conn.Exec(`ATTACH `+`DATABASE ':memory:' AS mem"`, nil)
 		if err != nil {
 			msg := "Failed to attach memory database 'mem'."
-			s.Writer.Errorf(msg)
-			s.Logger.Warn(msg, "error", err)
+			s.WarnError(msg, "error", err)
 			// TODO: Do we want to fail to run the server or allow without extension?
 		}
 
@@ -259,8 +279,7 @@ func (s *SQLite3) ConnectHook() func(*sqlite3.SQLiteConn) error {
 		// If extension is provided, try to load it
 		err = s.LoadExtensions()
 		if err != nil {
-			s.Logger.Warn("Failed to load SQLite3 extensions", "error", err)
-			s.Writer.Errorf("Could load SQLite3 extensions; %v", err)
+			s.WarnError("Failed to load SQLite3 extensions", "error", err)
 			// TODO Should we fail here, or continue on?
 		}
 
@@ -284,7 +303,7 @@ func (s *SQLite3) authorizer() authorizerFunc {
 
 		// Test the cases where mode+ops are the only criteria
 		if s.AccessMode.IsRecognizedOp(op) {
-			s.Logger.Warn("Unrecognized SQLite operation", "op", op)
+			s.WarnError("Unrecognized SQLite operation", "op", op)
 		}
 
 		// Test the cases where mode+ops are the only criteria
@@ -317,29 +336,27 @@ func (s *SQLite3) LoadExtension(dbExt dbpkg.DBExtension) (err error) {
 	// Get the absolute path to the extension file
 	absPath, err = filepath.Abs(filePath)
 	if err != nil {
-		s.Logger.Warn("Failed to get absolute path for extension", "error", err)
+		s.WarnError("Failed to get absolute path for extension", "error", err)
 		absPath = filepath.Join("./", filePath)
 	}
 
 	// Ensure file has execute permissions (required for Linux)
 	err = os.Chmod(absPath, 0755)
 	if err != nil {
-		s.Logger.Warn("Failed to set execute permissions on extension", "error", err)
+		s.WarnError("Failed to set execute permissions on extension", "error", err)
 	}
 
 	// Log extension loading attempt
-	s.Writer.Printf("Trying to load extension: %s\n", absPath)
-	s.Logger.Info("Loading extension", "extension", absPath)
+	s.InfoPrint("Loading extension", "extension", absPath)
 
 	// TODO: This is vulnerable to SQL injection; we should harden it
 	loadSQL = fmt.Sprintf("SELECT load_extension('%s')", strings.ReplaceAll(absPath, "'", "''"))
 	_, err = s.DB.Exec(loadSQL)
 	if err != nil {
-		s.Logger.Warn("Extension loading failed with", "error", err)
-		s.Writer.Errorf("Extension failed to loaded\n")
+		s.WarnError("Extension loading failed with", "error", err)
 		goto end
 	}
-	s.Writer.Printf("Extension loaded successfully\n")
+	s.V2().Printf("Extension loaded successfully\n")
 
 end:
 	return err

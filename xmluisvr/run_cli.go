@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
@@ -19,10 +20,17 @@ func RunCLI() {
 	var err error
 	var logger *slog.Logger
 	var config *cfgldr.RootConfigV1
+	var options *cfgldr.Options
 
-	options := cfgldr.GetOptions()
-	writer := cliutil.NewWriter()
-	writer.SetQuiet(options.Quiet)
+	options, err = cfgldr.GetOptions()
+	if err != nil {
+		fprintf(os.Stderr, "Invalid option(s): %v\n", strings.Replace(err.Error(), "\n", "; ", -1))
+		os.Exit(4)
+	}
+	writer := cliutil.NewWriter(cliutil.WriterArgs{
+		Quiet:     options.Quiet,
+		Verbosity: options.Verbosity,
+	})
 	logger, err = createFileLogger(logFile)
 	if err != nil {
 		writer.Errorf("Failed to create and/or open log file %s: %v\n", logFile, err)
