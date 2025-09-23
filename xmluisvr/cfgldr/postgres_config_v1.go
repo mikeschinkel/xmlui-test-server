@@ -7,6 +7,11 @@ type PostgresConfig struct {
 	URL string `json:"pg_url"`
 }
 
+func (c *PostgresConfig) Clone() DatabaseConfig {
+	newPG := *c
+	return &newPG
+}
+
 func (c *PostgresConfig) SetBootstrapQueries(strings []string) {
 	//TODO implement me
 	panic("implement me")

@@ -123,6 +123,8 @@ func (c *RootConfigV1) UnmarshalJSON(data []byte) (err error) {
 		goto end
 	}
 
+	dbc = dbc.Clone()
+
 	err = jsonv2.Unmarshal(temp.Database, &dbc)
 	if err != nil {
 		goto end

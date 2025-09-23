@@ -5,7 +5,8 @@ import (
 )
 
 type DatabaseConfig interface {
-	DatabaseConfig() // Marker
+	DatabaseConfig()       // Marker
+	Clone() DatabaseConfig // Marker
 	DatabaseType() DatabaseType
 	ConnectString() string
 	Port() int

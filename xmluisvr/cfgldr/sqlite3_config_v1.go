@@ -37,6 +37,19 @@ type SQLite3ConfigV1 struct {
 	sourceFile     string
 }
 
+func (c *SQLite3ConfigV1) Clone() DatabaseConfig {
+	newCfg := *c
+
+	newCfg.OnOpenSQL = cloneSlice(c.OnOpenSQL)
+	newCfg.bootstrapSQL = cloneSlice(c.bootstrapSQL)
+	newCfg.Extensions = make([]*SQLite3ExtensionConfigV1, len(c.Extensions))
+	for i, ext := range c.Extensions {
+		newCfg.Extensions[i] = ext.Clone()
+	}
+
+	return &newCfg
+}
+
 func (c *SQLite3ConfigV1) SetBootstrapQueries(queries []string) {
 	c.bootstrapSQL = queries
 }
@@ -241,4 +254,15 @@ func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile string) {
 	}
 end:
 	return
+}
+
+func (c *SQLite3ExtensionConfigV1) Clone() (ext *SQLite3ExtensionConfigV1) {
+	ext = &SQLite3ExtensionConfigV1{}
+	*ext = *c
+	ext.DownloadURLs = cloneSlice(c.DownloadURLs)
+	ext.DependsOn = cloneSlice(c.DependsOn)
+	ext.OnLoadSQL = cloneSlice(c.OnLoadSQL)
+	ext.EnvVars = cloneMap(c.EnvVars)
+	ext.SHA256s = cloneMap(c.SHA256s)
+	return ext
 }
