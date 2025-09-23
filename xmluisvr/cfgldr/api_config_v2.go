@@ -92,9 +92,6 @@ func (c *APIConfigV2) Normalize(sourceFile string) {
 	if c.Webroot == "" {
 		c.Webroot = DefaultWebroot
 	}
-	if c.Webroot == "" {
-		c.Webroot = DefaultWebroot
-	}
 	c.normalizeEndpoints()
 }
 
