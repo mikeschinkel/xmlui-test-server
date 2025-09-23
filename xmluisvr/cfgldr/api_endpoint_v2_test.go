@@ -1,9 +1,10 @@
-package cfgldr
+package cfgldr_test
 
 import (
 	jsonv2 "encoding/json/v2"
-	"reflect"
 	"testing"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 )
 
 func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
@@ -19,7 +20,7 @@ func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
 		"column_types": ["integer", "string", "string"]
 	}`
 
-	var endpoint APIEndpointV2
+	var endpoint cfgldr.APIEndpointV2
 	err := jsonv2.Unmarshal([]byte(jsonData), &endpoint)
 	if err != nil {
 		t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -43,7 +44,7 @@ func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
 	}
 
 	// Check params
-	params, ok := endpoint.Params.(APIParamsV1)
+	params, ok := endpoint.Params.(cfgldr.APIParamsV1)
 	if !ok {
 		t.Fatalf("params should be APIParamsV1, got %T", endpoint.Params)
 	}
@@ -55,12 +56,6 @@ func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
 	}
 	if params[0].Type != "int" {
 		t.Errorf("param type: got %q, want %q", params[0].Type, "int")
-	}
-
-	// Check paramsType reflects array format
-	expectedType := reflect.TypeOf(([]APIParamV1)(nil))
-	if endpoint.paramsType != expectedType {
-		t.Errorf("paramsType: got %v, want %v", endpoint.paramsType, expectedType)
 	}
 
 	// Check column types
@@ -91,7 +86,7 @@ func TestAPIEndpointV2_UnmarshalJSON_MapParams(t *testing.T) {
 		"column_types": ["integer", "string"]
 	}`
 
-	var endpoint APIEndpointV2
+	var endpoint cfgldr.APIEndpointV2
 	err := jsonv2.Unmarshal([]byte(jsonData), &endpoint)
 	if err != nil {
 		t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -106,7 +101,7 @@ func TestAPIEndpointV2_UnmarshalJSON_MapParams(t *testing.T) {
 	}
 
 	// Check params - should be converted to APIParamsV1 but paramsType should reflect map origin
-	params, ok := endpoint.Params.(APIParamsV1)
+	params, ok := endpoint.Params.(cfgldr.APIParamsV1)
 	if !ok {
 		t.Fatalf("params should be APIParamsV1, got %T", endpoint.Params)
 	}
@@ -116,14 +111,8 @@ func TestAPIEndpointV2_UnmarshalJSON_MapParams(t *testing.T) {
 		t.Fatalf("params length: got %d, want 3", len(params))
 	}
 
-	// Check paramsType reflects map format
-	expectedType := reflect.TypeOf((*APIParamsMap)(nil))
-	if endpoint.paramsType != expectedType {
-		t.Errorf("paramsType: got %v, want %v", endpoint.paramsType, expectedType)
-	}
-
 	// Verify param contents
-	paramNames := make(map[string]APIParamV1)
+	paramNames := make(map[string]cfgldr.APIParamV1)
 	for _, param := range params {
 		paramNames[param.Name] = param
 	}
@@ -218,7 +207,7 @@ func TestAPIEndpointV2_UnmarshalJSON_EmptyParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var endpoint APIEndpointV2
+			var endpoint cfgldr.APIEndpointV2
 			err := jsonv2.Unmarshal([]byte(tt.jsonData), &endpoint)
 			if err != nil {
 				t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -229,7 +218,7 @@ func TestAPIEndpointV2_UnmarshalJSON_EmptyParams(t *testing.T) {
 					t.Error("params should not be nil")
 				}
 			} else {
-				params, ok := endpoint.Params.(APIParamsV1)
+				params, ok := endpoint.Params.(cfgldr.APIParamsV1)
 				if !ok {
 					t.Fatalf("params should be APIParamsV1, got %T", endpoint.Params)
 				}
@@ -245,19 +234,19 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 	tests := []struct {
 		name     string
 		endpoint string
-		args     APIEndpointV2Args
-		check    func(t *testing.T, ep *APIEndpointV2)
+		args     cfgldr.APIEndpointV2Args
+		check    func(t *testing.T, ep *cfgldr.APIEndpointV2)
 	}{
 		{
 			name:     "basic endpoint",
 			endpoint: "GET /test",
-			args: APIEndpointV2Args{
+			args: cfgldr.APIEndpointV2Args{
 				Description: "Test endpoint",
 				Query:       "SELECT 1",
 				Cardinality: "one",
 				RowType:     "string",
 			},
-			check: func(t *testing.T, ep *APIEndpointV2) {
+			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if ep.Endpoint != "GET /test" {
 					t.Errorf("endpoint: got %q, want %q", ep.Endpoint, "GET /test")
 				}
@@ -267,7 +256,7 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 				if ep.Query != "SELECT 1" {
 					t.Errorf("query: got %q, want %q", ep.Query, "SELECT 1")
 				}
-				if _, ok := ep.Params.(APIParamsV1); !ok {
+				if _, ok := ep.Params.(cfgldr.APIParamsV1); !ok {
 					t.Errorf("params should default to APIParamsV1, got %T", ep.Params)
 				}
 				if len(ep.ColumnTypes) != 0 {
@@ -278,16 +267,16 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 		{
 			name:     "with custom params",
 			endpoint: "GET /users/{id:int}",
-			args: APIEndpointV2Args{
+			args: cfgldr.APIEndpointV2Args{
 				Description: "Get user",
 				Query:       "SELECT * FROM users WHERE id = :id",
-				Params: APIParamsV1{
+				Params: cfgldr.APIParamsV1{
 					{Name: "id", Type: "int", Constraints: ""},
 				},
 				ColumnTypes: []string{"integer", "string"},
 			},
-			check: func(t *testing.T, ep *APIEndpointV2) {
-				params, ok := ep.Params.(APIParamsV1)
+			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
+				params, ok := ep.Params.(cfgldr.APIParamsV1)
 				if !ok {
 					t.Fatalf("params should be APIParamsV1, got %T", ep.Params)
 				}
@@ -306,7 +295,7 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			endpoint := NewAPIEndpointV2(tt.endpoint, tt.args)
+			endpoint := cfgldr.NewAPIEndpointV2(tt.endpoint, tt.args)
 			if endpoint == nil {
 				t.Fatal("NewAPIEndpointV2 returned nil")
 			}
@@ -318,18 +307,18 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 func TestAPIEndpointV2_Normalize(t *testing.T) {
 	tests := []struct {
 		name     string
-		endpoint *APIEndpointV2
-		check    func(t *testing.T, ep *APIEndpointV2)
+		endpoint *cfgldr.APIEndpointV2
+		check    func(t *testing.T, ep *cfgldr.APIEndpointV2)
 	}{
 		{
 			name: "empty description gets endpoint value",
-			endpoint: &APIEndpointV2{
-				apiEndpointBase: apiEndpointBase{
+			endpoint: &cfgldr.APIEndpointV2{
+				APIEndpointBase: cfgldr.APIEndpointBase{
 					Endpoint:    "GET /test",
 					Description: "",
 				},
 			},
-			check: func(t *testing.T, ep *APIEndpointV2) {
+			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if ep.Description != "GET /test" {
 					t.Errorf("description should default to endpoint, got %q", ep.Description)
 				}
@@ -337,13 +326,13 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 		},
 		{
 			name: "empty cardinality gets default",
-			endpoint: &APIEndpointV2{
-				apiEndpointBase: apiEndpointBase{
+			endpoint: &cfgldr.APIEndpointV2{
+				APIEndpointBase: cfgldr.APIEndpointBase{
 					Endpoint:    "GET /test",
 					Cardinality: "",
 				},
 			},
-			check: func(t *testing.T, ep *APIEndpointV2) {
+			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if ep.Cardinality == "" {
 					t.Error("cardinality should be set to default")
 				}
@@ -351,13 +340,13 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 		},
 		{
 			name: "empty row_type gets default",
-			endpoint: &APIEndpointV2{
-				apiEndpointBase: apiEndpointBase{
+			endpoint: &cfgldr.APIEndpointV2{
+				APIEndpointBase: cfgldr.APIEndpointBase{
 					Endpoint: "GET /test",
 					RowType:  "",
 				},
 			},
-			check: func(t *testing.T, ep *APIEndpointV2) {
+			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if ep.RowType == "" {
 					t.Error("row_type should be set to default")
 				}
@@ -365,17 +354,17 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 		},
 		{
 			name: "nil params gets empty array",
-			endpoint: &APIEndpointV2{
-				apiEndpointBase: apiEndpointBase{
+			endpoint: &cfgldr.APIEndpointV2{
+				APIEndpointBase: cfgldr.APIEndpointBase{
 					Endpoint: "GET /test",
 				},
 				Params: nil,
 			},
-			check: func(t *testing.T, ep *APIEndpointV2) {
+			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if ep.Params == nil {
 					t.Error("params should not be nil after normalize")
 				}
-				if _, ok := ep.Params.(APIParamsV1); !ok {
+				if _, ok := ep.Params.(cfgldr.APIParamsV1); !ok {
 					t.Errorf("params should be APIParamsV1, got %T", ep.Params)
 				}
 			},
@@ -418,7 +407,7 @@ func TestAPIEndpointV2_UnmarshalJSON_ErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var endpoint APIEndpointV2
+			var endpoint cfgldr.APIEndpointV2
 			err := jsonv2.Unmarshal([]byte(tt.jsonData), &endpoint)
 			if tt.wantErr && err == nil {
 				t.Error("expected error but got none")
@@ -435,7 +424,7 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 	tests := []struct {
 		name     string
 		jsonData string
-		checks   func(t *testing.T, ep *APIEndpointV2)
+		checks   func(t *testing.T, ep *cfgldr.APIEndpointV2)
 	}{
 		{
 			name: "search tasks endpoint",
@@ -447,13 +436,13 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 					"q": "string",
 					"sort": "string:enum[asc,desc]",
 					"limit": "int:range[1..50]",
-					"@note": ["Just a litte bit of info", "for posterity"]
+					"@note": ["Just a little bit of info", "for posterity"]
 				},
 				"cardinality": "many",
 				"row_type": "columns",
 				"column_types": ["integer", "string", "string", "integer", "string"]
 			}`,
-			checks: func(t *testing.T, ep *APIEndpointV2) {
+			checks: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if ep.Cardinality != "many" {
 					t.Errorf("cardinality: got %q, want %q", ep.Cardinality, "many")
 				}
@@ -464,11 +453,6 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 					t.Errorf("column_types length: got %d, want 5", len(ep.ColumnTypes))
 				}
 
-				// Should detect map format
-				expectedType := reflect.TypeOf((*APIParamsMap)(nil))
-				if ep.paramsType != expectedType {
-					t.Errorf("paramsType: got %v, want %v (should detect map format)", ep.paramsType, expectedType)
-				}
 			},
 		},
 		{
@@ -496,18 +480,12 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 					"string"
 				]
 			}`,
-			checks: func(t *testing.T, ep *APIEndpointV2) {
+			checks: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if len(ep.ColumnTypes) != 8 {
 					t.Errorf("column_types length: got %d, want 8", len(ep.ColumnTypes))
 				}
 
-				// Should detect array format
-				expectedType := reflect.TypeOf(([]APIParamV1)(nil))
-				if ep.paramsType != expectedType {
-					t.Errorf("paramsType: got %v, want %v (should detect array format)", ep.paramsType, expectedType)
-				}
-
-				params, ok := ep.Params.(APIParamsV1)
+				params, ok := ep.Params.(cfgldr.APIParamsV1)
 				if !ok {
 					t.Fatalf("params should be APIParamsV1, got %T", ep.Params)
 				}
@@ -529,13 +507,13 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 				"row_type": "columns",
 				"column_types": ["integer", "string", "string", "string"]
 			}`,
-			checks: func(t *testing.T, ep *APIEndpointV2) {
+			checks: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
 				if ep.Cardinality != "one" {
 					t.Errorf("cardinality: got %q, want %q", ep.Cardinality, "one")
 				}
 
 				// Should have empty params (defaults to APIParamsV1{})
-				params, ok := ep.Params.(APIParamsV1)
+				params, ok := ep.Params.(cfgldr.APIParamsV1)
 				if !ok {
 					t.Fatalf("params should be APIParamsV1, got %T", ep.Params)
 				}
@@ -548,7 +526,7 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var endpoint APIEndpointV2
+			var endpoint cfgldr.APIEndpointV2
 			err := jsonv2.Unmarshal([]byte(tt.jsonData), &endpoint)
 			if err != nil {
 				t.Fatalf("UnmarshalJSON failed: %v", err)

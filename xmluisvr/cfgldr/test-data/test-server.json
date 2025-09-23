@@ -9,71 +9,19 @@
 		"api": {
 			"$schema": "https://schemas.xmlui.org/v2/test-server/api-schema.json",
 			"version": 2,
-			"name": "User-definable XMLUI Local Server API",
+			"name": "User-definable XMLUI Local Server APIConfig",
 			"base_path": "/api",
-			"webroot": "./webroot",
+			"webroot": ".",
 			"endpoints": [
-				{
-					"endpoint": "GET /tasks/search/{project_id:int}",
-					"description": "Search tasks within a given project (path param project_id + query-string param q)",
-					"query": "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id ASC;",
-					"params": {
-						"q": "string",
-						"sort": "string:enum[asc,desc]",
-						"limit": "int:range[1..50]",
-						"@note": ["Just a litte bit of info", "for posterity"]
-					},
-					"cardinality": "many",
-					"row_type": "columns",
-					"column_types": ["integer", "string", "string", "integer", "string"]
-				},
-				{
-					"endpoint": "GET /tasks/by-project/{project_name:string}",
-					"description": "Tasks for a project using project_name in the path and owner email as a query-string parameter",
-					"query": "SELECT t.id, t.title, t.status, t.priority, t.due_date, au.email AS assignee_email, au.name AS assignee_name, t.created_at FROM tasks t JOIN projects p ON p.id = t.project_id JOIN users ou ON ou.id = p.owner_id LEFT JOIN users au ON au.id = t.assignee_id WHERE ou.email = :email AND p.name = :project_name ORDER BY t.priority DESC, t.created_at ASC;",
-					"params": [
-						{
-							"name": "email",
-							"type": "string"
-						}
-					],
-					"cardinality": "many",
-					"row_type": "columns",
-					"column_types": [
-						"integer",
-						"string",
-						"string",
-						"integer",
-						"string?",
-						"string?",
-						"string?",
-						"string"
-					]
-				},
-				{
-					"endpoint": "GET /users/{id:int}",
-					"description": "Get a single user by numeric id (path parameter only)",
-					"query": "SELECT id, email, name, created_at FROM users WHERE id = :id;",
-					"cardinality": "one",
-					"row_type": "columns",
-					"column_types": ["integer", "string", "string", "string"]
-				},
 				{
 					"endpoint": "GET /hello",
 					"description": "Hello World Endpoint",
 					"query": "SELECT 'Hello World';",
-					"params": [],
+					"query_file": "",
 					"cardinality": "one",
 					"row_type": "string",
-					"column_types": []
-				},
-				{
-					"endpoint": "GET /projects/by-owner/{email:string}",
-					"description": "Projects owned by a given user (owner email as a path parameter)",
-					"query": "SELECT p.id, p.name, p.status, p.created_at FROM projects p WHERE p.owner_id = (SELECT id FROM users WHERE email = :email) ORDER BY p.created_at DESC;",
-					"cardinality": "many",
-					"row_type": "columns",
-					"column_types": ["integer", "string", "string", "string"]
+					"column_types": [],
+					"params": []
 				}
 			]
 		}
@@ -82,8 +30,12 @@
 		"$schema": "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json",
 		"version": 1,
 		"type": "sqlite3",
-		"filepath": "./dbroot/data.db",
-		"extensions": null,
-		"on_open_sql": ["PRAGMA foreign_keys = OFF;"]
+		"filepath": "./data.db",
+		"on_open_sql": [],
+		"busy_timeout": 0,
+		"journal_mode": "",
+		"synchronous": "",
+		"foreign_keys": "",
+		"wal_autocheckpoint": 0
 	}
 }

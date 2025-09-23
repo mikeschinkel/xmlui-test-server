@@ -1,27 +1,23 @@
-package cfgldr
+package cfgldr_test
 
 import (
 	"testing"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 )
 
 func TestOrderedMap_NewOrderedMap(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 	if om == nil {
-		t.Fatal("NewOrderedMap returned nil")
+		t.Fatal("cfgldr.NewOrderedMap returned nil")
 	}
-	if om.store == nil {
-		t.Error("store not initialized")
-	}
-	if om.keys == nil {
-		t.Error("keys not initialized")
-	}
-	if len(om.keys) != 0 {
-		t.Error("keys should be empty initially")
+	if om.Len() != 0 {
+		t.Error("map should be empty initially")
 	}
 }
 
 func TestOrderedMap_SetAndGet(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Test setting and getting values
 	om.Set("first", 1)
@@ -64,7 +60,7 @@ func TestOrderedMap_SetAndGet(t *testing.T) {
 }
 
 func TestOrderedMap_Delete(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Set up test data
 	om.Set("a", 1)
@@ -123,7 +119,7 @@ func TestOrderedMap_Delete(t *testing.T) {
 }
 
 func TestOrderedMap_Clear(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Set up test data
 	om.Set("a", 1)
@@ -134,11 +130,8 @@ func TestOrderedMap_Clear(t *testing.T) {
 	om.Clear()
 
 	// Verify empty
-	if len(om.keys) != 0 {
-		t.Errorf("keys length after clear = %d; want 0", len(om.keys))
-	}
-	if len(om.store) != 0 {
-		t.Errorf("store length after clear = %d; want 0", len(om.store))
+	if om.Len() != 0 {
+		t.Errorf("map length after clear = %d; want 0", om.Len())
 	}
 
 	// Verify Get returns false for previously existing keys
@@ -148,7 +141,7 @@ func TestOrderedMap_Clear(t *testing.T) {
 }
 
 func TestOrderedMap_Iterator(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Test empty iterator
 	count := 0
@@ -192,7 +185,7 @@ func TestOrderedMap_Iterator(t *testing.T) {
 }
 
 func TestOrderedMap_Keys(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Test empty
 	count := 0
@@ -228,7 +221,7 @@ func TestOrderedMap_Keys(t *testing.T) {
 }
 
 func TestOrderedMap_Values(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Test empty
 	count := 0
@@ -265,7 +258,7 @@ func TestOrderedMap_Values(t *testing.T) {
 }
 
 func TestOrderedMap_GetKeys(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Test empty
 	keys := om.GetKeys()
@@ -299,7 +292,7 @@ func TestOrderedMap_GetKeys(t *testing.T) {
 }
 
 func TestOrderedMap_GetValues(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Test empty
 	values := om.GetValues()
@@ -327,7 +320,7 @@ func TestOrderedMap_GetValues(t *testing.T) {
 }
 
 func TestOrderedMap_String(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Test empty
 	str := om.String()
@@ -353,7 +346,7 @@ func TestOrderedMap_String(t *testing.T) {
 }
 
 func TestOrderedMap_IteratorSnapshot(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := cfgldr.NewOrderedMap[string, int]()
 
 	// Set up initial data
 	om.Set("a", 1)

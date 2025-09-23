@@ -1,10 +1,12 @@
-package cfgldr
+package cfgldr_test
 
 import (
 	"encoding/json/jsontext"
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 )
 
 func TestAPIParamsMap_UnmarshalJSON_ValidCases(t *testing.T) {
@@ -76,7 +78,7 @@ func TestAPIParamsMap_UnmarshalJSON_ValidCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var pm APIParamsMap
+			var pm cfgldr.APIParamsMap
 			err := pm.UnmarshalJSON([]byte(tt.input))
 			if err != nil {
 				t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -84,7 +86,7 @@ func TestAPIParamsMap_UnmarshalJSON_ValidCases(t *testing.T) {
 
 			// Check values
 			for k, expectedV := range tt.expected {
-				if actualV, exists := pm.Get(APIParamsMapKey(k)); !exists {
+				if actualV, exists := pm.Get(cfgldr.APIParamsMapKey(k)); !exists {
 					t.Errorf("missing key %q", k)
 				} else if string(actualV) != expectedV {
 					t.Errorf("key %q: got %q, want %q", k, actualV, expectedV)
@@ -121,80 +123,80 @@ func TestAPIParamsMap_UnmarshalJSON_ErrorCases(t *testing.T) {
 		{
 			name:        "not an object",
 			input:       `"string"`,
-			expectedErr: ErrAPIParamsMapExpectedObject,
+			expectedErr: cfgldr.ErrAPIParamsMapExpectedObject,
 		},
 		{
 			name:        "array instead of object",
 			input:       `[]`,
-			expectedErr: ErrAPIParamsMapExpectedObject,
+			expectedErr: cfgldr.ErrAPIParamsMapExpectedObject,
 		},
 		{
 			name:        "number instead of object",
 			input:       `42`,
-			expectedErr: ErrAPIParamsMapExpectedObject,
+			expectedErr: cfgldr.ErrAPIParamsMapExpectedObject,
 		},
 		{
 			name:        "boolean instead of object",
 			input:       `true`,
-			expectedErr: ErrAPIParamsMapExpectedObject,
+			expectedErr: cfgldr.ErrAPIParamsMapExpectedObject,
 		},
 		{
 			name:        "nested object",
 			input:       `{"param": {"nested": "value"}}`,
-			expectedErr: ErrAPIParamsMapCannotBeNested,
+			expectedErr: cfgldr.ErrAPIParamsMapCannotBeNested,
 		},
 		{
 			name:        "array for non-comment param",
 			input:       `{"param": ["not", "allowed"]}`,
-			expectedErr: ErrAPIParamsMapCannotContainArray,
+			expectedErr: cfgldr.ErrAPIParamsMapCannotContainArray,
 		},
 		{
 			name:        "null value for param",
 			input:       `{"param": null}`,
-			expectedErr: ErrAPIParamsMapStringsOnly,
+			expectedErr: cfgldr.ErrAPIParamsMapStringsOnly,
 		},
 		{
 			name:        "boolean value for param",
 			input:       `{"param": true}`,
-			expectedErr: ErrAPIParamsMapStringsOnly,
+			expectedErr: cfgldr.ErrAPIParamsMapStringsOnly,
 		},
 		{
 			name:        "number value for param",
 			input:       `{"param": 42}`,
-			expectedErr: ErrAPIParamsMapStringsOnly,
+			expectedErr: cfgldr.ErrAPIParamsMapStringsOnly,
 		},
-		// Note: Standard JSON unmarshaling typically overwrites duplicate keys
+		// Note: Standard JSON unmarshalling typically overwrites duplicate keys
 		// rather than erroring, so this test is commented out
 		// {
 		//	name:        "duplicate key",
 		//	input:       `{"param": "first", "param": "second"}`,
-		//	expectedErr: ErrAPIParamsMapDuplicateKey,
+		//	expectedErr: cfgldr.ErrAPIParamsMapDuplicateKey,
 		// },
 		{
 			name:        "trailing data",
 			input:       `{"param": "string"} extra`,
-			expectedErr: ErrAPIParamsMapTrailingData,
+			expectedErr: cfgldr.ErrAPIParamsMapTrailingData,
 		},
 		{
 			name:        "trailing data with whitespace",
 			input:       `{"param": "string"}   garbage`,
-			expectedErr: ErrAPIParamsMapTrailingData,
+			expectedErr: cfgldr.ErrAPIParamsMapTrailingData,
 		},
 		{
 			name:        "invalid comment array with non-string",
 			input:       `{"@comment": ["valid", 42]}`,
-			expectedErr: ErrAPIParamsMapCannotContainArray,
+			expectedErr: cfgldr.ErrAPIParamsMapCannotContainArray,
 		},
 		{
 			name:        "invalid comment array with nested object",
 			input:       `{"@comment": ["valid", {"nested": "object"}]}`,
-			expectedErr: ErrAPIParamsMapCannotContainArray,
+			expectedErr: cfgldr.ErrAPIParamsMapCannotContainArray,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var pm APIParamsMap
+			var pm cfgldr.APIParamsMap
 			err := pm.UnmarshalJSON([]byte(tt.input))
 			if err == nil {
 				t.Fatalf("expected error %v, got nil", tt.expectedErr)
@@ -231,7 +233,7 @@ func TestAPIParamsMap_MarshalJSON_RoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var pm APIParamsMap
+			var pm cfgldr.APIParamsMap
 			err := pm.UnmarshalJSON([]byte(tt.input))
 			if err != nil {
 				t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -249,7 +251,7 @@ func TestAPIParamsMap_MarshalJSON_RoundTrip(t *testing.T) {
 			result := strings.TrimSpace(buf.String())
 
 			// Unmarshal again to verify equivalence
-			var pm2 APIParamsMap
+			var pm2 cfgldr.APIParamsMap
 			err = pm2.UnmarshalJSON([]byte(result))
 			if err != nil {
 				t.Fatalf("second UnmarshalJSON failed: %v", err)
@@ -277,7 +279,7 @@ func TestAPIParamsMap_MarshalJSON_RoundTrip(t *testing.T) {
 }
 
 func TestAPIParamsMap_MarshalJSON_NilMap(t *testing.T) {
-	var pm *APIParamsMap // nil pointer
+	var pm *cfgldr.APIParamsMap // nil pointer
 
 	var enc jsontext.Encoder
 	var buf strings.Builder
@@ -295,7 +297,7 @@ func TestAPIParamsMap_MarshalJSON_NilMap(t *testing.T) {
 }
 
 func TestAPIParamsMap_NullToEmptyConversion(t *testing.T) {
-	var pm APIParamsMap
+	var pm cfgldr.APIParamsMap
 	err := pm.UnmarshalJSON([]byte(`null`))
 	if err != nil {
 		t.Fatalf("null unmarshaling failed: %v", err)
@@ -358,7 +360,7 @@ func TestAPIParamsMap_CommentArrayJoining(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var pm APIParamsMap
+			var pm cfgldr.APIParamsMap
 			err := pm.UnmarshalJSON([]byte(tt.input))
 			if err != nil {
 				t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -384,7 +386,7 @@ func TestAPIParamsMap_OrderPreservation(t *testing.T) {
 		"m_param": "slug:length[5..10]"
 	}`
 
-	var pm APIParamsMap
+	var pm cfgldr.APIParamsMap
 	err := pm.UnmarshalJSON([]byte(input))
 	if err != nil {
 		t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -412,7 +414,7 @@ func TestAPIParamsMap_APIParamsV1Conversion(t *testing.T) {
 		"count": "int:range[1..100]"
 	}`
 
-	var pm APIParamsMap
+	var pm cfgldr.APIParamsMap
 	err := pm.UnmarshalJSON([]byte(input))
 	if err != nil {
 		t.Fatalf("UnmarshalJSON failed: %v", err)
@@ -425,7 +427,7 @@ func TestAPIParamsMap_APIParamsV1Conversion(t *testing.T) {
 		t.Fatalf("param count: got %d, want 3", len(params))
 	}
 
-	expectedParams := map[string]APIParamV1{
+	expectedParams := map[string]cfgldr.APIParamV1{
 		"id":    {Name: "id", Type: "int", Constraints: ""},
 		"slug":  {Name: "slug", Type: "string", Constraints: "length[5..50]"},
 		"count": {Name: "count", Type: "int", Constraints: "range[1..100]"},
@@ -457,7 +459,7 @@ func TestAPIParamsMap_ErrorContextDetails(t *testing.T) {
 		// {
 		//	name:        "duplicate key context",
 		//	input:       `{"param": "first", "param": "second"}`,
-		//	expectedErr: ErrAPIParamsMapDuplicateKey,
+		//	expectedErr: cfgldr.ErrAPIParamsMapDuplicateKey,
 		//	checkFunc: func(t *testing.T, err error) {
 		//		errStr := err.Error()
 		//		if !strings.Contains(errStr, `key="param"`) {
@@ -474,7 +476,7 @@ func TestAPIParamsMap_ErrorContextDetails(t *testing.T) {
 		{
 			name:        "trailing data context",
 			input:       `{"param": "value"} garbage`,
-			expectedErr: ErrAPIParamsMapTrailingData,
+			expectedErr: cfgldr.ErrAPIParamsMapTrailingData,
 			checkFunc: func(t *testing.T, err error) {
 				errStr := err.Error()
 				if !strings.Contains(errStr, "trailing=") {
@@ -489,7 +491,7 @@ func TestAPIParamsMap_ErrorContextDetails(t *testing.T) {
 		// {
 		//	name:        "nested object context",
 		//	input:       `{"param": {"nested": "value"}}`,
-		//	expectedErr: ErrAPIParamsMapCannotBeNested,
+		//	expectedErr: cfgldr.ErrAPIParamsMapCannotBeNested,
 		//	checkFunc: func(t *testing.T, err error) {
 		//		errStr := err.Error()
 		//		if !strings.Contains(errStr, `key="param"`) {
@@ -504,7 +506,7 @@ func TestAPIParamsMap_ErrorContextDetails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var pm APIParamsMap
+			var pm cfgldr.APIParamsMap
 			err := pm.UnmarshalJSON([]byte(tt.input))
 			if err == nil {
 				t.Fatalf("expected error %v, got nil", tt.expectedErr)
@@ -520,7 +522,7 @@ func TestAPIParamsMap_ErrorContextDetails(t *testing.T) {
 }
 
 func TestAPIParamsMap_Clear(t *testing.T) {
-	var pm APIParamsMap
+	var pm cfgldr.APIParamsMap
 	err := pm.UnmarshalJSON([]byte(`{"a": "int", "b": "string"}`))
 	if err != nil {
 		t.Fatalf("UnmarshalJSON failed: %v", err)

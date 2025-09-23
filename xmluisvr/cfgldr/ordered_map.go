@@ -139,6 +139,11 @@ func (o *OrderedMap[K, V]) GetValues() []V {
 	return values
 }
 
+// Len returns the number of key-value pairs in the map.
+func (o *OrderedMap[K, V]) Len() int {
+	return len(o.keys)
+}
+
 // String converts OrderedMap to a single string.
 // TODO Verify this is what we actually need for this use-case.
 func (o *OrderedMap[K, V]) String() (s string) {

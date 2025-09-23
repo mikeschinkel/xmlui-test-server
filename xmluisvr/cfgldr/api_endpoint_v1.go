@@ -11,13 +11,13 @@ import (
 
 // APIEndpointV2 is the main endpoint struct using JSONV2 inline to flatten the JSON
 type APIEndpointV2 struct {
-	apiEndpointBase `json:",inline"`
+	APIEndpointBase `json:",inline"`
 	Params          APIParamsMapper `json:"params"`
 	paramsType      reflect.Type
 }
 
-// APIEndpointV2 is the main endpoint struct using JSONV2 inline to flatten the JSON
-type apiEndpointBase struct {
+// APIEndpointBase contains all the non-polymorphic properties for APIEndpointV2
+type APIEndpointBase struct {
 	Endpoint    string   `json:"endpoint"`
 	Description string   `json:"description"`
 	Query       string   `json:"query"`
@@ -45,7 +45,7 @@ func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
 		args.ColumnTypes = make([]string, 0)
 	}
 	return &APIEndpointV2{
-		apiEndpointBase: apiEndpointBase{
+		APIEndpointBase: APIEndpointBase{
 			Endpoint:    endpoint,
 			Description: args.Description,
 			Query:       args.Query,
@@ -80,7 +80,7 @@ func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
 
 	// Create a temporary struct that matches RootConfigV1 but with DBConfig as RawMessage
 	var temp struct {
-		apiEndpointBase `json:",inline"`
+		APIEndpointBase `json:",inline"`
 		Params          jsontext.Value `json:"params"`
 	}
 
@@ -92,7 +92,7 @@ func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
 		goto end
 	}
 
-	ep.apiEndpointBase = temp.apiEndpointBase
+	ep.APIEndpointBase = temp.APIEndpointBase
 
 	if []byte(temp.Params) == nil {
 		ep.Params = APIParamsV1{}
