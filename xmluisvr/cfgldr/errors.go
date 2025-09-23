@@ -22,6 +22,7 @@ var (
 	ErrAPIParamsMapDuplicateKey       = errors.New("API parameter map contains a duplicate key")
 	ErrAPIParamsMapTrailingData       = errors.New("API parameter map has trailing data after object")
 	ErrAPIParamsMapInvalidComments    = errors.New("API parameter map contains invalid comments; must contain only strings")
+	ErrAPIParamsIsAnInvalidDataType   = errors.New("API params is an invalid data type")
 )
 
 var (

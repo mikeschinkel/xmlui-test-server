@@ -538,3 +538,236 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIEndpointV2_Roundtrip_ArrayFormat(t *testing.T) {
+	originalJSON := `{
+		"endpoint": "GET /users/{id:int}",
+		"description": "Get a single user by ID",
+		"query": "SELECT id, email, name FROM users WHERE id = :id",
+		"params": [
+			{"name": "id", "type": "int", "constraints": ""},
+			{"name": "limit", "type": "int", "constraints": "range[1..100]"}
+		],
+		"cardinality": "one",
+		"row_type": "columns",
+		"column_types": ["integer", "string", "string"]
+	}`
+
+	// Step 1: Unmarshal original JSON
+	var endpoint1 cfgldr.APIEndpointV2
+	err := jsonv2.Unmarshal([]byte(originalJSON), &endpoint1)
+	if err != nil {
+		t.Fatalf("First unmarshal failed: %v", err)
+	}
+
+	// Verify it's recognized as array format
+	if endpoint1.IsMapFormat() {
+		t.Error("endpoint should be recognized as array format, got map format")
+	}
+
+	// Step 2: Marshal back to JSON
+	marshaledJSON, err := endpoint1.MarshalJSON()
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	// Step 3: Unmarshal the marshaled JSON
+	var endpoint2 cfgldr.APIEndpointV2
+	err = jsonv2.Unmarshal(marshaledJSON, &endpoint2)
+	if err != nil {
+		t.Fatalf("Second unmarshal failed: %v", err)
+	}
+
+	// Step 4: Verify data integrity
+	if endpoint2.Endpoint != endpoint1.Endpoint {
+		t.Errorf("endpoint mismatch: got %q, want %q", endpoint2.Endpoint, endpoint1.Endpoint)
+	}
+	if endpoint2.Description != endpoint1.Description {
+		t.Errorf("description mismatch: got %q, want %q", endpoint2.Description, endpoint1.Description)
+	}
+
+	// Verify params are identical
+	params1, ok1 := endpoint1.Params.(cfgldr.APIParamsV1)
+	params2, ok2 := endpoint2.Params.(cfgldr.APIParamsV1)
+	if !ok1 || !ok2 {
+		t.Fatalf("params should be APIParamsV1, got %T and %T", endpoint1.Params, endpoint2.Params)
+	}
+	if len(params1) != len(params2) {
+		t.Fatalf("params length mismatch: got %d, want %d", len(params2), len(params1))
+	}
+	for i, p1 := range params1 {
+		p2 := params2[i]
+		if p1.Name != p2.Name || p1.Type != p2.Type || p1.Constraints != p2.Constraints {
+			t.Errorf("param %d mismatch: got %+v, want %+v", i, p2, p1)
+		}
+	}
+
+	// Verify format is preserved
+	if endpoint2.IsMapFormat() {
+		t.Error("format should remain array after roundtrip")
+	}
+}
+
+func TestAPIEndpointV2_Roundtrip_MapFormat(t *testing.T) {
+	originalJSON := `{
+		"endpoint": "GET /tasks/search/{project_id:int}",
+		"description": "Search tasks within a given project",
+		"query": "SELECT t.id, t.title FROM tasks t WHERE t.project_id = :project_id",
+		"params": {
+			"q": "string",
+			"sort": "string:enum[asc,desc]",
+			"limit": "int:range[1..50]",
+			"@note": ["Just a little bit of info", "for posterity"]
+		},
+		"cardinality": "many",
+		"row_type": "columns",
+		"column_types": ["integer", "string"]
+	}`
+
+	// Step 1: Unmarshal original JSON
+	var endpoint1 cfgldr.APIEndpointV2
+	err := jsonv2.Unmarshal([]byte(originalJSON), &endpoint1)
+	if err != nil {
+		t.Fatalf("First unmarshal failed: %v", err)
+	}
+
+	// Verify it's recognized as map format
+	if !endpoint1.IsMapFormat() {
+		t.Error("endpoint should be recognized as map format, got array format")
+	}
+
+	// Step 2: Marshal back to JSON
+	marshaledJSON, err := endpoint1.MarshalJSON()
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	// Step 3: Unmarshal the marshaled JSON
+	var endpoint2 cfgldr.APIEndpointV2
+	err = jsonv2.Unmarshal(marshaledJSON, &endpoint2)
+	if err != nil {
+		t.Fatalf("Second unmarshal failed: %v", err)
+	}
+
+	// Step 4: Verify data integrity
+	if endpoint2.Endpoint != endpoint1.Endpoint {
+		t.Errorf("endpoint mismatch: got %q, want %q", endpoint2.Endpoint, endpoint1.Endpoint)
+	}
+	if endpoint2.Description != endpoint1.Description {
+		t.Errorf("description mismatch: got %q, want %q", endpoint2.Description, endpoint1.Description)
+	}
+
+	// Verify params contain the same data (though internally stored as APIParamsV1)
+	params1, ok1 := endpoint1.Params.(cfgldr.APIParamsV1)
+	params2, ok2 := endpoint2.Params.(cfgldr.APIParamsV1)
+	if !ok1 || !ok2 {
+		t.Fatalf("params should be APIParamsV1, got %T and %T", endpoint1.Params, endpoint2.Params)
+	}
+	if len(params1) != len(params2) {
+		t.Fatalf("params length mismatch: got %d, want %d", len(params2), len(params1))
+	}
+
+	// Convert to maps for easier comparison
+	params1Map := params1.APIParamsMap()
+	params2Map := params2.APIParamsMap()
+
+	// Check that all non-comment keys are preserved
+	for key, value := range params1Map.Iterator() {
+		if len(key) > 0 && key[0] == '@' {
+			continue // Skip comments
+		}
+		value2, exists := params2Map.Get(key)
+		if !exists {
+			t.Errorf("missing key %q in roundtrip result", key)
+		} else if value != value2 {
+			t.Errorf("value mismatch for key %q: got %q, want %q", key, value2, value)
+		}
+	}
+
+	// Verify format is preserved
+	if !endpoint2.IsMapFormat() {
+		t.Error("format should remain map after roundtrip")
+	}
+}
+
+func TestAPIEndpointV2_Roundtrip_EmptyParams(t *testing.T) {
+	tests := []struct {
+		name         string
+		originalJSON string
+		expectMap    bool
+	}{
+		{
+			name: "empty array",
+			originalJSON: `{
+				"endpoint": "GET /hello",
+				"description": "Hello World",
+				"query": "SELECT 'Hello World'",
+				"params": []
+			}`,
+			expectMap: false,
+		},
+		{
+			name: "empty object",
+			originalJSON: `{
+				"endpoint": "GET /hello",
+				"description": "Hello World",
+				"query": "SELECT 'Hello World'",
+				"params": {}
+			}`,
+			expectMap: true,
+		},
+		{
+			name: "null params",
+			originalJSON: `{
+				"endpoint": "GET /hello",
+				"description": "Hello World",
+				"query": "SELECT 'Hello World'",
+				"params": null
+			}`,
+			expectMap: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Step 1: Unmarshal original JSON
+			var endpoint1 cfgldr.APIEndpointV2
+			err := jsonv2.Unmarshal([]byte(tt.originalJSON), &endpoint1)
+			if err != nil {
+				t.Fatalf("First unmarshal failed: %v", err)
+			}
+
+			// Verify format detection
+			if endpoint1.IsMapFormat() != tt.expectMap {
+				t.Errorf("format detection: got %v, want %v", endpoint1.IsMapFormat(), tt.expectMap)
+			}
+
+			// Step 2: Marshal back to JSON
+			marshaledJSON, err := endpoint1.MarshalJSON()
+			if err != nil {
+				t.Fatalf("Marshal failed: %v", err)
+			}
+
+			// Step 3: Unmarshal the marshaled JSON
+			var endpoint2 cfgldr.APIEndpointV2
+			err = jsonv2.Unmarshal(marshaledJSON, &endpoint2)
+			if err != nil {
+				t.Fatalf("Second unmarshal failed: %v", err)
+			}
+
+			// Step 4: Verify format is preserved
+			if endpoint2.IsMapFormat() != tt.expectMap {
+				t.Errorf("format preservation: got %v, want %v", endpoint2.IsMapFormat(), tt.expectMap)
+			}
+
+			// Verify params are empty
+			params, ok := endpoint2.Params.(cfgldr.APIParamsV1)
+			if !ok {
+				t.Fatalf("params should be APIParamsV1, got %T", endpoint2.Params)
+			}
+			if len(params) != 0 {
+				t.Errorf("params should be empty, got %d items", len(params))
+			}
+		})
+	}
+}

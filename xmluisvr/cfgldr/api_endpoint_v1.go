@@ -4,6 +4,7 @@ import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
@@ -35,6 +36,7 @@ type APIEndpointV2Args struct {
 	Cardinality string
 	RowType     string
 	ColumnTypes []string
+	ParamsType  reflect.Type
 }
 
 func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
@@ -43,6 +45,15 @@ func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
 	}
 	if args.ColumnTypes == nil {
 		args.ColumnTypes = make([]string, 0)
+	}
+	if args.ParamsType == nil {
+		args.ParamsType = reflect.TypeOf(([]APIParamV1)(nil))
+	}
+	switch args.ParamsType {
+	case reflect.TypeOf(([]APIParamV1)(nil)):
+	case reflect.TypeOf((*APIParamsMap)(nil)):
+	default:
+		panic(fmt.Sprintf("Unsupported Params Type '%T' for endpoint %s'", args.ParamsType, endpoint))
 	}
 	return &APIEndpointV2{
 		APIEndpointBase: APIEndpointBase{
@@ -55,7 +66,7 @@ func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
 			ColumnTypes: args.ColumnTypes,
 		},
 		Params:     args.Params,
-		paramsType: reflect.TypeOf(([]APIParamV1)(nil)),
+		paramsType: args.ParamsType,
 	}
 }
 
@@ -72,6 +83,53 @@ func (ep *APIEndpointV2) Normalize() {
 	if ep.Params == nil {
 		ep.Params = APIParamsV1{}
 	}
+	if ep.paramsType == nil {
+		ep.paramsType = reflect.TypeOf(([]APIParamV1)(nil))
+	}
+}
+
+func (ep *APIEndpointV2) IsMapFormat() bool {
+	return ep.paramsType == reflect.TypeOf((*APIParamsMap)(nil))
+}
+
+func (ep *APIEndpointV2) MarshalJSON() (json []byte, err error) {
+	var apiParams APIParamsV1
+	var ok bool
+
+	// Create temporary struct for marshaling
+	var temp struct {
+		APIEndpointBase `json:",inline"`
+		Params          any `json:"params"`
+	}
+	// Copy base fields
+	temp.APIEndpointBase = ep.APIEndpointBase
+
+	marshalFunc := func() ([]byte, error) {
+		return jsonv2.Marshal(temp, jsontext.WithIndent("  "))
+	}
+
+	if !ep.IsMapFormat() {
+		// Keep as array format
+		temp.Params = ep.Params
+		json, err = marshalFunc()
+		goto end
+	}
+
+	// Convert params to original format based on paramsType
+	apiParams, ok = ep.Params.(APIParamsV1)
+	if !ok {
+		err = errors.Join(ErrAPIParamsIsAnInvalidDataType,
+			fmt.Errorf("endpoint=%s", ep.Endpoint),
+			fmt.Errorf("data_type=%T", ep.Params),
+		)
+		goto end
+	}
+
+	temp.Params = apiParams.APIParamsMap()
+	json, err = marshalFunc()
+
+end:
+	return json, err
 }
 
 func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
@@ -132,68 +190,3 @@ func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
 end:
 	return err
 }
-
-//func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
-//	var isMap bool
-//	// Create a temporary struct that matches RootConfigV1 but with DBConfig as RawMessage
-//	var temp struct {
-//		Endpoint    string          `json:"endpoint"`
-//		Description string          `json:"description"`
-//		Query       string          `json:"query"`
-//		QueryFile   string          `json:"query_file"`
-//		Params      json.RawMessage `json:"params"`
-//		Cardinality string          `json:"cardinality"`  // 'one' or 'many'
-//		RowType     string          `json:"row_type"`     // 'int', 'real','string','json','columns'
-//		ColumnTypes []string        `json:"column_types"` // used when row_type="columns"
-//	}
-//
-//	var params []APIParamV1
-//	var paramsMapInfo struct {
-//		Params apiParams `json:"params"`
-//	}
-//
-//	err = jsonv2.Unmarshal(data, &temp)
-//	if err != nil {
-//		goto end
-//	}
-//
-//	ep.Endpoint = temp.Endpoint
-//	ep.Description = temp.Description
-//	ep.Query = temp.Query
-//	ep.QueryFile = temp.QueryFile
-//	ep.Cardinality = temp.Cardinality
-//	ep.RowType = temp.RowType
-//	ep.ColumnTypes = temp.ColumnTypes
-//
-//	if temp.Params == nil {
-//		ep.Params = APIParamsV1{}
-//		goto end
-//	}
-//
-//	err = jsonv2.Unmarshal(temp.Params, &params)
-//	if err != nil {
-//		isMap = true
-//		err = jsonv2.Unmarshal(temp.Params, &paramsMapInfo)
-//	}
-//	if err != nil {
-//		goto end
-//	}
-//	if !isMap {
-//		ep.Params = APIParamsV1(params)
-//		goto end
-//	}
-//
-//	for name, details := range paramsMapInfo.Params {
-//		typ, cs, found := strings.Cut(string(details), ":")
-//		if !found {
-//			typ = string(details)
-//		}
-//		params = append(params,
-//			NewAPIParamV1WithConstraints(string(name), typ, cs),
-//		)
-//	}
-//	ep.Params = APIParamsV1(params)
-//
-//end:
-//	return err
-//}

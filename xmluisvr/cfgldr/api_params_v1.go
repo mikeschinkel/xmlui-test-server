@@ -2,7 +2,6 @@ package cfgldr
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
@@ -17,35 +16,38 @@ func (ps APIParamsV1) UnmarshalJSON(bytes []byte) error {
 }
 
 func (ps APIParamsV1) APIParamsMap() (pm *APIParamsMap) {
-	pm = &APIParamsMap{}
+	pm = &APIParamsMap{
+		OrderedMap: *NewOrderedMap[APIParamsMapKey, APIParamsMapValue](),
+	}
 	for _, p := range ps {
-		sb := strings.Builder{}
-		sb.WriteString(p.Name)
-		details := fmt.Sprintf("%s:%s", p.Type, p.Constraints)
+		var value string
 		switch {
-		case len(details) == 1:
-			continue
-		case p.Type == "" && p.Constraints != "":
-			sb.WriteByte(':')
+		case p.Type == "" && p.Constraints == "":
+			// Just use default type
 			typ := pathvars.DefaultPVDataTypeName
 			dt, err := pathvars.ParsePVDataType(p.Name)
 			if err == nil {
 				typ = dt.TypeName()
 			}
-			sb.WriteString(string(typ))
-			sb.WriteByte(':')
-			sb.WriteString(p.Constraints)
-			continue
+			value = string(typ)
 		case p.Type != "" && p.Constraints == "":
-			sb.WriteByte(':')
-			sb.WriteString(p.Type)
+			// Just type
+			value = p.Type
+		case p.Type == "" && p.Constraints != "":
+			// Default type with constraints
+			typ := pathvars.DefaultPVDataTypeName
+			dt, err := pathvars.ParsePVDataType(p.Name)
+			if err == nil {
+				typ = dt.TypeName()
+			}
+			value = fmt.Sprintf("%s:%s", typ, p.Constraints)
 		case p.Type != "" && p.Constraints != "":
-			sb.WriteByte(':')
-			sb.WriteString(p.Type)
-			sb.WriteByte(':')
-			sb.WriteString(p.Constraints)
+			// Type with constraints
+			value = fmt.Sprintf("%s:%s", p.Type, p.Constraints)
 		}
-		pm.Set(APIParamsMapKey(p.Name), APIParamsMapValue(sb.String()))
+		if value != "" {
+			pm.Set(APIParamsMapKey(p.Name), APIParamsMapValue(value))
+		}
 	}
 	return pm
 }
