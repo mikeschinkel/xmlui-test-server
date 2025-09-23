@@ -6,6 +6,7 @@ import (
 
 var (
 	ErrPathIsDir        = errors.New("path is a directory")
+	ErrPathIsFile       = errors.New("path is a file (not a directory)")
 	ErrFileDoesNotExist = errors.New("file does not exist")
 	ErrFileExists       = errors.New("file exists")
 )

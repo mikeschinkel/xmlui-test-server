@@ -53,7 +53,7 @@ func (d *DuckDB) CheckConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, c
 	if err != nil {
 		goto end
 	}
-	err = d.CheckFileConnection(ctx, dbType, fp)
+	err = d.CheckFileConnection(ctx, dbType, fp, dbpkg.CreatesMissingFileOnOpen)
 end:
 	return err
 }

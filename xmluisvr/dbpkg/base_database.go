@@ -109,12 +109,27 @@ func (db *BaseDatabase) Query(ctx Context, q string, params ...any) (*sql.Rows, 
 	return db.DB.QueryContext(ctx, q, params...)
 }
 
+type MissingFileOpenMode int
+
+const (
+	UnspecifiedCreateMode MissingFileOpenMode = iota
+	CreatesMissingFileOnOpen
+	FailsOnOpenOfMissingFile
+)
+
 // CheckFileConnection checks for file connections which work for SQLite3 and DuckDB.
-func (db *BaseDatabase) CheckFileConnection(ctx Context, dbType DatabaseType, cs common.Filepath) (err error) {
+func (db *BaseDatabase) CheckFileConnection(ctx Context, dbType DatabaseType, cs common.Filepath, mode MissingFileOpenMode) (err error) {
 	err = common.CheckFileExists(cs)
 	switch {
 	case errors.Is(err, common.ErrFileDoesNotExist):
-		goto end
+		if mode != CreatesMissingFileOnOpen {
+			goto end
+		}
+		// Calls says it will be created on open
+		err = common.EnsureDirExists(common.Dir(cs))
+		if err != nil {
+			goto end
+		}
 	case errors.Is(err, common.ErrPathIsDir):
 		goto end
 	}

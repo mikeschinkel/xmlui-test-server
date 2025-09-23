@@ -167,7 +167,7 @@ func (s *SQLite3) CheckConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, 
 	if err != nil {
 		goto end
 	}
-	err = s.CheckFileConnection(ctx, dbType, fp)
+	err = s.CheckFileConnection(ctx, dbType, fp, dbpkg.CreatesMissingFileOnOpen)
 end:
 	return err
 }

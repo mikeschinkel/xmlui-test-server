@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 func CloseOrLog(c io.Closer) {
@@ -41,6 +42,25 @@ func CheckFileExists(path Filepath) error {
 		err = errors.Join(ErrPathIsDir, err)
 	}
 	err = ErrFileExists
+end:
+	return err
+}
+
+func Dir(path Filepath) DirPath {
+	return DirPath(filepath.Dir(string(path)))
+}
+
+func EnsureDirExists(path DirPath) (err error) {
+	info, err := os.Stat(string(path))
+	if errors.Is(err, os.ErrNotExist) {
+		err = os.MkdirAll(string(path), os.ModePerm)
+	}
+	if err != nil {
+		goto end
+	}
+	if !info.IsDir() {
+		err = errors.Join(ErrPathIsFile, err)
+	}
 end:
 	return err
 }
