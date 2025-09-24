@@ -205,7 +205,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 			string(common.StringDBDataType),
 		},
 		Params: APIParamsV1{
-			{Name: "email", Type: "string"},
+			{NameSpec: "email", Type: "string"},
 		},
 	}))
 

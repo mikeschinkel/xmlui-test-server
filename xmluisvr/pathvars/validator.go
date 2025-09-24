@@ -63,7 +63,7 @@ func validateDataType(value string, dataType PVDataType) (err error) {
 		err = validateEmail(value)
 	default:
 		err = errors.Join(
-			ErrInvalidType,
+			ErrInvalidParameterType,
 			fmt.Errorf("value=%q", value),
 			fmt.Errorf("data_type=%v", dataType),
 			fmt.Errorf("reason=%s", "unsupported data type"),

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -206,8 +207,8 @@ func TestMatchResultMethods(t *testing.T) {
 	}
 
 	// Test ForEachVar
-	paramMap := make(map[string]string)
-	result.ForEachVar(func(name, value string) bool {
+	paramMap := make(map[common.Identifier]string)
+	result.ForEachVar(func(name common.Identifier, value string) bool {
 		paramMap[name] = value
 		return true
 	})
@@ -224,7 +225,7 @@ func TestMatchResultMethods(t *testing.T) {
 
 	// Test ForEachVar early termination
 	count := 0
-	result.ForEachVar(func(name, value string) bool {
+	result.ForEachVar(func(name common.Identifier, value string) bool {
 		count++
 		return false // Stop after first parameter
 	})
@@ -262,7 +263,7 @@ func TestNoParametersMatchResult(t *testing.T) {
 
 	// Test ForEachVar with no parameters
 	called := false
-	result.ForEachVar(func(name, value string) bool {
+	result.ForEachVar(func(name common.Identifier, value string) bool {
 		called = true
 		return true
 	})
@@ -278,7 +279,7 @@ func TestComplexPaths(t *testing.T) {
 		method   string
 		path     string
 		wantErr  bool
-		expected map[string]string
+		expected map[common.Identifier]string
 	}{
 		{
 			name:     "multi-segment-path",
@@ -286,7 +287,7 @@ func TestComplexPaths(t *testing.T) {
 			method:   "GET",
 			path:     "/api/v1/users/123/posts/my-post/comments/456",
 			wantErr:  false,
-			expected: map[string]string{"id": "123", "slug": "my-post", "comment_id": "456"},
+			expected: map[common.Identifier]string{"id": "123", "slug": "my-post", "comment_id": "456"},
 		},
 		{
 			name:     "mixed-types",
@@ -294,7 +295,7 @@ func TestComplexPaths(t *testing.T) {
 			method:   "POST",
 			path:     "/users/42/profile/email_verified/value/true",
 			wantErr:  false,
-			expected: map[string]string{"user_id": "42", "field": "email_verified", "active": "true"},
+			expected: map[common.Identifier]string{"user_id": "42", "field": "email_verified", "active": "true"},
 		},
 		{
 			name:     "uuid-in-path",
@@ -302,7 +303,7 @@ func TestComplexPaths(t *testing.T) {
 			method:   "GET",
 			path:     "/entities/550e8400-e29b-41d4-a716-446655440000/data",
 			wantErr:  false,
-			expected: map[string]string{"entity_id": "550e8400-e29b-41d4-a716-446655440000"},
+			expected: map[common.Identifier]string{"entity_id": "550e8400-e29b-41d4-a716-446655440000"},
 		},
 	}
 

@@ -51,7 +51,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
@@ -169,8 +168,13 @@ end:
 // It parses path variables from each endpoint and registers them with the router.
 func (api *API) initializeRouter() (err error) {
 	var errs []error
-	for _, ep := range api.Endpoints {
-		err = api.Router.AddRoute(pathvars.PathSpec(ep.path), ep.PathVarsParameters())
+	for i, ep := range api.Endpoints {
+		var pp []pathvars.Parameter
+		pp, err = ep.ParsePathVarsParameters()
+		if err != nil {
+			errs = append(errs, err)
+		}
+		err = api.Router.AddRouteWithIndex(pathvars.PathSpec(ep.path), pp, i)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -186,28 +190,9 @@ func (api *API) initializeRouter() (err error) {
 
 // qpArgs contains parameters extracted from different sources for query building.
 type qpArgs struct {
-	params   map[common.Identifier]string
-	bodyJSON map[common.Identifier]any
+	params   map[pathvars.PVNameSpec]string // Path and query parameters
+	bodyJSON map[common.Identifier]any      // JSON body parameters
 }
-
-// Extract query parameters from database query
-func extractQueryParams(endpoint *Endpoint, args qpArgs) (queryParams []any) {
-	var query string
-	for _, param := range endpoint.Params {
-		colonName := fmt.Sprintf(":%s", param.Name)
-		// Check path params first, then query params, then body params
-		if value, ok := args.params[param.Name]; ok {
-			queryParams = append(queryParams, value)
-			query = strings.Replace(query, colonName, "?", 1)
-			continue
-		}
-
-		value, ok := args.bodyJSON[param.Name]
-		if ok {
-			queryParams = append(queryParams, value)
-			query = strings.Replace(query, colonName, "?", 1)
-			continue
-		}
 
 // extractBodyJSON parses JSON from the request body into a parameter map.
 // It uses a TeeReader to preserve the request body for potential future use.

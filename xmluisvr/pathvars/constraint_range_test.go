@@ -72,12 +72,12 @@ func TestParseRangeConstraint(t *testing.T) {
 			// Check constraint type
 			constraintType := fmt.Sprintf("%T", constraint)
 			if constraintType != tt.wantType {
-				t.Errorf("ParseRangeConstraint(%q, %v) returned %s, want %s", tt.spec, tt.dataType, constraintType, tt.wantType)
+				t.Errorf("ParseRangeConstraint(%q, %v) returned %s, wantSpec %s", tt.spec, tt.dataType, constraintType, tt.wantType)
 			}
 
 			// Check that constraint type is correct
 			if constraint.Type() != pathvars.RangeConstraintType {
-				t.Errorf("ParseRangeConstraint(%q, %v) constraint.Type() = %v, want %v", tt.spec, tt.dataType, constraint.Type(), pathvars.RangeConstraintType)
+				t.Errorf("ParseRangeConstraint(%q, %v) constraint.Type() = %v, wantSpec %v", tt.spec, tt.dataType, constraint.Type(), pathvars.RangeConstraintType)
 			}
 		})
 	}

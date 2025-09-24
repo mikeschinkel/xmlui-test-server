@@ -142,7 +142,7 @@ func (dt PVDataType) TypeName() PVDataTypeName {
 		return BooleanTypeName
 	case EmailType:
 		return EmailTypeName
-	case UnspecifiedType:
+	case UnspecifiedDataType:
 		fallthrough
 	default:
 		return InvalidTypeName
@@ -179,7 +179,7 @@ func ParsePVDataType(typeStr string) (dataType PVDataType, err error) {
 		fallthrough
 	default:
 		err = errors.Join(
-			ErrInvalidType,
+			ErrInvalidParameterType,
 			fmt.Errorf("type=%q", typeStr),
 			fmt.Errorf("reason=%s", "unsupported data type"),
 		)
@@ -187,13 +187,13 @@ func ParsePVDataType(typeStr string) (dataType PVDataType, err error) {
 	return dataType, err
 }
 
-func InferDataTypeFromName(name string) (PVDataType, bool) {
 // InferDataTypeFromName attempts to infer a data type from a parameter name.
 // Returns the inferred data type and true if the name matches a known data type,
 // otherwise returns UnspecifiedDataType and false.
+func InferDataTypeFromName(name string) PVDataType {
 	dataType, err := ParsePVDataType(name)
 	if err != nil {
-		return UnspecifiedType, false
+		return UnspecifiedDataType
 	}
-	return dataType, true
+	return dataType
 }

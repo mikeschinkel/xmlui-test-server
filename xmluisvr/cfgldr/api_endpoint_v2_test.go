@@ -51,8 +51,8 @@ func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
 	if len(params) != 1 {
 		t.Fatalf("params length: got %d, want 1", len(params))
 	}
-	if params[0].Name != "id" {
-		t.Errorf("param name: got %q, want %q", params[0].Name, "id")
+	if params[0].NameSpec != "id" {
+		t.Errorf("param name: got %q, want %q", params[0].NameSpec, "id")
 	}
 	if params[0].Type != "int" {
 		t.Errorf("param type: got %q, want %q", params[0].Type, "int")
@@ -114,7 +114,7 @@ func TestAPIEndpointV2_UnmarshalJSON_MapParams(t *testing.T) {
 	// Verify param contents
 	paramNames := make(map[string]cfgldr.APIParamV1)
 	for _, param := range params {
-		paramNames[param.Name] = param
+		paramNames[param.NameSpec] = param
 	}
 
 	if param, exists := paramNames["q"]; !exists {
@@ -152,7 +152,7 @@ func TestAPIEndpointV2_UnmarshalJSON_MapParams(t *testing.T) {
 
 	// Verify comment was filtered out
 	for _, param := range params {
-		if param.Name == "@note" {
+		if param.NameSpec == "@note" {
 			t.Error("comment '@note' should be filtered out from params")
 		}
 	}
@@ -271,7 +271,7 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 				Description: "Get user",
 				Query:       "SELECT * FROM users WHERE id = :id",
 				Params: cfgldr.APIParamsV1{
-					{Name: "id", Type: "int", Constraints: ""},
+					{NameSpec: "id", Type: "int", Constraints: ""},
 				},
 				ColumnTypes: []string{"integer", "string"},
 			},
@@ -283,8 +283,8 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 				if len(params) != 1 {
 					t.Fatalf("params length: got %d, want 1", len(params))
 				}
-				if params[0].Name != "id" {
-					t.Errorf("param name: got %q, want %q", params[0].Name, "id")
+				if params[0].NameSpec != "id" {
+					t.Errorf("param name: got %q, want %q", params[0].NameSpec, "id")
 				}
 				if len(ep.ColumnTypes) != 2 {
 					t.Errorf("column_types length: got %d, want 2", len(ep.ColumnTypes))
@@ -492,8 +492,8 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 				if len(params) != 1 {
 					t.Errorf("params length: got %d, want 1", len(params))
 				}
-				if len(params) > 0 && params[0].Name != "email" {
-					t.Errorf("param name: got %q, want %q", params[0].Name, "email")
+				if len(params) > 0 && params[0].NameSpec != "email" {
+					t.Errorf("param name: got %q, want %q", params[0].NameSpec, "email")
 				}
 			},
 		},
@@ -597,7 +597,7 @@ func TestAPIEndpointV2_Roundtrip_ArrayFormat(t *testing.T) {
 	}
 	for i, p1 := range params1 {
 		p2 := params2[i]
-		if p1.Name != p2.Name || p1.Type != p2.Type || p1.Constraints != p2.Constraints {
+		if p1.NameSpec != p2.NameSpec || p1.Type != p2.Type || p1.Constraints != p2.Constraints {
 			t.Errorf("param %d mismatch: got %+v, want %+v", i, p2, p1)
 		}
 	}

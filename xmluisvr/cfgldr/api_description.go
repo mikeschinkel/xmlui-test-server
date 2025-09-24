@@ -57,8 +57,8 @@ func (d *EndpointDefinition) Migrate() (eps []*APIEndpointV2) {
 		params := make(APIParamsV1, len(d.Methods))
 		for i, p := range m.Params {
 			params[i] = APIParamV1{
-				Name: p,
-				Type: string(common.AnyRowType),
+				NameSpec: p,
+				Type:     string(common.AnyRowType),
 			}
 		}
 		name = strings.ToUpper(name)

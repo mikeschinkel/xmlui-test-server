@@ -112,7 +112,7 @@ func TestEndpointParams_FullConfigIntegration(t *testing.T) {
 		// Verify specific params exist
 		paramMap := make(map[string]cfgldr.APIParamV1)
 		for _, p := range params {
-			paramMap[p.Name] = p
+			paramMap[p.NameSpec] = p
 		}
 
 		if p, exists := paramMap["q"]; !exists {
@@ -146,8 +146,8 @@ func TestEndpointParams_FullConfigIntegration(t *testing.T) {
 			t.Errorf("Expected 1 param, got %d", len(params))
 		}
 
-		if params[0].Name != "email" {
-			t.Errorf("Expected param name 'email', got %q", params[0].Name)
+		if params[0].NameSpec != "email" {
+			t.Errorf("Expected param name 'email', got %q", params[0].NameSpec)
 		}
 		if params[0].Type != "string" {
 			t.Errorf("Expected param type 'string', got %q", params[0].Type)
@@ -264,10 +264,10 @@ func TestEndpointParams_RoundTripMarshalUnmarshal(t *testing.T) {
 			paramMap1 := make(map[string]cfgldr.APIParamV1)
 			paramMap2 := make(map[string]cfgldr.APIParamV1)
 			for _, p := range params1 {
-				paramMap1[p.Name] = p
+				paramMap1[p.NameSpec] = p
 			}
 			for _, p := range params2 {
-				paramMap2[p.Name] = p
+				paramMap2[p.NameSpec] = p
 			}
 
 			if len(paramMap1) != len(paramMap2) {

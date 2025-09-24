@@ -26,3 +26,11 @@ var (
 	ErrPortMustNotBeZero     = errors.New("port must not be zero")
 	ErrPortMustBeZero        = errors.New("port must be zero")
 )
+var (
+	ErrIdentifierCannotBeEmpty                      = errors.New("identifier can not be empty")
+	ErrValueDoesNotBeginWithAnIdentifier            = errors.New("value can not be begin with an identifier")
+	ErrInvalidIdentifier                            = errors.New("invalid identifier")
+	ErrInvalidNameSpec                              = errors.New("invalid name spec")
+	ErrMustBeginWithLetterOrUnderscore              = errors.New("must begin with letter or underscore")
+	ErrMustOnlyContainLettersDigitsAndOrUnderscores = errors.New("must only contain letters, digits, and/or underscores")
+)

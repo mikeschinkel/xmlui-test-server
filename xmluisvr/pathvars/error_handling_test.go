@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -34,11 +35,11 @@ func TestRouterErrorHandling(t *testing.T) {
 		{"empty-braces", "GET /users/{}", true, pathvars.ErrInvalidParameter, "", nil},
 		{"unmatched-open-brace", "GET /users/{id", true, pathvars.ErrInvalidParameter, "", nil},
 		{"unmatched-close-brace", "GET /users/id}", true, pathvars.ErrInvalidParameter, "", nil}, // Now consistent - error like unmatched opening
-		{"no-param-name", "GET /users/{:int}", true, pathvars.ErrInvalidParameter, "", nil},
+		{"no-param-name", "GET /users/{:int}", true, pathvars.ErrNameSpecNameCannotBeEmpty, "", nil},
 
 		// Invalid types
-		{"invalid-type", "GET /users/{id:invalid}", true, pathvars.ErrInvalidType, "", nil},
-		{"typo-in-type", "GET /users/{id:integr}", true, pathvars.ErrInvalidType, "", nil},
+		{"invalid-type", "GET /users/{id:invalid}", true, pathvars.ErrInvalidParameterType, "", nil},
+		{"typo-in-type", "GET /users/{id:integr}", true, pathvars.ErrInvalidParameterType, "", nil},
 	}
 
 	for _, tt := range tests {
@@ -262,7 +263,7 @@ func TestParameterParsing(t *testing.T) {
 		testPath     string
 		query        string
 		params       []pathvars.Parameter
-		expectedName string
+		expectedName common.Identifier
 		expectedType string
 		wantErr      bool
 	}{

@@ -46,9 +46,10 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
 	errs = append(errs, err)
 	ep.QueryFile, err = common.ParseFilepath(cfg.QueryFile)
 	errs = append(errs, err)
-	ep.Params, err = ParseParams(cfg.Params)
+	ep.Params, err = ParseEndpointParams(cfg.Params, ep.path)
 	errs = append(errs, err)
-	ep.RowsExpected, err = common.ParseCardinality(cfg.Cardinality)
+	ep.pathParsed = true
+	ep.Cardinality, err = common.ParseCardinality(cfg.Cardinality)
 	errs = append(errs, err)
 	ep.RowType, err = common.ParseDBRowType(cfg.RowType)
 	errs = append(errs, err)
@@ -59,7 +60,7 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
 	}
 	err = errors.Join(errs...)
 	if err != nil {
-		*ep = Endpoint{}
+		ep = nil
 		err = errors.Join(err, fmt.Errorf("endpoint=%s", cfg.Endpoint))
 	}
 
@@ -72,38 +73,51 @@ type EndPointString string
 // Endpoint represents a parsed API endpoint configuration with all validation complete.
 // It contains the HTTP method, URL path, SQL query, parameters, and response formatting options.
 type Endpoint struct {
-	Params        []Param
-	RowsExpected  common.Cardinality
 	Description   string              // Human-readable description of the endpoint
 	Query         common.QueryString  // Inline SQL query to execute
 	QueryFile     common.Filepath     // Path to external SQL file (relative to config file)
 	queryFilepath common.Filepath     // Resolved absolute path to SQL file
+	Params        []EndpointParam     // Parameters that can be extracted from requests
+	Cardinality   common.Cardinality  // Expected number of result rows (one, many, etc.)
 	RowType       common.DBRowType    // Format for returning results (json, columns, etc.)
 	ColumnTypes   []common.DBDataType // Expected data types for result columns
 	method        common.HTTPMethod   // HTTP method (GET, POST, etc.)
 	path          common.URLPath      // URL path pattern with parameter placeholders
+	pathParsed    bool
 }
 
-func (ep *Endpoint) PathVarsParameters() (params []pathvars.Parameter) {
 // ParsePathVarsParameters converts endpoint parameters into pathvars.Parameter instances
 // for use with the routing system. This enables path parameter extraction and validation.
+func (ep *Endpoint) ParsePathVarsParameters() (params []pathvars.Parameter, err error) {
+	var errs []error
 	params = make([]pathvars.Parameter, 0, len(ep.Params))
-	for _, p := range ep.Params {
-		panic("FINISH THIS")
-		param := pathvars.NewParameter(pathvars.ParameterArgs{
-			Name:         string(p.Name),
-			ParamType:    pathvars.UnspecifiedParameterType,
-			DataType:     0,
-			Constraints:  nil,
-			Position:     0,
-			Original:     "",
-			MultiSegment: false,
-			Optional:     false,
-			DefaultValue: nil,
-		})
-		params = append(params, param)
+	for i, p := range ep.Params {
+		var dt pathvars.PVDataType
+		props := p.Props
+		if props.DataType != nil {
+			dt = *props.DataType
+		}
+		if dt == pathvars.UnspecifiedDataType {
+			dt, err = pathvars.ParseParameterDataType(string(props.Name), string(p.Type.TypeName()))
+		}
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if p.RawValue() == "" {
+			// TODO Remove this after we ensure RawValue is set
+			panic("PARAMETER RAW VALUE NOT SET")
+		}
+		params = append(params, pathvars.NewParameter(pathvars.ParameterArgs{
+			Position:    i,
+			NameProps:   props,
+			UseType:     p.UseType,
+			DataType:    dt,
+			Constraints: p.Constraints,
+			Original:    p.RawValue(),
+		}))
 	}
-	return params
+	return params, err
 }
 
 // GetQuery returns the SQL query for this endpoint, loading from a file if necessary.

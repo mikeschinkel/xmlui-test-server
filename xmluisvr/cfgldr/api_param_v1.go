@@ -9,20 +9,40 @@ import (
 var _ APIParam = (*APIParamV1)(nil)
 
 type APIParamV1 struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Constraints string `json:"constraints"`
+	NameSpec     string `json:"name"`
+	Type         string `json:"type"`
+	Constraints  string `json:"constraints"`
+	MultiSegment bool   `json:"multi_segment"`
+	Optional     bool   `json:"optional"`
+	DefaultValue string `json:"default"`
+	UseType      int    `json:"-"`
+}
+
+type APIParamV1Args struct {
+	NameSpec     string
+	Type         string
+	Constraints  string
+	MultiSegment bool
+	Optional     bool
+	DefaultValue string
 }
 
 func (APIParamV1) APIParam() {}
 
-func NewAPIParamV1(name string, typ string) APIParamV1 {
-	return NewAPIParamV1WithConstraints(name, typ, "")
+func NewAPIParamV1(args APIParamV1Args) APIParamV1 {
+	return APIParamV1{
+		NameSpec:     args.NameSpec,
+		Type:         args.Type,
+		Constraints:  args.Constraints,
+		MultiSegment: args.MultiSegment,
+		Optional:     args.Optional,
+		DefaultValue: args.DefaultValue,
+	}
 }
 
-func NewAPIParamV1WithConstraints(name, typ, constraints string) APIParamV1 {
+func NewAPIParamV1WithConstraints(nameSpec, typ, constraints string) APIParamV1 {
 	return APIParamV1{
-		Name:        name,
+		NameSpec:    nameSpec,
 		Type:        typ,
 		Constraints: constraints,
 	}
@@ -31,7 +51,7 @@ func NewAPIParamV1WithConstraints(name, typ, constraints string) APIParamV1 {
 func (p APIParamV1) String() string {
 	sb := strings.Builder{}
 	sb.WriteByte('{')
-	sb.WriteString(strings.ToLower(p.Name))
+	sb.WriteString(p.NameSpec)
 
 	switch {
 	case p.Type != "":

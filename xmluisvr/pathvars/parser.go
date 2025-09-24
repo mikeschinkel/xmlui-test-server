@@ -18,7 +18,7 @@ import (
 // Returns an error if the template syntax is invalid.
 func ParseTemplate(template string) (t *Template, err error) {
 	var segments []Segment
-	var params map[string]*Parameter
+	var params map[common.Identifier]Parameter
 	var regex *regexp.Regexp
 
 	segments, params, err = parseSegments(template)
@@ -51,13 +51,16 @@ end:
 	return t, err
 }
 
-func parseSegments(template string) (segments []Segment, params map[string]*Parameter, err error) {
+// parseSegments splits a template into segments and extracts parameters.
+// Handles both path and query portions of the template, parsing each
+// according to their specific syntax rules.
+func parseSegments(template string) (segments []Segment, params map[common.Identifier]Parameter, err error) {
 	var pathPart, queryPart string
 	var pathSegments []Segment
-	var pathParams, queryParams map[string]*Parameter
+	var pathParams, queryParams map[common.Identifier]Parameter
 	var position int
 
-	params = make(map[string]*Parameter)
+	params = make(map[common.Identifier]Parameter)
 
 	if template == "" {
 		err = errors.Join(
@@ -84,7 +87,7 @@ func parseSegments(template string) (segments []Segment, params map[string]*Para
 		err = errors.Join(
 			err,
 			fmt.Errorf("template=%q", template),
-			fmt.Errorf("pathPart=%q", pathPart),
+			fmt.Errorf("path_part=%q", pathPart),
 		)
 		goto end
 	}
@@ -92,7 +95,7 @@ func parseSegments(template string) (segments []Segment, params map[string]*Para
 	// Set position for path parameters and add to combined params map
 	position = 0
 	for name, param := range pathParams {
-		param.paramType = PathParameter
+		param.useType = PathUseType
 		param.position = position
 		params[name] = param
 		position++
@@ -105,14 +108,14 @@ func parseSegments(template string) (segments []Segment, params map[string]*Para
 			err = errors.Join(
 				err,
 				fmt.Errorf("template=%q", template),
-				fmt.Errorf("queryPart=%q", queryPart),
+				fmt.Errorf("query_part=%q", queryPart),
 			)
 			goto end
 		}
 
 		// Add query parameters to combined params map
 		for name, param := range queryParams {
-			param.paramType = QueryParameter
+			param.useType = QueryUseType
 			params[name] = param
 		}
 	}
@@ -123,23 +126,23 @@ end:
 	return segments, params, err
 }
 
-func buildRegex(segments []Segment, params map[string]*Parameter) (re *regexp.Regexp, err error) {
 // buildRegex creates a regex pattern from template segments for efficient path matching.
 // Handles both regular parameters and multi-segment parameters that can span
 // multiple path segments.
+func buildRegex(segments []Segment, params map[common.Identifier]Parameter) (re *regexp.Regexp, err error) {
 	var sb strings.Builder
 	var segment Segment
-	var paramName string
-	var param *Parameter
+	var paramName common.Identifier
+	var param Parameter
 	var exists bool
 
-	// Build re sb string from segments
+	// Build regex string from segments
 	sb.WriteByte('^')
 
 	for _, segment = range segments {
 		sb.WriteByte('/')
 		if !segment.IsParameter() {
-			// Literal segments - escape special re characters
+			// Literal segments - escape special regex characters
 			sb.WriteString(regexp.QuoteMeta(string(segment)))
 			continue
 		}
@@ -149,7 +152,7 @@ func buildRegex(segments []Segment, params map[string]*Parameter) (re *regexp.Re
 
 		// Regular parameters capture any non-slash characters
 		captureRegex := "([^/]+)"
-		if exists && param.multiSegment {
+		if exists && param.MultiSegment {
 			// Multi-segment parameters capture non-slash chars optionally followed by more segments
 			captureRegex = "([^/]+(?:/[^/]+)*)"
 		}
@@ -157,7 +160,7 @@ func buildRegex(segments []Segment, params map[string]*Parameter) (re *regexp.Re
 	}
 	sb.WriteByte('$')
 
-	// Compile and return re
+	// Compile and return regex
 	re, err = regexp.Compile(sb.String())
 
 	return re, err
@@ -231,7 +234,7 @@ func parsePathSegments(template string) (segments []string, err error) {
 		err = errors.Join(
 			ErrInvalidParameter,
 			fmt.Errorf("template=%q", template),
-			fmt.Errorf("braceDepth=%d", braceDepth),
+			fmt.Errorf("brace_depth=%d", braceDepth),
 			fmt.Errorf("reason=%s", "unmatched opening brace(s)"),
 		)
 		goto end
@@ -289,7 +292,7 @@ func splitPathAndQuery(template string) (pathPart, queryPart string, err error) 
 		err = errors.Join(
 			ErrInvalidParameter,
 			fmt.Errorf("template=%q", template),
-			fmt.Errorf("braceDepth=%d", braceDepth),
+			fmt.Errorf("brace_depth=%d", braceDepth),
 			fmt.Errorf("reason=%s", "unmatched opening brace(s)"),
 		)
 		goto end
@@ -302,23 +305,23 @@ end:
 	return pathPart, queryPart, err
 }
 
-func parsePathPart(pathPart string) (segments []Segment, params map[string]*Parameter, err error) {
 // parsePathPart parses the path portion of a template into segments and parameters.
 // Extracts parameter definitions from path segments and validates their syntax.
+func parsePathPart(pathPart string) (segments []Segment, params map[common.Identifier]Parameter, err error) {
 	var parts []string
 	var part string
 	var segment Segment
-	var param *Parameter
+	var param Parameter
 	var position int
 
-	params = make(map[string]*Parameter)
+	params = make(map[common.Identifier]Parameter)
 
 	// Parse path segments using existing logic
 	parts, err = parsePathSegments(pathPart)
 	if err != nil {
 		err = errors.Join(
 			err,
-			fmt.Errorf("pathPart=%q", pathPart),
+			fmt.Errorf("path_part=%s", pathPart),
 		)
 		goto end
 	}
@@ -337,17 +340,17 @@ func parsePathPart(pathPart string) (segments []Segment, params map[string]*Para
 			continue
 		}
 
-		param, err = ParseParameter(part, position)
+		param, err = ParseParameter(part, PathUseType, position)
 		if err != nil {
 			err = errors.Join(
 				err,
-				fmt.Errorf("pathPart=%q", pathPart),
-				fmt.Errorf("segment=%q", part),
+				fmt.Errorf("path_part=%s", pathPart),
+				fmt.Errorf("segment=%s", part),
 				fmt.Errorf("position=%d", position),
 			)
 			goto end
 		}
-		params[param.name] = param
+		params[param.Name] = param
 		position++
 	}
 
@@ -355,20 +358,22 @@ end:
 	return segments, params, err
 }
 
-func parseQueryPart(queryPart string, startPosition int) (params map[string]*Parameter, err error) {
+// parseQueryPart parses the query portion of a template like "{owner:email}&{limit?10:int}".
+// Extracts parameter definitions from query parameter specifications.
+func parseQueryPart(queryPart string, startPosition int) (params map[common.Identifier]Parameter, err error) {
 	var queryParams []string
 	var paramSpec string
-	var param *Parameter
+	var param Parameter
 	var position int
 
-	params = make(map[string]*Parameter)
+	params = make(map[common.Identifier]Parameter)
 
 	// Split query part by '&' to get individual parameters, being careful of braces
 	queryParams, err = parseQueryParameters(queryPart)
 	if err != nil {
 		err = errors.Join(
 			err,
-			fmt.Errorf("queryPart=%q", queryPart),
+			fmt.Errorf("query_part=%s", queryPart),
 		)
 		goto end
 	}
@@ -379,17 +384,17 @@ func parseQueryPart(queryPart string, startPosition int) (params map[string]*Par
 			continue
 		}
 
-		param, err = ParseParameter(paramSpec, position)
+		param, err = ParseParameter(paramSpec, QueryUseType, position)
 		if err != nil {
 			err = errors.Join(
 				err,
-				fmt.Errorf("queryPart=%q", queryPart),
-				fmt.Errorf("paramSpec=%q", paramSpec),
+				fmt.Errorf("query_part=%s", queryPart),
+				fmt.Errorf("parameter_spec=%s", paramSpec),
 				fmt.Errorf("position=%d", position),
 			)
 			goto end
 		}
-		params[param.name] = param
+		params[param.Name] = param
 		position++
 	}
 
@@ -425,7 +430,7 @@ func parseQueryParameters(queryPart string) (parameters []string, err error) {
 			} else {
 				err = errors.Join(
 					ErrInvalidParameter,
-					fmt.Errorf("queryPart=%q", queryPart),
+					fmt.Errorf("query_part=%s", queryPart),
 					fmt.Errorf("position=%d", i),
 					fmt.Errorf("char=%c", char),
 					fmt.Errorf("reason=%s", "unmatched closing brace"),
@@ -458,8 +463,8 @@ func parseQueryParameters(queryPart string) (parameters []string, err error) {
 	if braceDepth > 0 {
 		err = errors.Join(
 			ErrInvalidParameter,
-			fmt.Errorf("queryPart=%q", queryPart),
-			fmt.Errorf("braceDepth=%d", braceDepth),
+			fmt.Errorf("query_part=%s", queryPart),
+			fmt.Errorf("brace_depth=%d", braceDepth),
 			fmt.Errorf("reason=%s", "unmatched opening brace(s)"),
 		)
 		goto end

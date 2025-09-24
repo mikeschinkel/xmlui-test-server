@@ -3,9 +3,13 @@
 // It provides access to extracted parameter values and route information.
 package pathvars
 
-type VarsMap map[string]string
+import (
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+)
 
 // VarsMap is a map of parameter names to their extracted string values.
+type VarsMap map[common.Identifier]string
+
 // MatchResult represents the result of matching an HTTP request against a route template.
 // It contains the matched route index and extracted parameter values for memory efficiency.
 type MatchResult struct {
@@ -36,6 +40,7 @@ func (m MatchResult) ParamsMap() VarsMap {
 
 // GetValue returns the value of a named parameter and whether it was found.
 // Returns the parameter value and true if the parameter exists, or empty string and false otherwise.
+func (m MatchResult) GetValue(name common.Identifier) (value string, found bool) {
 	value, found = m.varsMap[name]
 	return value, found
 }
@@ -53,6 +58,7 @@ func (m MatchResult) HasVars() bool {
 // ForEachVar iterates over all extracted parameters, calling the provided function
 // for each name-value pair. If the function returns true, iteration continues;
 // if it returns false, iteration stops early.
+func (m MatchResult) ForEachVar(fn func(name common.Identifier, value string) bool) {
 	for name, value := range m.varsMap {
 		if fn(name, value) {
 			continue

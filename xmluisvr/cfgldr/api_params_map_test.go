@@ -428,22 +428,22 @@ func TestAPIParamsMap_APIParamsV1Conversion(t *testing.T) {
 	}
 
 	expectedParams := map[string]cfgldr.APIParamV1{
-		"id":    {Name: "id", Type: "int", Constraints: ""},
-		"slug":  {Name: "slug", Type: "string", Constraints: "length[5..50]"},
-		"count": {Name: "count", Type: "int", Constraints: "range[1..100]"},
+		"id":    {NameSpec: "id", Type: "int", Constraints: ""},
+		"slug":  {NameSpec: "slug", Type: "string", Constraints: "length[5..50]"},
+		"count": {NameSpec: "count", Type: "int", Constraints: "range[1..100]"},
 	}
 
 	for _, param := range params {
-		expected, exists := expectedParams[param.Name]
+		expected, exists := expectedParams[param.NameSpec]
 		if !exists {
-			t.Errorf("unexpected param: %s", param.Name)
+			t.Errorf("unexpected param: %s", param.NameSpec)
 			continue
 		}
 		if param.Type != expected.Type {
-			t.Errorf("param %s type: got %q, want %q", param.Name, param.Type, expected.Type)
+			t.Errorf("param %s type: got %q, want %q", param.NameSpec, param.Type, expected.Type)
 		}
 		if param.Constraints != expected.Constraints {
-			t.Errorf("param %s constraints: got %q, want %q", param.Name, param.Constraints, expected.Constraints)
+			t.Errorf("param %s constraints: got %q, want %q", param.NameSpec, param.Constraints, expected.Constraints)
 		}
 	}
 }

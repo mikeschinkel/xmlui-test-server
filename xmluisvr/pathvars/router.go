@@ -113,7 +113,7 @@ func (r *Router) AddRouteWithIndex(pathSpec PathSpec, params []Parameter, index 
 	}
 
 	for _, param := range params {
-		template.params[param.name] = &param
+		template.params[param.Name] = param
 	}
 
 	// Track max params for optimization
@@ -139,6 +139,7 @@ end:
 func (r *Router) Compile() (err error) {
 	// Validate all routes are properly configured
 	// Set compiled flag
+	//panic("IMPLEMENT ME!")
 	r.compiled = true
 	return err
 }

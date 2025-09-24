@@ -443,6 +443,59 @@ This disambiguation makes the format intuitive for laypersons while avoiding amb
 - No middleware, no route groups, no complex features
 - Linear search is fine (local dev, <100 routes typically)
 
+### 12. Future Type Addition Strategy
+
+**Design Question**: When adding new data types to PathVars, should they be included in the implicit type inference system?
+
+**Background**: The current system allows `{name}` syntax where:
+- If `name` matches an existing data type (like `{int}`, `{date}`, `{slug}`), it infers that type
+- If `name` doesn't match a type, it defaults to `string`
+
+This creates a **strategic decision** for each new data type: should `{newtype}` automatically work, or should users be required to write `{param:newtype}` explicitly?
+
+**Options Considered**:
+
+1. **Automatic Inclusion (Permissive)**
+   - **Approach**: Add all new types to the inference system
+   - **Benefits**: Consistent developer experience, `{newtype}` syntax works immediately
+   - **Risks**: Breaking changes if users have parameters named after future types
+   - **Example**: Adding `time` type could break existing `{time}` parameters that expect string behavior
+
+2. **Explicit Only (Conservative)**
+   - **Approach**: Never add new types to inference, require explicit syntax
+   - **Benefits**: Zero breaking changes, completely predictable behavior
+   - **Drawbacks**: Inconsistent UX (some types inferred, others explicit), more verbose
+   - **Example**: Users must write `{param:newtype}` while `{int}` still works
+
+3. **Frozen Inference List (Hybrid)**
+   - **Approach**: Freeze the current inference list, new types always explicit
+   - **Benefits**: No breaking changes, some inference still available
+   - **Drawbacks**: Creates two classes of types with different syntax requirements
+   - **Example**: `{int}` works but `{newtype}` doesn't, confusing for newcomers
+
+**Decision**: **Defer until needed** - Evaluate each new data type individually when added.
+
+**Rationale**:
+- **Avoids premature decisions**: We don't know what types we'll add or how commonly they'll be used
+- **Prevents inconsistent UX**: Option 3 would create hard-to-explain inconsistencies
+- **Keeps all options open**: We can choose the most appropriate approach for each specific type
+- **No immediate pressure**: The current type set covers the majority of REST API use cases
+
+**Evaluation Criteria for Future Types**:
+When adding a new data type, consider:
+1. **Collision risk**: How likely are existing parameter names to match the type name?
+2. **Usage frequency**: Will this be a common type that benefits from terse syntax?
+3. **Breaking change impact**: How many existing configurations might be affected?
+4. **Developer expectations**: Would users expect this type to support inference?
+
+**Examples of Future Evaluation**:
+- **High collision risk**: `time`, `date`, `user`, `id` - common parameter names, high breaking change risk
+- **Low collision risk**: `ipv4`, `semver`, `jwt` - specialized names, unlikely to be used as generic parameter names
+- **Common usage**: `email`, `url` - frequently used, would benefit from terse syntax
+- **Specialized usage**: `base64`, `hex` - less common, explicit syntax acceptable
+
+This approach prioritizes **stability and consistency** while keeping the door open for **pragmatic decisions** as the system evolves.
+
 ## Data Flow
 
 ### Startup Flow

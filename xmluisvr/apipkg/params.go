@@ -3,79 +3,240 @@ package apipkg
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
-type Param struct {
-	Name        common.Identifier
-	Type        common.DBDataType
-	Constraints []pathvars.Constraint
-	RawValue    string
-}
-
-func ParseParams(cfgParams any) (params []Param, err error) {
+// ParseEndpointParams converts configuration parameters into EndpointParam structs.
+// It handles type conversion and validation for each parameter definition.
+func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath common.URLPath) (epParams []EndpointParam, err error) {
 	var errs []error
-	// TODO Fix this after getting JSONv2 Loading fixed
-	//apiParams := cfgParams.ApiParamsMap()
-	//
-	//params = make([]Param, 0, len(apiParams))
-	//
-	//for name, apiParam := range apiParams {
-	//	var p Param
-	//	p, err = ParseAPIParam(string(name), apiParam)
-	//	if err != nil {
-	//		errs = append(errs, err)
-	//		continue
-	//	}
-	//	params = append(params, p)
-	//}
-	return params, errors.Join(errs...)
+	var pathVars []pathvars.ParamVar
+	var pathVarsMap map[common.Identifier]pathvars.ParamVar
+	var paramsMap map[string]cfgldr.APIParamV1
+
+	apiParams, ok := cfgParams.(cfgldr.APIParamsV1)
+	if !ok {
+		err = errors.Join(ErrInvalidAPIEndpointParameters, ErrCannotTypeAssert,
+			fmt.Errorf("from_type=%T", cfgParams),
+			fmt.Errorf("to_type=%T", (cfgldr.APIParamsV1)(nil)),
+			fmt.Errorf("parameter_value=%v", cfgParams),
+		)
+		goto end
+	}
+	// Add any parameters that are defined ih the URL path but not lists in the array
+	// of params.
+	pathVars, err = pathvars.ParseParamsInURLPath(epPath)
+	if err != nil {
+		// TODO Add regular error handling
+		panic(err.Error())
+	}
+
+	// Loop through all the APIParamsV1 and see if there are any vars from the Path string
+	// that need to be have their UseType or Constraints updated. Also check to make sure that
+	// there are not conflicting types nor conflicting constraints
+	pathVarsMap = pathvars.ParamVars(pathVars).Map()
+	for i, p := range apiParams {
+		name, err := common.ParseLeadingIdentifier(p.NameSpec)
+		if err != nil {
+			// TODO Add regular error handling
+			panic("Invalid identifier")
+		}
+		pv, ok := pathVarsMap[name]
+		if !ok {
+			apiParams[i].UseType = int(pathvars.QueryUseType)
+			continue
+		}
+		// Path var use-type is authoritative so assign the use-type from the path var to
+		// the APIParamV1.
+		apiParams[i].UseType = int(pv.UseType)
+		dt, err := pathvars.ParsePVDataType(p.Type)
+		if err != nil {
+			// TODO Add regular error handling
+			panic("Invalid type")
+		}
+		if dt != pv.Type {
+			// TODO Add regular error handling
+			panic("Type mismatch")
+		}
+		switch {
+		case len(pv.Constraints) != 0 && p.Constraints == "":
+			// If path var has constraints and APIParamV1 had no, transfer to APIParamV1
+			apiParams[i].Constraints = pathvars.Constraints(pv.Constraints).String()
+		case len(pv.Constraints) != 0 && p.Constraints != "":
+			// If both path var has constraints and APIParamV1 has constraints, make sure
+			// they are the same, otherwise error.
+			pvConstraints := pathvars.Constraints(pv.Constraints).String()
+			if pvConstraints != p.Constraints {
+				// TODO Add regular error handling
+				panic(fmt.Sprintf("Constraints mismatch: %s != %s", pvConstraints, p.Constraints))
+			}
+		}
+	}
+	// Now loop through all the path vars to see if we need to add any from the path
+	// vars to the slice of APIParamV1.
+	paramsMap = apiParams.Map()
+	for _, pv := range pathVars {
+		_, ok := paramsMap[string(pv.Name)]
+		if ok {
+			continue
+		}
+		apiParam := cfgldr.NewAPIParamV1(cfgldr.APIParamV1Args{
+			NameSpec:    pv.String(),
+			Type:        string(pv.Type.TypeName()),
+			Constraints: pathvars.Constraints(pv.Constraints).String(),
+		})
+		apiParams = append(apiParams, apiParam)
+	}
+
+	// Finally now loop through to collected and updated slice of APIParamV1 and
+	// parse to convert to an Endpoint Param.
+	for _, apiParam := range apiParams {
+		var p EndpointParam
+		p, err = ParseEndpointParam(apiParam.NameSpec, apiParam.UseType, apiParam)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		epParams = append(epParams, p)
+	}
+
+	err = errors.Join(errs...)
+
+end:
+	return epParams, err
 }
 
-var ErrInvalidAPIEndpointParameter = errors.New("invalid API endpoint parameter")
-
-func ParseAPIParam(name string, cfg cfgldr.APIParam) (p Param, err error) {
-	var pn common.Identifier
-	var dt common.DBDataType
+// ParseEndpointParam converts a configuration parameter into a validated
+// EndpointParam. It handles both APIParamV1 and APIParamsMapValue formats,
+// parsing the parameter specification and validating all constraints.
+func ParseEndpointParam(nameSpec string, useType int, cfg cfgldr.APIParam) (p EndpointParam, err error) {
+	var props *pathvars.NameSpecProps
 	var cc []pathvars.Constraint
-	var dtNum pathvars.PVDataType
+	var dt pathvars.PVDataType
 	param, ok := cfg.(cfgldr.APIParamV1)
 	if !ok {
 		paramSpec, ok := cfg.(cfgldr.APIParamsMapValue)
 		if !ok {
-			err = errors.Join(ErrInvalidAPIEndpointParameter, fmt.Errorf("parameter=%v", cfg))
+			err = errors.Join(ErrInvalidAPIEndpointParameter, ErrCannotTypeAssert,
+				fmt.Errorf("from_type=%T", cfg),
+				fmt.Errorf("to_type=%T", (*cfgldr.APIParamV1)(nil)),
+				fmt.Errorf("parameter_value=%v", cfg),
+			)
 			goto end
 		}
-		param, err = cfgldr.ParseAPIParamV1(name, string(paramSpec))
+		param, err = cfgldr.ParseAPIParamV1(nameSpec, string(paramSpec))
 	}
 	if err != nil {
 		goto end
 	}
+	props, err = pathvars.ParseNameSpecProps(param.NameSpec)
+	if err != nil {
+		goto end
+	}
+	if props == nil {
+		// Added this here because Goland flags props.DataType as possibly being null. I
+		// don't see how it could be possible, but maybe Goland knows something I don't?
+		panic(fmt.Sprintf("NameSpecProps are nil when err is also nil; spec=%s", param.NameSpec))
+	}
+	if props.DataType != nil {
+		dt = *props.DataType
+	}
+	if param.Type != "" {
+		dt, err = pathvars.ParsePVDataType(param.Type)
+		if err != nil {
+			goto end
+		}
+		cc, err = pathvars.ParseConstraints(param.Constraints, dt)
+		if err != nil {
+			goto end
+		}
+		p = NewEndpointParam(EndpointParamArgs{
+			Props: *props,
 
-	pn, err = common.ParseIdentifier(param.Name)
-	if err != nil {
-		goto end
-	}
-	dt, err = common.ParseDBDataType(param.Type)
-	if err != nil {
-		goto end
-	}
-	dtNum, err = pathvars.ParsePVDataType(param.Type)
-	if err != nil {
-		goto end
-	}
-	cc, err = pathvars.ParseConstraints(param.Constraints, dtNum)
-	if err != nil {
-		goto end
-	}
-	p = Param{
-		Name:        pn,
-		Type:        dt,
-		Constraints: cc,
+			Type:        dt,
+			UseType:     pathvars.ParamUseType(useType),
+			Constraints: cc,
+			RawValue:    param.String(),
+		})
 	}
 end:
 	return p, err
+}
+
+type Props = pathvars.NameSpecProps
+
+// EndpointParam represents a parameter that can be extracted from HTTP requests
+// and used in SQL query execution. Parameters can come from URL path segments,
+// query strings, or JSON request bodies.
+type EndpointParam struct {
+	Props
+	Type        pathvars.PVDataType   // Data type for validation and conversion
+	UseType     pathvars.ParamUseType // How the parameter is used (path, query, body)
+	Constraints []pathvars.Constraint // Validation constraints (min/max, regex, etc.)
+	nameSpec    pathvars.PVNameSpec
+}
+
+func (p EndpointParam) NameSpec() (ns pathvars.PVNameSpec) {
+	if p.nameSpec == "" {
+		p.nameSpec = pathvars.PVNameSpec(p.Props.String())
+	}
+	return p.nameSpec
+}
+
+func (p EndpointParam) RawValue() (s string) {
+	return p.Props.RawValue
+}
+func (p EndpointParam) HasProps() bool {
+	props := p.Props
+	return props.Name != "" && props.RawValue != ""
+}
+
+func (p EndpointParam) String() (s string) {
+	var sb strings.Builder
+	var cs string
+	if len(p.Constraints) != 0 {
+		sb.WriteByte(':')
+		for _, c := range p.Constraints {
+			sb.WriteString(c.String())
+			sb.WriteByte(',')
+		}
+		cs = sb.String()
+		cs = cs[:len(cs)-1]
+	}
+	name := string(p.Props.Name)
+	typ := string(p.Type.TypeName())
+	if cs == "" && name == typ {
+		s = fmt.Sprintf("{%s}", name)
+		goto end
+	}
+	s = fmt.Sprintf("{%s:%s%s}", name, typ, cs)
+end:
+	return s
+}
+
+// EndpointParamArgs contains the configuration for creating a new EndpointParam.
+type EndpointParamArgs struct {
+	Props
+	Type        pathvars.PVDataType   // Parameter data type
+	UseType     pathvars.ParamUseType // Parameter usage type
+	Constraints []pathvars.Constraint // Validation constraints
+	RawValue    string
+}
+
+// NewEndpointParam creates a new EndpointParam with the specified name and configuration.
+// If no constraints are provided, an empty slice is initialized.
+func NewEndpointParam(args EndpointParamArgs) EndpointParam {
+	if args.Constraints == nil {
+		args.Constraints = make([]pathvars.Constraint, 0)
+	}
+	return EndpointParam{
+		Props:       args.Props,
+		Type:        args.Type,
+		UseType:     args.UseType,
+		Constraints: args.Constraints,
+	}
 }

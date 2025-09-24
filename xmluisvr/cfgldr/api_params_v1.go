@@ -10,11 +10,6 @@ var _ APIParamsMapper = (*APIParamsV1)(nil)
 
 type APIParamsV1 []APIParamV1
 
-func (ps APIParamsV1) UnmarshalJSON(bytes []byte) error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (ps APIParamsV1) APIParamsMap() (pm *APIParamsMap) {
 	pm = &APIParamsMap{
 		OrderedMap: *NewOrderedMap[APIParamsMapKey, APIParamsMapValue](),
@@ -25,7 +20,7 @@ func (ps APIParamsV1) APIParamsMap() (pm *APIParamsMap) {
 		case p.Type == "" && p.Constraints == "":
 			// Just use default type
 			typ := pathvars.DefaultPVDataTypeName
-			dt, err := pathvars.ParsePVDataType(p.Name)
+			dt, err := pathvars.ParsePVDataType(p.NameSpec)
 			if err == nil {
 				typ = dt.TypeName()
 			}
@@ -36,7 +31,7 @@ func (ps APIParamsV1) APIParamsMap() (pm *APIParamsMap) {
 		case p.Type == "" && p.Constraints != "":
 			// Default type with constraints
 			typ := pathvars.DefaultPVDataTypeName
-			dt, err := pathvars.ParsePVDataType(p.Name)
+			dt, err := pathvars.ParsePVDataType(p.NameSpec)
 			if err == nil {
 				typ = dt.TypeName()
 			}
@@ -46,8 +41,20 @@ func (ps APIParamsV1) APIParamsMap() (pm *APIParamsMap) {
 			value = fmt.Sprintf("%s:%s", p.Type, p.Constraints)
 		}
 		if value != "" {
-			pm.Set(APIParamsMapKey(p.Name), APIParamsMapValue(value))
+			pm.Set(APIParamsMapKey(p.NameSpec), APIParamsMapValue(value))
 		}
 	}
 	return pm
+}
+
+func (ps APIParamsV1) Map() (m map[string]APIParamV1) {
+	m = make(map[string]APIParamV1)
+	for _, p := range ps {
+		m[p.NameSpec] = p
+	}
+	return m
+}
+
+func (ps APIParamsV1) APIParamsV1() APIParamsV1 {
+	return ps
 }

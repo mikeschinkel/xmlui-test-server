@@ -30,20 +30,24 @@ func (pm *APIParamsMap) APIParamsMap() *APIParamsMap {
 
 func (pm *APIParamsMap) APIParamsV1() (params APIParamsV1) {
 	params = APIParamsV1{}
-	for name, spec := range pm.Iterator() {
+	for nameSpec, typeSpec := range pm.Iterator() {
 		// Skip comment keys (those starting with @)
-		if len(name) > 0 && name[0] == '@' {
+		if len(nameSpec) > 0 && nameSpec[0] == '@' {
 			continue
 		}
-		typ, constraints, found := strings.Cut(string(spec), ":")
+		typ, constraints, found := strings.Cut(string(typeSpec), ":")
 		if !found {
 			params = append(params,
-				NewAPIParamV1(string(name), string(spec)),
+				NewAPIParamV1(APIParamV1Args{
+					NameSpec:    string(nameSpec),
+					Type:        typ,
+					Constraints: constraints,
+				}),
 			)
 			continue
 		}
 		params = append(params,
-			NewAPIParamV1WithConstraints(string(name), typ, constraints),
+			NewAPIParamV1WithConstraints(string(nameSpec), typ, constraints),
 		)
 	}
 	return params
@@ -238,104 +242,6 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 end:
 	return err
 }
-
-// FYI: We are not this because it does not provide the level of control we want,
-// but I am temporarily keeping it here for reference for other use-cases. It can
-// be deleted at any time.
-//// UnmarshalJSONFrom implements the streaming form. It enforces the same
-//// rules as above, but (by design) does NOT attempt to detect trailing data,
-//// because that would consume the parent stream. Top-level null => empty map.
-//func (pm *APIParamsMap) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-//	switch dec.PeekKind() {
-//	case 'n': // null -> empty
-//		// consume the null
-//		var x any
-//		if err := jsonv2.UnmarshalDecode(dec, &x); err != nil {
-//			return err
-//		}
-//		pm.Clear()
-//		return nil
-//	case '{':
-//		// proceed
-//	default:
-//		return errors.Join(
-//			ErrAPIParamsMapExpectedObject,
-//			fmt.Errorf("got kind %q", dec.PeekKind()),
-//		)
-//	}
-//
-//	if _, err := dec.ReadToken(); err != nil { // '{'
-//		return err
-//	}
-//
-//	pm.Clear()
-//
-//	for dec.PeekKind() != '}' {
-//		var name string
-//		if err := jsonv2.UnmarshalDecode(dec, &name); err != nil {
-//			return err
-//		}
-//		valOffset := dec.InputOffset()
-//		isComment := len(name) > 0 && name[0] == '@'
-//
-//		switch k := dec.PeekKind(); k {
-//		case '{':
-//			return errors.Join(
-//				ErrAPIParamsMapCannotBeNested,
-//				fmt.Errorf("key=%q value=%s offset=%d", name, previewNextValue(name, dec), valOffset),
-//			)
-//		case '[':
-//			if !isComment {
-//				return errors.Join(
-//					ErrAPIParamsMapCannotContainArray,
-//					fmt.Errorf("key=%q value=%s offset=%d", name, previewNextValue(name, dec), valOffset),
-//				)
-//			}
-//			// comment array of strings
-//			ss, err := readStringArray(name, dec)
-//			if err != nil {
-//				return err
-//			}
-//			joined := joinWithNewlines(ss)
-//			if prev, dup := pm.Get(APIParamsMapKey(name)); dup {
-//				return errors.Join(
-//					ErrAPIParamsMapDuplicateKey,
-//					fmt.Errorf("key=%q new_value=%q prev_value=%q offset=%d", name, joined, prev, valOffset),
-//				)
-//			}
-//			pm.Set(APIParamsMapKey(name), APIParamsMapValue(joined))
-//
-//		case '"':
-//			var s string
-//			if err := jsonv2.UnmarshalDecode(dec, &s); err != nil {
-//				return err
-//			}
-//			if prev, dup := pm.Get(APIParamsMapKey(name)); dup {
-//				return errors.Join(
-//					ErrAPIParamsMapDuplicateKey,
-//					fmt.Errorf("key=%q new_value=%q prev_value=%q offset=%d", name, s, prev, valOffset),
-//				)
-//			}
-//			pm.Set(APIParamsMapKey(name), APIParamsMapValue(s))
-//
-//		case 'n', 't', 'f':
-//			raw, _ := readRawValue(name, dec)
-//			return errors.Join(
-//				ErrAPIParamsMapStringsOnly,
-//				fmt.Errorf("key=%q value=%s offset=%d", name, string(raw), valOffset),
-//			)
-//		default:
-//			raw, _ := readRawValue(name, dec)
-//			return errors.Join(
-//				ErrAPIParamsMapStringsOnly,
-//				fmt.Errorf("key=%q value=%s offset=%d", name, string(raw), valOffset),
-//			)
-//		}
-//	}
-//
-//	_, err := dec.ReadToken() // '}'
-//	return err
-//}
 
 // previewNextValue peeks the next JSON value and returns a short raw snippet.
 // It DOES NOT advance the decoder permanently.

@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // Template represents a parsed path template with parameters and compiled regex.
@@ -20,7 +22,9 @@ type Template struct {
 
 	// segments contains the parsed path segments, both literal and parameter segments.
 	segments []Segment
-	params   map[string]*Parameter
+
+	// params maps parameter names to their definitions for validation and extraction.
+	params map[common.Identifier]Parameter
 
 	// regex is the compiled regular expression used for efficient path matching.
 	regex *regexp.Regexp
@@ -55,9 +59,9 @@ end:
 func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 	var matches []string
 	var i int
-	var name string
+	var name common.Identifier
 	var value string
-	var param *Parameter
+	var param Parameter
 	var exists bool
 	var err error
 
@@ -105,8 +109,8 @@ func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 // Optional parameters are handled gracefully with default values when provided.
 func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 	var queryValues url.Values
-	var param *Parameter
-	var name string
+	var param Parameter
+	var name common.Identifier
 	var value string
 	var values []string
 	var found bool
@@ -124,12 +128,12 @@ func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 
 	// Check each query parameter in the template
 	for name, param = range t.params {
-		if param.paramType != QueryParameter {
+		if param.useType != QueryUseType {
 			continue
 		}
 
 		// Check if parameter is present in query string
-		values, found = queryValues[name]
+		values, found = queryValues[string(name)]
 		if found && len(values) > 0 {
 			// Use the first value if multiple are provided
 			value = values[0]
@@ -141,11 +145,11 @@ func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 			}
 
 			vars[name] = value
-		} else if param.optional {
+		} else if param.Optional {
 			// Optional parameter not provided
-			if param.defaultValue != nil {
+			if param.DefaultValue != nil {
 				// Use default value
-				vars[name] = *param.defaultValue
+				vars[name] = *param.DefaultValue
 			}
 			// If no default value, simply omit from vars (empty string behavior)
 		} else {
@@ -157,9 +161,9 @@ func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 	return true
 }
 
-func (t *Template) validateParameter(param *Parameter, value, context string) error {
 // validateParameter validates a parameter value against its type and constraints.
 // Returns an error with detailed context if validation fails.
+func (t *Template) validateParameter(param Parameter, value, context string) error {
 	var err error
 
 	// Validate data type
@@ -169,7 +173,7 @@ func (t *Template) validateParameter(param *Parameter, value, context string) er
 			err,
 			fmt.Errorf("context=%q", context),
 			fmt.Errorf("template=%q", t.raw),
-			fmt.Errorf("parameter=%q", param.name),
+			fmt.Errorf("parameter=%q", param.Name),
 			fmt.Errorf("value=%q", value),
 			fmt.Errorf("data_type=%v", param.dataType),
 			fmt.Errorf("reason=%s", "data type validation failed"),
@@ -184,7 +188,7 @@ func (t *Template) validateParameter(param *Parameter, value, context string) er
 				err,
 				fmt.Errorf("context=%q", context),
 				fmt.Errorf("template=%q", t.raw),
-				fmt.Errorf("parameter=%q", param.name),
+				fmt.Errorf("parameter=%q", param.Name),
 				fmt.Errorf("value=%q", value),
 				fmt.Errorf("constraint=%s", constraint.String()),
 				fmt.Errorf("reason=%s", "constraint validation failed"),
@@ -195,9 +199,9 @@ func (t *Template) validateParameter(param *Parameter, value, context string) er
 	return nil
 }
 
-func (t *Template) Parameters() (params []*Parameter) {
 // Parameters returns all parameters in the template.
 // TODO: Implementation needed - should return parameters in order of appearance.
+func (t *Template) Parameters() (params []Parameter) {
 	// Return parameters in order of appearance
 	return params
 }
@@ -216,27 +220,39 @@ func (t *Template) Substitute(values map[string]string) (result string, err erro
 	return result, err
 }
 
-func extractParamName(segment string) (name string) {
 // extractParamName extracts the parameter name from a segment like {id:int} or {date*:date:format}.
 // Returns just the parameter name without type specifications or multi-segment markers.
+func extractParamName(segment string) (name common.Identifier) {
 	var content string
+	var idx int
 
 	// Remove braces and extract name (before first colon if any)
-	if len(segment) < 2 || segment[0] != '{' || segment[len(segment)-1] != '}' {
+	if len(segment) < 2 {
+		goto end
+	}
+
+	if segment[0] != '{' {
+		goto end
+	}
+
+	if segment[len(segment)-1] != '}' {
 		goto end
 	}
 
 	content = segment[1 : len(segment)-1]
 
 	// Get just the name part (before first colon)
-	if idx := strings.Index(content, ":"); idx != -1 {
-		name = content[:idx]
-	} else {
-		name = content
+	idx = strings.Index(content, ":")
+	if idx == -1 {
+		idx = len(content)
+	}
+	name = common.Identifier(content[:idx])
+	if name == "" {
+		goto end
 	}
 
 	// Remove multi-segment suffix if present
-	if strings.HasSuffix(name, "*") {
+	if strings.HasSuffix(string(name), "*") {
 		name = name[:len(name)-1]
 	}
 

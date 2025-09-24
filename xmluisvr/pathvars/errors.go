@@ -41,4 +41,12 @@ var (
 
 	// ErrParseFailed indicates that parsing of a constraint or parameter failed.
 	ErrParseFailed = errors.New("parse failed")
+
+	ErrInvalidNameSpec = errors.New("invalid name spec")
+
+	ErrNameSpecNameCannotBeEmpty = errors.New("name spec name cannot be empty")
+
+	ErrValueCannotBeEmpty = errors.New("value cannot be empty")
+
+	ErrWhatNameSpecMustContain = errors.New("name spec must begin with a valid identifier — containing letters, digits and/or underscores — may then optionally contain an asterisk ('*': for multisegment), a question mark ('?': for optional), and if optional then optionally a default value, e.g. 'category?uncategorized'")
 )

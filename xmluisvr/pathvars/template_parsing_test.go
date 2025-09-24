@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -33,7 +34,7 @@ func TestTemplateParsing(t *testing.T) {
 		{"empty-braces", "/users/{}", true, "Empty parameter braces"},
 		{"unmatched-open", "/users/{id", true, "Unmatched opening brace"},
 		{"unmatched-close", "/users/id}", true, "Unmatched closing brace - now consistently an error"},
-		{"nested-braces", "/users/{{id}}", false, "Nested braces - outer braces treated as literal"},
+		{"nested-braces", "/users/{{id}}", true, "Nested braces not allowed (at this time, maybe later if needed)"},
 
 		// Invalid parameter definitions
 		{"no-param-name", "/users/{:int}", true, "No parameter name"},
@@ -72,7 +73,7 @@ func TestParameterExtraction(t *testing.T) {
 		name       string
 		template   string
 		testPath   string
-		expected   map[string]string
+		expected   map[common.Identifier]string
 		params     []pathvars.Parameter
 		query      string
 		shouldFail bool
@@ -81,37 +82,37 @@ func TestParameterExtraction(t *testing.T) {
 			name:     "single-param",
 			template: "/users/{id}",
 			testPath: "/users/123",
-			expected: map[string]string{"id": "123"},
+			expected: map[common.Identifier]string{"id": "123"},
 		},
 		{
 			name:     "multiple-params",
 			template: "/users/{user_id}/posts/{post_id}",
 			testPath: "/users/42/posts/789",
-			expected: map[string]string{"user_id": "42", "post_id": "789"},
+			expected: map[common.Identifier]string{"user_id": "42", "post_id": "789"},
 		},
 		{
 			name:     "param-with-special-chars",
 			template: "/files/{filename}",
 			testPath: "/files/my-file.txt",
-			expected: map[string]string{"filename": "my-file.txt"},
+			expected: map[common.Identifier]string{"filename": "my-file.txt"},
 		},
 		{
 			name:     "param-with-numbers",
 			template: "/api/{version}/users/{id}",
 			testPath: "/api/v2/users/123",
-			expected: map[string]string{"version": "v2", "id": "123"},
+			expected: map[common.Identifier]string{"version": "v2", "id": "123"},
 		},
 		{
 			name:     "param-with-underscores",
 			template: "/users/{user_id}/settings/{setting_name}",
 			testPath: "/users/123/settings/email_notifications",
-			expected: map[string]string{"user_id": "123", "setting_name": "email_notifications"},
+			expected: map[common.Identifier]string{"user_id": "123", "setting_name": "email_notifications"},
 		},
 		{
 			name:     "complex-path",
 			template: "/organizations/{org_id}/projects/{project_id}/issues/{issue_number}/comments/{comment_id}",
 			testPath: "/organizations/acme/projects/webapp/issues/42/comments/1",
-			expected: map[string]string{
+			expected: map[common.Identifier]string{
 				"org_id":       "acme",
 				"project_id":   "webapp",
 				"issue_number": "42",

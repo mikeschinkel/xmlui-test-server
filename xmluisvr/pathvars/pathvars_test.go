@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -107,7 +108,7 @@ func TestPathVars(t *testing.T) {
 			}
 
 			// Check for unexpected parameters
-			result.ForEachVar(func(name, value string) bool {
+			result.ForEachVar(func(name common.Identifier, value string) bool {
 				_, expected := tt.expected.GetValue(name)
 				if !expected {
 					t.Errorf("Unexpected parameter %q = %q", name, value)

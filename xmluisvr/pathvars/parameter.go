@@ -7,115 +7,153 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
-type ParameterType int
+// ParamUseType indicates how a parameter is used in the template.
+type ParamUseType int
 
 // Parameter usage types.
 const (
-	UnspecifiedParameterType ParameterType = iota
-	PathParameter
-	QueryParameter
+	// UnspecifiedParamUseType indicates the parameter usage type is not specified.
+	UnspecifiedParamUseType ParamUseType = iota
+
+	// PathUseType indicates the parameter is extracted from the URL path.
+	PathUseType
+
+	// QueryUseType indicates the parameter is extracted from the query string.
+	QueryUseType
+
+	IrrelevantParamUseType
 )
 
 // Parameter represents a path or query parameter with its type, constraints, and configuration.
 // Parameters can be required or optional, have default values, and span multiple path segments.
 type Parameter struct {
-	name         string
-	paramType    ParameterType
-	dataType     PVDataType
-	constraints  []Constraint
-	position     int
-	original     string
-	multiSegment bool
-	optional     bool
-	defaultValue *string
+	// useType indicates whether this is a path or query parameter.
+	useType ParamUseType
+
+	// dataType specifies the expected data type for validation.
+	dataType PVDataType
+
+	// constraints contains validation rules applied to parameter values.
+	constraints []Constraint
+
+	// position indicates the parameter's position among path parameters for regex capture groups.
+	position int
+
+	// original stores the original parameter specification string for reference.
+	original string
+
+	nameProps
 }
+type nameProps = NameSpecProps
 
 // NewParameter creates a new Parameter instance with the specified configuration.
 func NewParameter(args ParameterArgs) Parameter {
 	return Parameter{
-		name:         args.Name,
-		paramType:    args.ParamType,
-		dataType:     args.DataType,
-		constraints:  args.Constraints,
-		position:     args.Position,
-		original:     args.Original,
-		multiSegment: args.MultiSegment,
-		optional:     args.Optional,
-		defaultValue: args.DefaultValue,
+		useType:     args.UseType,
+		dataType:    args.DataType,
+		constraints: args.Constraints,
+		position:    args.Position,
+		original:    args.Original,
+		nameProps:   args.NameProps,
 	}
 }
 
 // ParameterArgs contains arguments for creating a Parameter instance.
 // This struct allows for easy parameter construction with named fields.
 type ParameterArgs struct {
-	Name         string
-	ParamType    ParameterType
-	DataType     PVDataType
-	Constraints  []Constraint
-	Position     int
-	Original     string
-	MultiSegment bool
-	Optional     bool
-	DefaultValue *string
+	// NameProps contains properties defined in the name
+	NameProps NameSpecProps
+
+	// UseType indicates if this is a path or query parameter.
+	UseType ParamUseType
+
+	// DataType specifies the expected data type.
+	DataType PVDataType
+
+	// Constraints contains validation rules.
+	Constraints []Constraint
+
+	// Position indicates the parameter's position for regex matching.
+	Position int
+
+	// Original stores the original parameter specification.
+	Original string
 }
 
-// ParseParameter parses a parameter specification like {id:int:range[1..100]} or {date*:date:yyyy/mm/dd}
-// Also supports optional parameters: {name?:type} or {name?default:type:constraints}
-func ParseParameter(spec string, position int) (p *Parameter, err error) {
+func isBraceEnclosed(s string) (enclosed bool) {
+	switch {
+	case len(s) < 2:
+		goto end
+	case s[0] != '{':
+		goto end
+	case s[len(s)-1] != '}':
+		goto end
+	default:
+		enclosed = true
+	}
+end:
+	return enclosed
+}
+
+var ErrNotBraceEnclosed = errors.New("not brace enclosed with '{' and '}'")
+
+func ParseBraceEnclosed(s string) (_ string, err error) {
+	// Remove braces
+	if !isBraceEnclosed(s) {
+		err = errors.Join(ErrNotBraceEnclosed, fmt.Errorf("value=%s", s))
+		goto end
+	}
+
+	s = s[1 : len(s)-1]
+	if s == "" {
+		err = errors.Join(ErrValueCannotBeEmpty, fmt.Errorf("value=%s", s))
+		goto end
+	}
+end:
+	return s, err
+}
+
+// ParseParameter parses a parameter specification like {id:int:range[1..100]} or {date*:date:yyyy/mm/dd}.
+// Also supports optional parameters: {name?:type} or {name?default:type:constraints}.
 // The position parameter indicates the parameter's position for regex capture group ordering.
+func ParseParameter(spec string, useType ParamUseType, position int) (p Parameter, err error) {
 	var content string
 	var parts []string
-	var name string
 	var dataType PVDataType
-	var paramType ParameterType
+	var name string
 	var constraints []Constraint
-	var multiSegment bool
-	var optional bool
-	var defaultValue *string
-	var hasDoubleColon bool
+	var props *NameSpecProps
 
 	// Parse the {name:type:constraints} or {name*:type:constraints} format
 	// Return Parameter object with parsed components
 
-	// Remove braces
-	if len(spec) < 2 || spec[0] != '{' || spec[len(spec)-1] != '}' {
+	if useType == UnspecifiedParamUseType {
 		err = errors.Join(
 			ErrInvalidParameter,
-			fmt.Errorf("spec=%q", spec),
-			fmt.Errorf("position=%d", position),
-			fmt.Errorf("reason=%s", "parameter must be enclosed in braces"),
+			fmt.Errorf("parameter_spec=%q", spec),
+			fmt.Errorf("reason=%s", "parameter use type not specified"),
 		)
 		goto end
 	}
 
-	content = spec[1 : len(spec)-1]
-	if content == "" {
+	content, err = ParseBraceEnclosed(spec)
+	if err != nil {
 		err = errors.Join(
 			ErrInvalidParameter,
-			fmt.Errorf("spec=%q", spec),
+			fmt.Errorf("parameter_spec=%s", spec),
 			fmt.Errorf("position=%d", position),
-			fmt.Errorf("reason=%s", "empty parameter content"),
 		)
 		goto end
-	}
-
-	// Handle different parameter syntax patterns:
-	// 1. {name} -> infer type from name if it matches a data type
-	// 2. {name:type} -> explicit type
-	// 3. {name:type:constraint} -> explicit type with constraint
-	// 4. {name::constraint} -> infer type from name, constraint (double colon)
-	// Split by colon, but handle special case of double colon for implicit type
-	if strings.Contains(content, "::") {
-		hasDoubleColon = true
-		// Replace :: with :IMPLICIT: as a marker, then split normally
-		content = strings.Replace(content, "::", ":IMPLICIT:", 1)
 	}
 
 	// Split by colon, but only split on first two colons to handle constraints with colons
 	// e.g., "name:type:hh:mm:ss" -> ["name", "type", "hh:mm:ss"]
 	parts = strings.SplitN(content, ":", 3)
+	name = parts[0]
 
 	// Parse the first part which may contain name, optional marker (?), and default value
 	// Possible formats:
@@ -125,53 +163,37 @@ func ParseParameter(spec string, position int) (p *Parameter, err error) {
 	// - "name*" -> multi-segment required parameter
 	// - "name*?" -> multi-segment optional parameter, no default
 	// - "name*?default" -> multi-segment optional parameter with default
-	name, optional, defaultValue, multiSegment, err = parseNamePart(parts[0])
+	props, err = ParseNameSpecProps(parts[0])
 	if err != nil {
 		err = errors.Join(
 			err,
-			fmt.Errorf("spec=%q", spec),
+			fmt.Errorf("parameter_spec=%q", spec),
 			fmt.Errorf("content=%q", content),
 			fmt.Errorf("position=%d", position),
 		)
 		goto end
 	}
-
-	// Determine data type based on syntax
-	dataType = StringType // default
-
-	if len(parts) == 1 {
-		// Pattern: {name} -> try to infer type from name
-		if inferredType, canInfer := InferDataTypeFromName(name); canInfer {
-			dataType = inferredType
-		}
-		// If can't infer, use default StringType
-	} else if len(parts) > 1 {
-		if hasDoubleColon && parts[1] == "IMPLICIT" {
-			// Pattern: {name::constraint} -> infer type from name
-			if inferredType, canInfer := InferDataTypeFromName(name); canInfer {
-				dataType = inferredType
-			} else {
-				err = errors.Join(
-					ErrInvalidParameter,
-					fmt.Errorf("spec=%q", spec),
-					fmt.Errorf("paramName=%q", name),
-					fmt.Errorf("reason=%s", "cannot infer type from parameter name with :: syntax"),
-				)
-				goto end
-			}
-		} else if parts[1] != "" {
-			// Pattern: {name:type} or {name:type:constraint} -> explicit type
-			dataType, err = ParsePVDataType(parts[1])
-			if err != nil {
-				err = errors.Join(
-					err,
-					fmt.Errorf("spec=%q", spec),
-					fmt.Errorf("paramName=%q", name),
-					fmt.Errorf("typeStr=%q", parts[1]),
-					fmt.Errorf("position=%d", position),
-				)
-				goto end
-			}
+	if props == nil {
+		// Added this here because Goland flags props.DataType as possibly being null. I
+		// don't see how it could be possible, but maybe Goland knows something I don't?
+		panic(fmt.Sprintf("NameSpecProps are nil when err is also nil; spec=%s", spec))
+	}
+	switch {
+	case props.DataType != nil:
+		// Pattern: {name} -> name matched a data type
+		dataType = *props.DataType
+	case len(parts) == 1:
+		// Pattern: {name} -> name not a data type
+		dataType = DefaultPVDataType
+	case len(parts) > 1:
+		dataType, err = ParseParameterDataType(name, parts[1])
+		if err != nil {
+			err = errors.Join(
+				err,
+				fmt.Errorf("parameter_spec=%s", spec),
+				fmt.Errorf("position=%d", position),
+			)
+			goto end
 		}
 	}
 
@@ -181,10 +203,9 @@ func ParseParameter(spec string, position int) (p *Parameter, err error) {
 		if err != nil {
 			err = errors.Join(
 				err,
-				fmt.Errorf("spec=%q", spec),
-				fmt.Errorf("paramName=%q", name),
+				fmt.Errorf("parameter_spec=%q", spec),
 				fmt.Errorf("data_type=%v", dataType),
-				fmt.Errorf("constraintSpec=%q", parts[2]),
+				fmt.Errorf("constraint_spec=%q", parts[2]),
 				fmt.Errorf("position=%d", position),
 			)
 			goto end
@@ -192,14 +213,14 @@ func ParseParameter(spec string, position int) (p *Parameter, err error) {
 	}
 
 	// Validate default value if provided
-	if defaultValue != nil {
-		err = validateDataType(*defaultValue, dataType)
+	if props.DefaultValue != nil {
+		err = validateDataType(*props.DefaultValue, dataType)
 		if err != nil {
 			err = errors.Join(
 				err,
-				fmt.Errorf("spec=%q", spec),
-				fmt.Errorf("paramName=%q", name),
-				fmt.Errorf("defaultValue=%q", *defaultValue),
+				fmt.Errorf("parameter_spec=%q", spec),
+				fmt.Errorf("parameter_name=%q", name),
+				fmt.Errorf("default_value=%q", *props.DefaultValue),
 				fmt.Errorf("data_type=%v", dataType),
 				fmt.Errorf("reason=%s", "default value validation failed"),
 			)
@@ -208,13 +229,14 @@ func ParseParameter(spec string, position int) (p *Parameter, err error) {
 
 		// Also validate against constraints
 		for _, constraint := range constraints {
-			err = constraint.Validate(*defaultValue)
+			err = constraint.Validate(*props.DefaultValue)
 			if err != nil {
 				err = errors.Join(
 					err,
-					fmt.Errorf("spec=%q", spec),
-					fmt.Errorf("paramName=%q", name),
-					fmt.Errorf("defaultValue=%q", *defaultValue),
+					fmt.Errorf("parameter_spec=%q", spec),
+					fmt.Errorf("parameter_name=%q", name),
+					fmt.Errorf("default_value=%q", *props.DefaultValue),
+					fmt.Errorf("data_type=%v", dataType),
 					fmt.Errorf("constraint=%s", constraint.String()),
 					fmt.Errorf("reason=%s", "default value constraint validation failed"),
 				)
@@ -222,125 +244,82 @@ func ParseParameter(spec string, position int) (p *Parameter, err error) {
 			}
 		}
 	}
-
-	p = &Parameter{
-		name:         name,
-		paramType:    paramType,
-		dataType:     dataType,
-		constraints:  constraints,
-		position:     position,
-		original:     spec,
-		multiSegment: multiSegment,
-		optional:     optional,
-		defaultValue: defaultValue,
+	p = Parameter{
+		nameProps:   *props,
+		useType:     useType,
+		dataType:    dataType,
+		constraints: constraints,
+		position:    position,
+		original:    spec,
 	}
 
 end:
 	return p, err
 }
 
-// parseNamePart parses the name part of a parameter which may contain:
-// - name -> required parameter
-// - name? -> optional parameter, no default
-// - name?default -> optional parameter with default value
-// - name* -> multi-segment required parameter
-// - name*? -> multi-segment optional parameter, no default
-// - name*?default -> multi-segment optional parameter with default
-func parseNamePart(namePart string) (name string, optional bool, defaultValue *string, multiSegment bool, err error) {
-	var questionPos int
-	var starPos int
-	var hasQuestion bool
-	var hasStar bool
-	var defaultVal string
+type NameSpecProps struct {
+	// Name is the parameter name used in the template and for value extraction.
+	Name common.Identifier
 
-	if namePart == "" {
-		err = errors.Join(
-			ErrInvalidParameter,
-			fmt.Errorf("namePart=%q", namePart),
-			fmt.Errorf("reason=%s", "parameter name cannot be empty"),
-		)
+	// MultiSegment indicates if this parameter can span multiple path segments.
+	MultiSegment bool
+
+	// Optional indicates if this parameter is optional (may be omitted).
+	Optional bool
+
+	// DefaultValue contains the default value for optional parameters.
+	DefaultValue *string
+
+	RawValue string
+
+	DataType *PVDataType
+}
+
+func (p NameSpecProps) String() string {
+	sb := strings.Builder{}
+	sb.WriteString(string(p.Name))
+	if p.MultiSegment {
+		sb.WriteString("*")
+	}
+	if !p.Optional {
 		goto end
 	}
-
-	// Find positions of special characters
-	questionPos = strings.Index(namePart, "?")
-	starPos = strings.Index(namePart, "*")
-	hasQuestion = questionPos != -1
-	hasStar = starPos != -1
-
-	// Validate character ordering: name comes first, then *, then ?
-	if hasStar && hasQuestion && starPos > questionPos {
-		err = errors.Join(
-			ErrInvalidParameter,
-			fmt.Errorf("namePart=%q", namePart),
-			fmt.Errorf("reason=%s", "invalid syntax: '*' must come before '?' in parameter name"),
-		)
-		goto end
+	sb.WriteString("?")
+	if p.DefaultValue != nil {
+		sb.WriteString(*p.DefaultValue)
 	}
-
-	// Extract name (everything before first special character)
-	if hasStar && (!hasQuestion || starPos < questionPos) {
-		name = namePart[:starPos]
-		multiSegment = true
-	} else if hasQuestion {
-		name = namePart[:questionPos]
-	} else {
-		name = namePart
-	}
-
-	// Validate name is not empty
-	if name == "" {
-		err = errors.Join(
-			ErrInvalidParameter,
-			fmt.Errorf("namePart=%q", namePart),
-			fmt.Errorf("reason=%s", "parameter name cannot be empty before special characters"),
-		)
-		goto end
-	}
-
-	// Handle optional marker and default value
-	if hasQuestion {
-		optional = true
-		// Extract default value (everything after ?)
-		if hasStar && starPos < questionPos {
-			// Pattern: name*?default
-			defaultVal = namePart[questionPos+1:]
-		} else {
-			// Pattern: name?default
-			defaultVal = namePart[questionPos+1:]
-		}
-
-		// If there's content after ?, it's a default value
-		if defaultVal != "" {
-			defaultValue = &defaultVal
-		}
-	}
-
 end:
-	return name, optional, defaultValue, multiSegment, err
+	return sb.String()
 }
 
-// DataType returns the parameter's data type
-func (p *Parameter) DataType() PVDataType {
+func ParseParameterDataType(name, typ string) (dt PVDataType, err error) {
+	// Determine data type based on syntax
+	switch {
+	case typ != "":
+		// Pattern: {name:type} or  {name:type:} or {name:type:constraint} -> explicit type
+		dt, err = ParsePVDataType(typ)
+		if err != nil {
+			err = errors.Join(
+				err,
+				fmt.Errorf("parameter_name=%s", name),
+				fmt.Errorf("data_type=%s", typ),
+			)
+			goto end
+		}
+	default:
+		// Pattern: {name:} or {name::} or {name::constraint} -> infer type from name
+		inferredType := InferDataTypeFromName(name)
+		if inferredType != UnspecifiedDataType {
+			dt = inferredType
+			goto end
+		}
+		dt = DefaultPVDataType
+	}
+end:
+	return dt, err
+}
+
+// DataType returns the parameter's data type.
+func (p Parameter) DataType() PVDataType {
 	return p.dataType
-}
-
-// Name returns the parameter's name
-func (p *Parameter) Name() string {
-	return p.name
-}
-
-// IsOptional returns true if the parameter is optional
-func (p *Parameter) IsOptional() bool {
-	return p.optional
-}
-
-// IsMultiSegment returns true if the parameter can span multiple path segments
-func (p *Parameter) IsMultiSegment() bool {
-	return p.multiSegment
-}
-
-// DefaultValue returns the parameter's default value if it has one
-func (p *Parameter) DefaultValue() *string {
-	return p.defaultValue
 }

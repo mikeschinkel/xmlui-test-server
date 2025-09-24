@@ -6,6 +6,7 @@ package pathvars
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // ConstraintType represents the type of constraint applied to a parameter.
@@ -32,7 +33,21 @@ const (
 	RegexConstraintType ConstraintType = "regex"
 )
 
-// Constraint interface for parameter validation
+type Constraints []Constraint
+
+func (c Constraints) String() (s string) {
+	sb := strings.Builder{}
+	for _, constraint := range c {
+		sb.WriteString(constraint.String())
+		sb.WriteByte(',')
+	}
+	s = sb.String()
+	if len(s) > 0 {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
 // Constraint interface defines the contract for parameter validation constraints.
 // All constraint implementations must provide validation, parsing, and metadata methods.
 type Constraint interface {
@@ -67,7 +82,9 @@ type baseConstraint struct {
 
 // newBaseConstraint creates a new base constraint with the specified owner.
 func newBaseConstraint(owner Constraint) baseConstraint {
-	return baseConstraint{owner: owner}
+	return baseConstraint{
+		owner: owner,
+	}
 }
 
 // EnsureBaseConstraint sets the owner reference for proper constraint operation.
@@ -80,16 +97,16 @@ func (c *baseConstraint) MapKey(dt PVDataTypeName) ConstraintMapKey {
 	return GetConstraintMapKey(c.owner.Type(), dt)
 }
 
-// ParseConstraints parses baseConstraint specifications
+// ParseConstraints parses constraint specifications from a string.
 //
-//	Parse baseConstraint specs like:
-//	—	not-empty
-//	—	range[0..100]
-//	—	length[5..50]
-//	—	regex[^[0-9]+$]
-//	—	enum[val1,val2,val3]
-//	—	For dates: format[iso8601], format[yyyy-mm-dd], etc.
-//	—	Multiple constraints: regex[^[0-9]+$],length[3..10]
+// Parse constraint specs like:
+//   - not-empty
+//   - range[0..100]
+//   - length[5..50]
+//   - regex[^[0-9]+$]
+//   - enum[val1,val2,val3]
+//   - For dates: format[iso8601], format[yyyy-mm-dd], etc.
+//   - Multiple constraints: regex[^[0-9]+$],length[3..10]
 func ParseConstraints(spec string, dataType PVDataType) (constraints []Constraint, err error) {
 	var ctm ConstraintsMap
 	var ct ConstraintType
@@ -126,7 +143,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 		switch mode {
 		case typeMode:
 			if ch == '[' {
-				// Found start of baseConstraint value
+				// Found start of constraint value
 				valueStart = pos
 				ct = ConstraintType(spec[constraintStart : pos-1])
 				key := GetConstraintMapKey(ct, typeName)
@@ -145,7 +162,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				continue
 			}
 			if ch == ',' || pos == last {
-				// Found end of baseConstraint type without brackets (like "not-empty")
+				// Found end of constraint type without brackets (like "not-empty")
 				var constraintEnd int
 				constraintEnd = pos
 				if ch == ',' {
@@ -164,7 +181,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 					)
 					continue
 				}
-				// Parse baseConstraint with empty value (no arguments)
+				// Parse constraint with empty value (no arguments)
 				constraint, err = constraint.Parse("", dataType)
 				if err != nil {
 					errs = append(errs,
@@ -181,7 +198,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				}
 
 				if ch == ',' {
-					// Skip past the comma and any whitespace to continue parsing next baseConstraint
+					// Skip past the comma and any whitespace to continue parsing next constraint
 					for pos < last && (spec[pos] == ',' || isWhitespace(spec[pos])) {
 						pos++
 					}
@@ -198,7 +215,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 						fmt.Errorf("constraint_type=%s", ct),
 						fmt.Errorf("constraint_spec=%s", spec),
 						fmt.Errorf("data_type=%s", typeName),
-						errors.New("reason=invalid baseConstraint type character"),
+						errors.New("reason=invalid constraint type character"),
 					),
 				)
 				continue
@@ -206,7 +223,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 
 		case valueMode:
 			if ch == ']' {
-				// Look ahead to see if this ends the baseConstraint (comma or end of string)
+				// Look ahead to see if this ends the constraint (comma or end of string)
 				isEndOfConstraint := false
 				if pos == last {
 					// End of string
@@ -223,7 +240,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				}
 
 				if isEndOfConstraint {
-					// This closes the baseConstraint
+					// This closes the constraint
 					value = spec[valueStart : pos-1]
 					constraint, err = constraint.Parse(value, dataType)
 					if err != nil {
@@ -242,7 +259,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 						constraints = append(constraints, constraint)
 					}
 					mode = typeMode
-					// Skip past any whitespace and comma to next baseConstraint
+					// Skip past any whitespace and comma to next constraint
 					for pos < last && isWhitespace(spec[pos]) {
 						pos++
 					}
@@ -264,7 +281,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 						fmt.Errorf("constraint_type=%s", ct),
 						fmt.Errorf("constraint_spec=%s", spec),
 						fmt.Errorf("data_type=%s", dataType.TypeName()),
-						errors.New("baseConstraint value not properly closed"),
+						errors.New("constraint value not properly closed"),
 					),
 				)
 				continue
