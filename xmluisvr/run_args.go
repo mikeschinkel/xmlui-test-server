@@ -13,14 +13,18 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 )
 
+// RunArgs contains all the configuration and dependencies needed to run the server.
+// This struct is used to pass configuration from the CLI layer to the core server logic.
 type RunArgs struct {
-	CLIArgs   []string
-	Options   *cfgldr.Options
-	Config    *cfgldr.RootConfigV1
-	CLIWriter cliutil.Writer
-	Logger    *slog.Logger
+	CLIArgs   []string             // Command-line arguments (currently unused)
+	Options   *cfgldr.Options      // Parsed command-line options
+	Config    *cfgldr.RootConfigV1 // Loaded configuration from files
+	CLIWriter cliutil.Writer       // Writer for CLI output and logging
+	Logger    *slog.Logger         // Structured logger instance
 }
 
+// parseOptions converts raw command-line options into validated common.Options.
+// This method performs validation and type conversion for all server options.
 func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 	var errs []error
 	rawOpts := args.Options
@@ -46,6 +50,9 @@ func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 	return opts, errors.Join(errs...)
 }
 
+// parseAPI loads and creates the API configuration from either a file or the root config.
+// If no API file is specified or found, it falls back to the API configuration
+// embedded in the root configuration.
 func (args *RunArgs) parseAPI(apiFile string) (api *apipkg.API, err error) {
 	var apiCfg cfgldr.APIConfig
 
@@ -65,6 +72,8 @@ end:
 	return api, err
 }
 
+// parseDatabase initializes the database connection using the provided configuration and options.
+// It sets up the database with the specified connection string and any configured extensions.
 func (args *RunArgs) parseDatabase(ctx Context, opts *common.Options) (db dbpkg.Database, err error) {
 	dbCfg := args.Config.DBConfig
 
@@ -85,14 +94,18 @@ end:
 	return db, err
 }
 
+// parseServerArgs contains the dependencies needed to create a Server instance.
 type parseServerArgs struct {
-	db      dbpkg.Database
-	api     *apipkg.API
-	rawOpts *cfgldr.Options
-	opts    *common.Options
-	config  cfgldr.ServerConfig
+	db      dbpkg.Database      // Database connection
+	api     *apipkg.API         // API configuration and handlers
+	rawOpts *cfgldr.Options     // Raw command-line options
+	opts    *common.Options     // Parsed and validated options
+	config  cfgldr.ServerConfig // Server configuration
 }
 
+// parseServer creates and configures a new Server instance with all dependencies.
+// It validates the HTTP port and creates the server with the provided database,
+// API configuration, and other settings.
 func (args *RunArgs) parseServer(sArgs parseServerArgs) (svr *Server, err error) {
 	var sourceFile common.Filepath
 	var svrCfg *cfgldr.ServerConfigV1

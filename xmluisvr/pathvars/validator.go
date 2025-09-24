@@ -1,3 +1,6 @@
+// Package pathvars/validator provides data type validation functions for
+// parameter values. It validates values against specific data types like
+// integers, UUIDs, email addresses, and other supported parameter types.
 package pathvars
 
 import (
@@ -7,7 +10,8 @@ import (
 	"strconv"
 )
 
-// validateDataType validates a value against a data type
+// validateDataType validates a value against a specified data type.
+// Returns an error if the value doesn't conform to the expected type format.
 func validateDataType(value string, dataType PVDataType) (err error) {
 	switch dataType {
 	case StringType:
@@ -69,7 +73,8 @@ func validateDataType(value string, dataType PVDataType) (err error) {
 	return err
 }
 
-// validateIdentifier checks lowercase, leading alpha, then alphanumeric or underscore
+// validateIdentifier checks that the value conforms to identifier format:
+// lowercase letters, leading alpha, then alphanumeric or underscore characters.
 func validateIdentifier(value string) (err error) {
 	var matched bool
 	var regex *regexp.Regexp
@@ -89,7 +94,8 @@ func validateIdentifier(value string) (err error) {
 	return err
 }
 
-// validateDate validates date values (basic validation, constraints handle format)
+// validateDate validates date values with basic validation.
+// More specific date format validation is handled by date format constraints.
 func validateDate(value string) (err error) {
 	// Very basic date validation - just check if it's not empty for now
 	// More specific validation handled by constraints
@@ -104,7 +110,8 @@ func validateDate(value string) (err error) {
 	return err
 }
 
-// validateUUID validates UUID format
+// validateUUID validates that the value conforms to standard UUID format
+// (8-4-4-4-12 hexadecimal digits with hyphens).
 func validateUUID(value string) (err error) {
 	var matched bool
 	var regex *regexp.Regexp
@@ -125,7 +132,8 @@ func validateUUID(value string) (err error) {
 	return err
 }
 
-// validateAlphanum validates alphanumeric values
+// validateAlphanum validates that the value contains only alphanumeric characters
+// (letters and digits, no spaces or special characters).
 func validateAlphanum(value string) (err error) {
 	var matched bool
 	var regex *regexp.Regexp
@@ -145,7 +153,8 @@ func validateAlphanum(value string) (err error) {
 	return err
 }
 
-// validateSlug validates URL-safe slug format
+// validateSlug validates that the value conforms to URL-safe slug format:
+// lowercase letters, numbers, and hyphens, with no leading/trailing hyphens.
 func validateSlug(value string) (err error) {
 	var matched bool
 	var regex *regexp.Regexp
@@ -166,7 +175,7 @@ func validateSlug(value string) (err error) {
 	return err
 }
 
-// validateBoolean validates boolean values
+// validateBoolean validates that the value is exactly "true" or "false".
 func validateBoolean(value string) (err error) {
 	if value != "true" && value != "false" {
 		err = errors.Join(
@@ -180,7 +189,8 @@ func validateBoolean(value string) (err error) {
 	return err
 }
 
-// validateEmail validates email format
+// validateEmail validates that the value conforms to basic email format
+// using a simple regex pattern (local@domain with basic validation).
 func validateEmail(value string) (err error) {
 	var matched bool
 	var regex *regexp.Regexp

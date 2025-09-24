@@ -16,6 +16,15 @@ import (
 // TODO: Add functionality to set logfile with environment var or flags
 const logFile = "./xmlui-local-server.log"
 
+// RunCLI is the main CLI entry point for the xmlui-test-server application.
+// It handles command-line argument parsing, configuration loading, and starts the server.
+// This function sets up logging, loads configuration files, and delegates to Run().
+//
+// Exit codes:
+//   - 1: Configuration loading failure
+//   - 2: Server terminated with error
+//   - 3: Unexpected error during server execution
+//   - 4: Invalid command-line options
 func RunCLI() {
 	var err error
 	var logger *slog.Logger

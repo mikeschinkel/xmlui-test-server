@@ -1,3 +1,7 @@
+// Package pathvars/parser provides template parsing functionality for converting
+// path template strings into Template objects with compiled regular expressions
+// and parameter definitions. It handles complex parsing scenarios including
+// nested braces, multi-segment parameters, and query parameter extraction.
 package pathvars
 
 import (
@@ -5,9 +9,13 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
-// ParseTemplate parses a template string
+// ParseTemplate parses a template string like "/users/{id:int}/posts?{limit?10:int}"
+// into a Template object with compiled regex and parameter definitions.
+// Returns an error if the template syntax is invalid.
 func ParseTemplate(template string) (t *Template, err error) {
 	var segments []Segment
 	var params map[string]*Parameter
@@ -43,7 +51,6 @@ end:
 	return t, err
 }
 
-// parseSegments splits template into segments and extracts parameters
 func parseSegments(template string) (segments []Segment, params map[string]*Parameter, err error) {
 	var pathPart, queryPart string
 	var pathSegments []Segment
@@ -116,8 +123,10 @@ end:
 	return segments, params, err
 }
 
-// buildRegex creates a regex pattern from template segments
 func buildRegex(segments []Segment, params map[string]*Parameter) (re *regexp.Regexp, err error) {
+// buildRegex creates a regex pattern from template segments for efficient path matching.
+// Handles both regular parameters and multi-segment parameters that can span
+// multiple path segments.
 	var sb strings.Builder
 	var segment Segment
 	var paramName string
@@ -155,7 +164,8 @@ func buildRegex(segments []Segment, params map[string]*Parameter) (re *regexp.Re
 }
 
 // parsePathSegments splits a path template into segments, being careful not to split
-// on slashes that are inside parameter constraint definitions like {date:date:yyyy/mm/dd}
+// on slashes that are inside parameter constraint definitions like {date:date:yyyy/mm/dd}.
+// Handles nested braces and validates brace matching.
 func parsePathSegments(template string) (segments []string, err error) {
 	var result []string
 	var currentSegment strings.Builder
@@ -233,7 +243,9 @@ end:
 	return segments, err
 }
 
-// splitPathAndQuery splits a template into path and query parts at the first '?' that's not inside braces
+// splitPathAndQuery splits a template into path and query parts at the first '?'
+// that's not inside braces. This allows query parameters to contain '?' characters
+// within their constraint definitions.
 func splitPathAndQuery(template string) (pathPart, queryPart string, err error) {
 	var i int
 	var inBraces bool
@@ -290,8 +302,9 @@ end:
 	return pathPart, queryPart, err
 }
 
-// parsePathPart parses the path portion of a template
 func parsePathPart(pathPart string) (segments []Segment, params map[string]*Parameter, err error) {
+// parsePathPart parses the path portion of a template into segments and parameters.
+// Extracts parameter definitions from path segments and validates their syntax.
 	var parts []string
 	var part string
 	var segment Segment
@@ -342,7 +355,6 @@ end:
 	return segments, params, err
 }
 
-// parseQueryPart parses the query portion of a template like "{owner:email}&{limit?10:int}"
 func parseQueryPart(queryPart string, startPosition int) (params map[string]*Parameter, err error) {
 	var queryParams []string
 	var paramSpec string
@@ -385,7 +397,9 @@ end:
 	return params, err
 }
 
-// parseQueryParameters splits query parameters by '&' while respecting braces
+// parseQueryParameters splits query parameters by '&' while respecting braces.
+// This allows constraint definitions to contain '&' characters without being
+// treated as parameter separators.
 func parseQueryParameters(queryPart string) (parameters []string, err error) {
 	var result []string
 	var currentParam strings.Builder

@@ -22,7 +22,6 @@ type EnumConstraint struct {
 func NewEnumConstraint(values map[string]bool, list []string) *EnumConstraint {
 	c := &EnumConstraint{values: values, list: list}
 	c.baseConstraint = newBaseConstraint(c)
-
 	return c
 }
 

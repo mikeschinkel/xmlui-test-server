@@ -12,6 +12,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
+// ParseEndpoints converts a slice of configuration endpoint definitions
+// into parsed Endpoint structs. Each endpoint is validated during parsing.
 func ParseEndpoints(cfgEPs []*cfgldr.APIEndpointV2) (eps []*Endpoint, err error) {
 	var errs []error
 	eps = make([]*Endpoint, len(cfgEPs))
@@ -22,8 +24,12 @@ func ParseEndpoints(cfgEPs []*cfgldr.APIEndpointV2) (eps []*Endpoint, err error)
 	return eps, errors.Join(errs...)
 }
 
+// ErrOneOfQueryAndQueryFileMustNotBeEmpty is returned when an endpoint has neither
+// an inline query nor a query file specified.
 var ErrOneOfQueryAndQueryFileMustNotBeEmpty = errors.New("at least one of query for query file must not be empty")
 
+// ParseEndpoint converts a configuration endpoint into a parsed Endpoint struct.
+// It validates all fields including HTTP method, URL path, parameters, and SQL configuration.
 func ParseEndpoint(cfg *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
 	var errs []error
 
@@ -60,22 +66,27 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
 	return ep, err
 }
 
+// EndPointString represents a string representation of an HTTP endpoint (e.g., "GET /users/:id").
 type EndPointString string
 
+// Endpoint represents a parsed API endpoint configuration with all validation complete.
+// It contains the HTTP method, URL path, SQL query, parameters, and response formatting options.
 type Endpoint struct {
-	Description   string
-	Query         common.QueryString
-	QueryFile     common.Filepath
-	queryFilepath common.Filepath
 	Params        []Param
 	RowsExpected  common.Cardinality
-	RowType       common.DBRowType
-	ColumnTypes   []common.DBDataType
-	method        common.HTTPMethod
-	path          common.URLPath
+	Description   string              // Human-readable description of the endpoint
+	Query         common.QueryString  // Inline SQL query to execute
+	QueryFile     common.Filepath     // Path to external SQL file (relative to config file)
+	queryFilepath common.Filepath     // Resolved absolute path to SQL file
+	RowType       common.DBRowType    // Format for returning results (json, columns, etc.)
+	ColumnTypes   []common.DBDataType // Expected data types for result columns
+	method        common.HTTPMethod   // HTTP method (GET, POST, etc.)
+	path          common.URLPath      // URL path pattern with parameter placeholders
 }
 
 func (ep *Endpoint) PathVarsParameters() (params []pathvars.Parameter) {
+// ParsePathVarsParameters converts endpoint parameters into pathvars.Parameter instances
+// for use with the routing system. This enables path parameter extraction and validation.
 	params = make([]pathvars.Parameter, 0, len(ep.Params))
 	for _, p := range ep.Params {
 		panic("FINISH THIS")
@@ -95,6 +106,9 @@ func (ep *Endpoint) PathVarsParameters() (params []pathvars.Parameter) {
 	return params
 }
 
+// GetQuery returns the SQL query for this endpoint, loading from a file if necessary.
+// If QueryFile is specified, it loads the SQL from the file relative to the provided directory.
+// Otherwise, it returns the inline Query string.
 func (ep *Endpoint) GetQuery(dir common.DirPath) (q common.QueryString, queryFile common.Filepath, err error) {
 	var queryBytes []byte
 
@@ -125,6 +139,7 @@ end:
 	return q, ep.queryFilepath, err
 }
 
+// Endpoint returns a string representation of the endpoint in "METHOD /path" format.
 func (ep *Endpoint) Endpoint() EndPointString {
 	return EndPointString(fmt.Sprintf("%s %s",
 		strings.ToUpper(string(ep.method)),
@@ -132,10 +147,12 @@ func (ep *Endpoint) Endpoint() EndPointString {
 	)
 }
 
+// Path returns the URL path pattern for this endpoint.
 func (ep *Endpoint) Path() common.URLPath {
 	return ep.path
 }
 
+// Method returns the HTTP method for this endpoint, with ANY method converted to empty string.
 func (ep *Endpoint) Method() (m common.HTTPMethod) {
 	m = ep.RawMethod()
 	if m == common.ANYMethod {
@@ -145,10 +162,14 @@ func (ep *Endpoint) Method() (m common.HTTPMethod) {
 end:
 	return m
 }
+
+// RawMethod returns the raw HTTP method without any processing.
 func (ep *Endpoint) RawMethod() common.HTTPMethod {
 	return ep.method
 }
 
+// splitEndPoint separates an endpoint string like "GET /path" into method and path components.
+// If no method is specified, the entire string is treated as the path.
 func splitEndPoint(ep string) (method, path string) {
 	method, path, found := strings.Cut(ep, " ")
 	if !found {

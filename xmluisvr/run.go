@@ -11,9 +11,23 @@ import (
 )
 
 var (
+	// ErrServerError indicates that the server terminated with an error condition.
 	ErrServerError = fmt.Errorf("server terminated with an error")
 )
 
+// Run starts the xmlui-test-server with the provided configuration and context.
+// This is the main server execution function that initializes all components
+// and starts the HTTP server.
+//
+// The function follows this execution flow:
+//  1. Initialize global settings (writer, logger)
+//  2. Parse and validate options
+//  3. Initialize database connection
+//  4. Load API configuration
+//  5. Create and configure server
+//  6. Start HTTP server and listen for requests
+//
+// Returns ErrServerError if the server terminates with an error condition.
 func Run(ctx Context, args *RunArgs) (err error) {
 	var server *Server
 	var db dbpkg.Database
@@ -73,6 +87,9 @@ end:
 	return err
 }
 
+// Initialize sets up global package state including the CLI writer and logger.
+// This must be called before other package functions to ensure proper logging
+// and output formatting.
 func Initialize(_ Context, args *RunArgs) (err error) {
 
 	// Setting the writer allows the shorthand of being able to call cliutil.Printf()

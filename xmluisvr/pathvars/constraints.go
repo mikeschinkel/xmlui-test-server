@@ -1,3 +1,6 @@
+// Package pathvars/constraints defines the constraint system for parameter validation.
+// Constraints provide additional validation rules beyond basic data type checking,
+// such as ranges, formats, enums, and regular expressions.
 package pathvars
 
 import (
@@ -5,39 +8,74 @@ import (
 	"fmt"
 )
 
+// ConstraintType represents the type of constraint applied to a parameter.
 type ConstraintType string
 
+// Supported constraint types for parameter validation.
 const (
-	FormatConstraintType   ConstraintType = "format"
-	EnumConstraintType     ConstraintType = "enum"
-	LengthConstraintType   ConstraintType = "length"
+	// FormatConstraintType validates parameter values against specific formats (e.g., date formats, UUID versions).
+	FormatConstraintType ConstraintType = "format"
+
+	// EnumConstraintType validates that parameter values match one of a predefined set of allowed values.
+	EnumConstraintType ConstraintType = "enum"
+
+	// LengthConstraintType validates that string parameter values fall within specified length ranges.
+	LengthConstraintType ConstraintType = "length"
+
+	// NotEmptyConstraintType validates that parameter values are not empty strings.
 	NotEmptyConstraintType ConstraintType = "not-empty"
-	RangeConstraintType    ConstraintType = "range"
-	RegexConstraintType    ConstraintType = "regex"
+
+	// RangeConstraintType validates that numeric parameter values fall within specified numeric ranges.
+	RangeConstraintType ConstraintType = "range"
+
+	// RegexConstraintType validates parameter values against regular expression patterns.
+	RegexConstraintType ConstraintType = "regex"
 )
 
 // Constraint interface for parameter validation
+// Constraint interface defines the contract for parameter validation constraints.
+// All constraint implementations must provide validation, parsing, and metadata methods.
 type Constraint interface {
+	// Validate checks if the given value satisfies this constraint.
 	Validate(value string) error
+
+	// String returns a human-readable representation of this constraint.
 	String() string
+
+	// Type returns the type of this constraint.
 	Type() ConstraintType
+
+	// Parse creates a new instance of this constraint from a string specification.
 	Parse(value string, dataType PVDataType) (Constraint, error)
+
+	// ValidDateTypes returns the data types that this constraint can be applied to.
 	ValidDateTypes() []PVDataType
+
+	// MapKey generates a unique key for constraint registry lookup.
 	MapKey(dt PVDataTypeName) ConstraintMapKey
+
+	// EnsureBaseConstraint sets up the base constraint relationship for proper functioning.
 	EnsureBaseConstraint(Constraint)
 }
+
+// baseConstraint provides common functionality for all constraint implementations.
+// It maintains a reference to the owning constraint for proper method delegation.
 type baseConstraint struct {
+	// owner holds a reference to the constraint that embeds this base.
 	owner Constraint
 }
 
+// newBaseConstraint creates a new base constraint with the specified owner.
 func newBaseConstraint(owner Constraint) baseConstraint {
 	return baseConstraint{owner: owner}
 }
 
+// EnsureBaseConstraint sets the owner reference for proper constraint operation.
 func (c *baseConstraint) EnsureBaseConstraint(owner Constraint) {
 	c.owner = owner
 }
 
+// MapKey generates a constraint registry key using the owner's type and data type.
 func (c *baseConstraint) MapKey(dt PVDataTypeName) ConstraintMapKey {
 	return GetConstraintMapKey(c.owner.Type(), dt)
 }
@@ -241,6 +279,8 @@ end:
 	return constraints, err
 }
 
+// isConstraintTypeChar returns true if the character is valid in a constraint type name.
+// Constraint type names can contain lowercase letters and underscores.
 func isConstraintTypeChar(ch byte) (isChar bool) {
 	if 'a' <= ch && ch <= 'z' {
 		isChar = true
@@ -254,6 +294,8 @@ end:
 	return isChar
 }
 
+// isWhitespace returns true if the character is considered whitespace.
+// Recognized whitespace characters include space, tab, newline, and carriage return.
 func isWhitespace(ch byte) (isWS bool) {
 	switch ch {
 	case ' ', '\t', '\n', '\r':

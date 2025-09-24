@@ -1,3 +1,6 @@
+// Package pathvars/template provides path template parsing and matching functionality.
+// Templates represent parsed URL patterns with parameters that can be matched against
+// incoming HTTP requests to extract parameter values.
 package pathvars
 
 import (
@@ -8,15 +11,25 @@ import (
 	"strings"
 )
 
-// Template represents a parsed path template
+// Template represents a parsed path template with parameters and compiled regex.
+// Templates are created from path strings like "/users/{id:int}/posts/{slug:string}"
+// and can match incoming request paths to extract parameter values.
 type Template struct {
-	raw      string
+	// raw stores the original template string for reference and error reporting.
+	raw string
+
+	// segments contains the parsed path segments, both literal and parameter segments.
 	segments []Segment
 	params   map[string]*Parameter
-	regex    *regexp.Regexp
+
+	// regex is the compiled regular expression used for efficient path matching.
+	regex *regexp.Regexp
 }
 
-// Match attempts to match a path and query string against this template
+// Match attempts to match a path and query string against this template.
+// Returns a VarsMap containing extracted parameter values and a boolean indicating
+// whether the match was successful. Both path parameters (from URL segments) and
+// query parameters are extracted and validated according to their type constraints.
 func (t *Template) Match(path, queryString string) (vars VarsMap, matched bool) {
 	vars = make(VarsMap)
 	matched = false
@@ -37,7 +50,8 @@ end:
 	return vars, matched
 }
 
-// matchPathParameters matches path parameters using regex and adds them to vars
+// matchPathParameters matches path parameters using regex and adds them to vars.
+// Returns false if the path doesn't match the template or if parameter validation fails.
 func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 	var matches []string
 	var i int
@@ -72,7 +86,7 @@ func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 
 		// Validate parameter type and constraints
 		param, exists = t.params[name]
-		if exists && param.paramType == PathParameter {
+		if exists && param.useType == PathUseType {
 			err = t.validateParameter(param, value, path)
 			if err != nil {
 				return false
@@ -86,7 +100,9 @@ func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 	return true
 }
 
-// matchQueryParameters matches query parameters and adds them to vars
+// matchQueryParameters matches query parameters and adds them to vars.
+// Returns false if required parameters are missing or if validation fails.
+// Optional parameters are handled gracefully with default values when provided.
 func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 	var queryValues url.Values
 	var param *Parameter
@@ -141,8 +157,9 @@ func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 	return true
 }
 
-// validateParameter validates a parameter value against its type and constraints
 func (t *Template) validateParameter(param *Parameter, value, context string) error {
+// validateParameter validates a parameter value against its type and constraints.
+// Returns an error with detailed context if validation fails.
 	var err error
 
 	// Validate data type
@@ -178,26 +195,30 @@ func (t *Template) validateParameter(param *Parameter, value, context string) er
 	return nil
 }
 
-// Parameters returns all parameters in the template
 func (t *Template) Parameters() (params []*Parameter) {
+// Parameters returns all parameters in the template.
+// TODO: Implementation needed - should return parameters in order of appearance.
 	// Return parameters in order of appearance
 	return params
 }
 
-// Validate checks parameter values
+// Validate checks parameter values against the template requirements.
+// TODO: Implementation needed - should validate each parameter value.
 func (t *Template) Validate(params map[string]string) (err error) {
 	// Validate each parameter value
 	return err
 }
 
-// Substitute builds a path from parameter values
+// Substitute builds a path from parameter values by replacing template placeholders.
+// TODO: Implementation needed - should build path by substituting values.
 func (t *Template) Substitute(values map[string]string) (result string, err error) {
 	// Build path by substituting values
 	return result, err
 }
 
-// extractParamName extracts the parameter name from a segment like {id:int} or {date*:date:format}
 func extractParamName(segment string) (name string) {
+// extractParamName extracts the parameter name from a segment like {id:int} or {date*:date:format}.
+// Returns just the parameter name without type specifications or multi-segment markers.
 	var content string
 
 	// Remove braces and extract name (before first colon if any)

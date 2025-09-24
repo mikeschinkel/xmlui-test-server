@@ -13,8 +13,12 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
+// ErrFailedToReadQueryFile indicates that an SQL file referenced by an endpoint could not be read.
 var ErrFailedToReadQueryFile = errors.New("failed to read query file")
 
+// loadAPIQuery loads the SQL query for an endpoint, either from inline configuration
+// or from an external SQL file. If a query file is specified, it reads the file
+// relative to the API configuration file's directory.
 func (api *API) loadAPIQuery(ep *Endpoint) (q common.QueryString, err error) {
 	var qf common.Filepath
 
@@ -28,6 +32,15 @@ func (api *API) loadAPIQuery(ep *Endpoint) (q common.QueryString, err error) {
 	return q, err
 }
 
+// HandleAPIFunc returns an HTTP handler function that processes API requests.
+// The handler:
+//  1. Matches the request path against configured endpoints
+//  2. Extracts path parameters and request body
+//  3. Loads the SQL query for the matched endpoint
+//  4. Executes the query against the database
+//  5. Returns the results as JSON
+//
+// Returns 404 for unmatched routes and 500 for server errors.
 func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var result pathvars.MatchResult
@@ -89,6 +102,9 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 		common.SendJSONResponse(w, r, dbResult, http.StatusOK)
 	}
 }
+
+// internalServerError logs an error and sends a 500 response to the client.
+// It logs both to the CLI output and structured logger with context information.
 func (api *API) internalServerError(mr pathvars.MatchResult, w http.ResponseWriter, r *http.Request, err error, msg string) {
 	api.Errorf("%s %s %s: %v",
 		r.Method,

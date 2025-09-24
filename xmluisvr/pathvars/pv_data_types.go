@@ -1,3 +1,6 @@
+// Package pathvars/pv_data_types defines the data types supported for path and query parameters.
+// It provides type definitions, name mappings, and parsing functions for validating
+// parameter values against specific data types like integers, UUIDs, dates, etc.
 package pathvars
 
 import (
@@ -5,55 +8,116 @@ import (
 	"fmt"
 )
 
+// init registers type aliases for commonly used alternate names.
 func init() {
 	RegisterDataTypeAlias(IntegerType, IntTypeName)
 	RegisterDataTypeAlias(AlphanumericType, AlphanumTypeName)
 	RegisterDataTypeAlias(BooleanType, BoolTypeName)
 }
 
+// Default parameter data type constants.
 const (
-	DefaultPVDataType                    = StringType
+	// DefaultPVDataType is the default data type used when no type is specified.
+	DefaultPVDataType = StringType
+
+	// DefaultPVDataTypeName is the string representation of the default data type.
 	DefaultPVDataTypeName PVDataTypeName = StringTypeName
 )
 
-// PVDataType represents the type of a parameter
+// PVDataType represents the enumerated data types supported for parameters.
 type PVDataType int
 
+// Supported parameter data types.
 const (
-	UnspecifiedType PVDataType = iota
+	// UnspecifiedDataType indicates no data type was specified.
+	UnspecifiedDataType PVDataType = iota
+
+	// StringType represents text data with no specific format requirements.
 	StringType
+
+	// IntegerType represents whole number values (positive, negative, or zero).
 	IntegerType
+
+	// RealType represents floating-point numeric values.
 	RealType
+
+	// DecimalType represents decimal numeric values with precise fractional parts.
 	DecimalType
+
+	// IdentifierType represents programming-style identifiers (lowercase, alphanumeric with underscores).
 	IdentifierType
+
+	// DateType represents date/time values that can be validated against various formats.
 	DateType
+
+	// UUIDType represents Universally Unique Identifier values.
 	UUIDType
+
+	// AlphanumericType represents values containing only letters and digits.
 	AlphanumericType
+
+	// SlugType represents URL-safe slug values (lowercase, hyphen-separated).
 	SlugType
+
+	// BooleanType represents true/false values.
 	BooleanType
+
+	// EmailType represents email address values.
 	EmailType
 )
 
+// PVDataTypeName represents the string name of a parameter data type.
 type PVDataTypeName string
 
+// String names for parameter data types.
 const (
-	InvalidTypeName      PVDataTypeName = "invalid"
-	StringTypeName       PVDataTypeName = "string"
-	IntegerTypeName      PVDataTypeName = "integer"
-	IntTypeName          PVDataTypeName = "int" // Accepted alternate for "integer"
-	DecimalTypeName      PVDataTypeName = "decimal"
-	RealTypeName         PVDataTypeName = "real"
-	IdentifierTypeName   PVDataTypeName = "identifier"
-	DateTypeName         PVDataTypeName = "date"
-	UUIDTypeName         PVDataTypeName = "uuid"
+	// InvalidTypeName indicates an unrecognized type name.
+	InvalidTypeName PVDataTypeName = "invalid"
+
+	// StringTypeName is the string representation of StringType.
+	StringTypeName PVDataTypeName = "string"
+
+	// IntegerTypeName is the string representation of IntegerType.
+	IntegerTypeName PVDataTypeName = "integer"
+
+	// IntTypeName is an accepted alternate name for IntegerType.
+	IntTypeName PVDataTypeName = "int" // Accepted alternate for "integer"
+
+	// DecimalTypeName is the string representation of DecimalType.
+	DecimalTypeName PVDataTypeName = "decimal"
+
+	// RealTypeName is the string representation of RealType.
+	RealTypeName PVDataTypeName = "real"
+
+	// IdentifierTypeName is the string representation of IdentifierType.
+	IdentifierTypeName PVDataTypeName = "identifier"
+
+	// DateTypeName is the string representation of DateType.
+	DateTypeName PVDataTypeName = "date"
+
+	// UUIDTypeName is the string representation of UUIDType.
+	UUIDTypeName PVDataTypeName = "uuid"
+
+	// AlphanumericTypeName is the string representation of AlphanumericType.
 	AlphanumericTypeName PVDataTypeName = "alphanumeric"
-	AlphanumTypeName     PVDataTypeName = "alphanum" // Accepted alternate for "alphanumeric"
-	SlugTypeName         PVDataTypeName = "slug"
-	BooleanTypeName      PVDataTypeName = "boolean"
-	BoolTypeName         PVDataTypeName = "bool" // Accepted alternate for "boolean"
-	EmailTypeName        PVDataTypeName = "email"
+
+	// AlphanumTypeName is an accepted alternate name for AlphanumericType.
+	AlphanumTypeName PVDataTypeName = "alphanum" // Accepted alternate for "alphanumeric"
+
+	// SlugTypeName is the string representation of SlugType.
+	SlugTypeName PVDataTypeName = "slug"
+
+	// BooleanTypeName is the string representation of BooleanType.
+	BooleanTypeName PVDataTypeName = "boolean"
+
+	// BoolTypeName is an accepted alternate name for BooleanType.
+	BoolTypeName PVDataTypeName = "bool" // Accepted alternate for "boolean"
+
+	// EmailTypeName is the string representation of EmailType.
+	EmailTypeName PVDataTypeName = "email"
 )
 
+// TypeName returns the canonical string name for this data type.
 func (dt PVDataType) TypeName() PVDataTypeName {
 	switch dt {
 	case StringType:
@@ -85,7 +149,8 @@ func (dt PVDataType) TypeName() PVDataTypeName {
 	}
 }
 
-// ParsePVDataType converts string type to PVDataType enum
+// ParsePVDataType converts a string type name to a PVDataType enum value.
+// Returns an error if the type name is not recognized.
 func ParsePVDataType(typeStr string) (dataType PVDataType, err error) {
 	switch PVDataTypeName(typeStr) {
 	case StringTypeName:
@@ -122,9 +187,10 @@ func ParsePVDataType(typeStr string) (dataType PVDataType, err error) {
 	return dataType, err
 }
 
-// InferDataTypeFromName attempts to infer a data type from a parameter name
-// Returns the inferred data type and true if the name matches a data type, otherwise UnspecifiedType and false
 func InferDataTypeFromName(name string) (PVDataType, bool) {
+// InferDataTypeFromName attempts to infer a data type from a parameter name.
+// Returns the inferred data type and true if the name matches a known data type,
+// otherwise returns UnspecifiedDataType and false.
 	dataType, err := ParsePVDataType(name)
 	if err != nil {
 		return UnspecifiedType, false

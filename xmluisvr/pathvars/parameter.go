@@ -1,3 +1,6 @@
+// Package pathvars/parameter defines parameter types and parsing functionality
+// for path and query parameters. Parameters can have data types, constraints,
+// default values, and can be either required or optional.
 package pathvars
 
 import (
@@ -8,13 +11,15 @@ import (
 
 type ParameterType int
 
+// Parameter usage types.
 const (
 	UnspecifiedParameterType ParameterType = iota
 	PathParameter
 	QueryParameter
 )
 
-// Parameter represents a path parameter
+// Parameter represents a path or query parameter with its type, constraints, and configuration.
+// Parameters can be required or optional, have default values, and span multiple path segments.
 type Parameter struct {
 	name         string
 	paramType    ParameterType
@@ -27,6 +32,7 @@ type Parameter struct {
 	defaultValue *string
 }
 
+// NewParameter creates a new Parameter instance with the specified configuration.
 func NewParameter(args ParameterArgs) Parameter {
 	return Parameter{
 		name:         args.Name,
@@ -41,6 +47,8 @@ func NewParameter(args ParameterArgs) Parameter {
 	}
 }
 
+// ParameterArgs contains arguments for creating a Parameter instance.
+// This struct allows for easy parameter construction with named fields.
 type ParameterArgs struct {
 	Name         string
 	ParamType    ParameterType
@@ -56,6 +64,7 @@ type ParameterArgs struct {
 // ParseParameter parses a parameter specification like {id:int:range[1..100]} or {date*:date:yyyy/mm/dd}
 // Also supports optional parameters: {name?:type} or {name?default:type:constraints}
 func ParseParameter(spec string, position int) (p *Parameter, err error) {
+// The position parameter indicates the parameter's position for regex capture group ordering.
 	var content string
 	var parts []string
 	var name string
