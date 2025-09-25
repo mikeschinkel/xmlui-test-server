@@ -56,7 +56,7 @@ func TestImplicitTypeInference(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRouteWithIndex(pathvars.PathSpec(tt.template), nil, 0)
+			err := router.AddRoute(pathvars.PathSpec(tt.template), nil)
 
 			if tt.expectError {
 				if err == nil {

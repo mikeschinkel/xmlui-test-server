@@ -144,7 +144,9 @@ func TestParameterExtraction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(pathvars.PathSpec("GET "+tt.template), tt.params)
+			err := router.AddRoute(pathvars.PathSpec("GET "+tt.template), &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}
@@ -231,7 +233,9 @@ func TestRegexGeneration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(pathvars.PathSpec("GET "+tt.template), tt.params)
+			err := router.AddRoute(pathvars.PathSpec("GET "+tt.template), &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}
@@ -303,11 +307,14 @@ func TestParameterTypes(t *testing.T) {
 		},
 	}
 
-	for typeName, typeTest := range typeTests {
-		t.Run("type-"+typeName, func(t *testing.T) {
-			template := "/test/{value:" + typeName + "}"
+	for name, tt := range typeTests {
+		t.Run("type-"+name, func(t *testing.T) {
+			template := "/test/{value:" + name + "}"
 			router := pathvars.NewRouter()
-			err := router.AddRoute(pathvars.PathSpec("GET "+template), typeTest.params)
+			err := router.AddRoute(pathvars.PathSpec("GET "+template), &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
+
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}
@@ -318,16 +325,16 @@ func TestParameterTypes(t *testing.T) {
 			}
 
 			// Test valid values
-			for _, value := range typeTest.validValues {
+			for _, value := range tt.validValues {
 				path := "/test/" + value
-				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s?%s", path, typeTest.query), nil)
+				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s?%s", path, tt.query), nil)
 				result, err := router.Match(req)
 				if err != nil {
-					t.Errorf("Valid %s value '%s' should match but got error: %v", typeName, value, err)
+					t.Errorf("Valid %s value '%s' should match but got error: %v", name, value, err)
 				} else {
 					extractedValue, found := result.GetValue("value")
 					if !found {
-						t.Errorf("Parameter 'value' not found for %s value '%s'", typeName, value)
+						t.Errorf("Parameter 'value' not found for %s value '%s'", name, value)
 					} else if extractedValue != value {
 						t.Errorf("Expected extracted value '%s', got '%s'", value, extractedValue)
 					}
@@ -335,12 +342,12 @@ func TestParameterTypes(t *testing.T) {
 			}
 
 			// Test invalid values
-			for _, value := range typeTest.invalidValues {
+			for _, value := range tt.invalidValues {
 				path := "/test/" + value
-				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s?%s", path, typeTest.query), nil)
+				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s?%s", path, tt.query), nil)
 				_, err = router.Match(req)
 				if err == nil {
-					t.Errorf("Invalid %s value '%s' should NOT match but it did", typeName, value)
+					t.Errorf("Invalid %s value '%s' should NOT match but it did", name, value)
 				}
 			}
 		})

@@ -152,7 +152,9 @@ func TestMethodMatching(t *testing.T) {
 
 func TestMatchResultMethods(t *testing.T) {
 	router := pathvars.NewRouter()
-	err := router.AddRouteWithIndex("GET /users/{id:int}/posts/{slug:string}", nil, 42)
+	err := router.AddRoute("GET /users/{id:int}/posts/{slug:string}", &pathvars.RouteArgs{
+		Index: 42,
+	})
 	if err != nil {
 		t.Fatalf("Failed to add route: %v", err)
 	}

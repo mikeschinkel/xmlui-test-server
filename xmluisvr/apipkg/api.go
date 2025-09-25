@@ -174,7 +174,11 @@ func (api *API) initializeRouter() (err error) {
 		if err != nil {
 			errs = append(errs, err)
 		}
-		err = api.Router.AddRouteWithIndex(pathvars.PathSpec(ep.path), pp, i)
+		err = api.Router.AddRoute(pathvars.PathSpec(ep.path), &pathvars.RouteArgs{
+			BasePath:   api.BasePath,
+			Parameters: pp,
+			Index:      i,
+		})
 		if err != nil {
 			errs = append(errs, err)
 		}

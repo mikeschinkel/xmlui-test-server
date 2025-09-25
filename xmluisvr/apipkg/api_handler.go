@@ -46,7 +46,7 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 		var result pathvars.MatchResult
 		var err error
 
-		cliutil.Errorf("APIConfig: %s %s", r.Method, r.URL.Path)
+		cliutil.Printf("APIConfig: %s %s", r.Method, r.URL.Path)
 
 		if api == nil {
 			// IS THIS EVEN NEEDED?
@@ -57,7 +57,7 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 		// Find the matching endpoint
 		result, err = api.Router.Match(r)
 		if errors.Is(err, pathvars.ErrNoMatch) {
-			api.Printf("%s %s not matched: %v", r.Method, r.URL.Path, err.Error())
+			api.Errorf("%s %s not matched: %v\n", r.Method, r.URL.Path, err.Error())
 			http.NotFound(w, r)
 			return
 		}
@@ -76,7 +76,7 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 		if err != nil {
 			log.Printf("Warning: Failed to parse request body as JSON: %v", err)
 		}
-		println(bodyJSON)
+		common.Noop(bodyJSON)
 
 		// Prepare SQL query
 		query, err := api.loadAPIQuery(endpoint)

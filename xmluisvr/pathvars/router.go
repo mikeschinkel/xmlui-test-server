@@ -42,6 +42,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // PathSpec represents a path specification string like "GET /users/{id}" or "/users/{id}".
@@ -68,22 +70,29 @@ func NewRouter() *Router {
 	}
 }
 
+type RouteArgs struct {
+	BasePath   common.URLPath
+	Parameters []Parameter
+	Index      int
+}
+
 // AddRoute adds a route to the router with the specified path specification and parameters.
 // The pathSpec can be in format "METHOD /path" (e.g., "GET /users/{id}") or just "/path"
 // for any method. Parameters define the expected path and query parameters for this route.
-func (r *Router) AddRoute(pathSpec PathSpec, params []Parameter) (err error) {
-	return r.AddRouteWithIndex(pathSpec, params, len(r.routes))
-}
-
-// AddRouteWithIndex adds a route to the router with the specified index.
-// This allows for custom ordering of routes, which can be important for
-// matching precedence when multiple routes might match the same request.
-func (r *Router) AddRouteWithIndex(pathSpec PathSpec, params []Parameter, index int) (err error) {
+func (r *Router) AddRoute(pathSpec PathSpec, args *RouteArgs) (err error) {
 	var method string
 	var path string
 	var template *Template
 	var route *Route
 	var paramCount int
+
+	if args == nil {
+		args = &RouteArgs{}
+	}
+	if len(args.BasePath) != 0 && args.BasePath[len(args.BasePath)-1] == '/' {
+		// Trim trailing slash ('/') from base path
+		args.BasePath = args.BasePath[:len(args.BasePath)-1]
+	}
 
 	// Parse "GET /users/{id}" format
 	method, path, err = ParsePathSpec(pathSpec)
@@ -94,6 +103,11 @@ func (r *Router) AddRouteWithIndex(pathSpec PathSpec, params []Parameter, index 
 		)
 		goto end
 	}
+	if path != "" && path[0] != '/' {
+		// Trim leading slash ('/') on sub path
+		path = "/" + path
+	}
+	path = fmt.Sprintf("%s%s", args.BasePath, path)
 
 	template, err = ParseTemplate(path)
 	if err != nil {
@@ -105,6 +119,7 @@ func (r *Router) AddRouteWithIndex(pathSpec PathSpec, params []Parameter, index 
 		)
 		goto end
 	}
+
 	if template == nil {
 		// This if statement if only here because without it Goland is reporting that
 		// `template` might be nil in the expressions below even though I traced through
@@ -112,20 +127,25 @@ func (r *Router) AddRouteWithIndex(pathSpec PathSpec, params []Parameter, index 
 		goto end
 	}
 
-	for _, param := range params {
-		template.params[param.Name] = param
+	if len(args.Parameters) != 0 {
+		for _, param := range args.Parameters {
+			template.params[param.Name] = param
+		}
+
+		// Track max params for optimization
+		paramCount = len(template.params)
+		if paramCount > r.maxParams {
+			r.maxParams = paramCount
+		}
 	}
 
-	// Track max params for optimization
-	paramCount = len(template.params)
-	if paramCount > r.maxParams {
-		r.maxParams = paramCount
+	if args.Index == 0 {
+		args.Index = len(r.routes) + 1
 	}
-
 	route = &Route{
 		Method:   method,
 		Template: template,
-		Index:    index,
+		Index:    args.Index,
 	}
 
 	r.routes = append(r.routes, route)

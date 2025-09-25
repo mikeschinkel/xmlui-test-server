@@ -45,7 +45,9 @@ func TestMultiSegmentParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, tt.params)
+			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}
@@ -105,7 +107,9 @@ func TestMultiSegmentParameterParsing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, tt.params)
+			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 
 			if tt.expectError {
 				if err == nil {
@@ -147,7 +151,9 @@ func TestMultiSegmentRegexGeneration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, tt.params)
+			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}

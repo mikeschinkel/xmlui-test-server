@@ -15,30 +15,6 @@ func SendErrorResponse(w http.ResponseWriter, message string, statusCode int) {
 	http.Error(w, message, statusCode)
 }
 
-// Send JSON response with the given status code
-func maybeEchoResponse(r *http.Request, responseJSON []byte, statusCode int, verbose bool) {
-	var err error
-	var prettyJSON jsontext.Value
-
-	// TODO Get Verbose from global Options
-	if !verbose {
-		goto end
-	}
-
-	prettyJSON = responseJSON
-	err = prettyJSON.Indent(jsontext.WithIndent("  "))
-	if err != nil {
-		cliutil.Errorf("Error prettifying JSON for logging: %v", err)
-		cliutil.Errorf("Raw response: %s", string(responseJSON))
-		goto end
-	}
-	cliutil.Printf("Request: %s", r.URL.String())
-	cliutil.Printf("Status:  %d", statusCode)
-	cliutil.Printf("Response:\n%s", prettyJSON.String())
-end:
-	return
-}
-
 // SendJSONResponse sends a JSON response with the given status code given an HTTP request
 func SendJSONResponse(w http.ResponseWriter, r *http.Request, data any, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
@@ -51,7 +27,7 @@ func SendJSONResponse(w http.ResponseWriter, r *http.Request, data any, statusCo
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-
+	responseJSON = prettifyJSON(responseJSON)
 	// Log the response if enabled - this is the ONLY place where responses should be logged
 	maybeEchoResponse(r, responseJSON, statusCode, true)
 
@@ -59,4 +35,33 @@ func SendJSONResponse(w http.ResponseWriter, r *http.Request, data any, statusCo
 	if _, err := w.Write(responseJSON); err != nil {
 		log.Printf("Error writing response: %v", err)
 	}
+}
+
+// Send JSON response with the given status code
+func maybeEchoResponse(r *http.Request, responseJSON []byte, statusCode int, verbose bool) {
+	// TODO Get Verbose from global Options
+	if !verbose {
+		goto end
+	}
+
+	cliutil.Printf("Request: %s", r.URL.String())
+	cliutil.Printf("Status:  %d", statusCode)
+	cliutil.Printf("Response:\n%s", string(responseJSON))
+end:
+	return
+}
+
+// Format JSON is a pretty manner
+func prettifyJSON(responseJSON []byte) (prettyJSON jsontext.Value) {
+	var err error
+
+	prettyJSON = responseJSON
+	err = prettyJSON.Indent(jsontext.WithIndent("  "))
+	if err != nil {
+		cliutil.Errorf("Error prettifying JSON for logging: %v", err)
+		cliutil.Errorf("Raw response: %s", string(responseJSON))
+		goto end
+	}
+end:
+	return prettyJSON
 }

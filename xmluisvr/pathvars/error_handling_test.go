@@ -45,7 +45,9 @@ func TestRouterErrorHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, tt.params)
+			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 
 			if tt.expectError {
 				if err == nil {
@@ -130,16 +132,19 @@ func TestMultipleRoutes(t *testing.T) {
 		index    int
 		params   []pathvars.Parameter
 	}{
-		{"GET /users", 0, nil},
 		{"POST /users", 1, nil},
 		{"GET /users/{id:int}", 2, nil},
 		{"PUT /users/{id:int}", 3, nil},
 		{"GET /posts/{slug:slug}", 4, nil},
 		{"/health", 5, nil}, // Any method
+		{"GET /users", 6, nil},
 	}
 
 	for _, route := range routes {
-		err := router.AddRouteWithIndex(route.pathSpec, route.params, route.index)
+		err := router.AddRoute(route.pathSpec, &pathvars.RouteArgs{
+			Parameters: route.params,
+			Index:      route.index,
+		})
 		if err != nil {
 			t.Fatalf("Failed to add route %s: %v", route.pathSpec, err)
 		}
@@ -158,7 +163,6 @@ func TestMultipleRoutes(t *testing.T) {
 		expectedIndex int
 		wantErr       bool
 	}{
-		{"get-users-list", "GET", "/users", "", 0, false},
 		{"post-users", "POST", "/users", "", 1, false},
 		{"get-user-by-id", "GET", "/users/123", "", 2, false},
 		{"put-user", "PUT", "/users/456", "", 3, false},
@@ -166,6 +170,7 @@ func TestMultipleRoutes(t *testing.T) {
 		{"health-get", "GET", "/health", "", 5, false},
 		{"health-post", "POST", "/health", "", 5, false},
 		{"health-any", "PATCH", "/health", "", 5, false},
+		{"get-users-list", "GET", "/users", "", 6, false},
 
 		// Error cases
 		{"delete-users", "DELETE", "/users", "", -1, true},
@@ -228,7 +233,9 @@ func TestEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, tt.params)
+			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 			if err != nil {
 				// Some edge cases might fail at add time
 				if !tt.wantErr {
@@ -287,7 +294,9 @@ func TestParameterParsing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, tt.params)
+			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+				Parameters: tt.params,
+			})
 			if err != nil {
 				if !tt.wantErr {
 					t.Errorf("Unexpected error adding route: %v", err)

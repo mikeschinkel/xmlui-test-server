@@ -19,7 +19,7 @@ func TestArchiveUseCase(t *testing.T) {
 
 	// Add the route with multi-segment date parameter
 	pathSpec := "GET /archive/{post_date*:date:format[yyyy/mm/dd]}"
-	err := router.AddRoute(pathvars.PathSpec(pathSpec), []pathvars.Parameter{})
+	err := router.AddRoute(pathvars.PathSpec(pathSpec), nil)
 	if err != nil {
 		t.Fatalf("Failed to add route: %v", err)
 	}

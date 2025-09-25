@@ -26,7 +26,7 @@ func TestPathVars(t *testing.T) {
 		{
 			method: "GET",
 			path:   "/foos/myfoo/bars/1",
-			expected: pathvars.NewMatchResult(0, pathvars.VarsMap{
+			expected: pathvars.NewMatchResult(1, pathvars.VarsMap{
 				"foo":  "myfoo",
 				"bars": "1",
 			}),
