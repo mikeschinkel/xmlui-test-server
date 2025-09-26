@@ -316,6 +316,11 @@ func (s *SQLite3) authorizer() authorizerFunc {
 		return decision
 	}
 }
+func (s *SQLite3) FormatParamFunc() dbpkg.FormatParamFunc {
+	return func(_ int) string {
+		return "?"
+	}
+}
 
 func (s *SQLite3) LoadExtension(dbExt dbpkg.DBExtension) (err error) {
 	var filePath, absPath, loadSQL string

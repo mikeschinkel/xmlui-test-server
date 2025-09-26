@@ -25,6 +25,8 @@ type DBExtensionConfig interface {
 	DBExtensionConfig()
 }
 
+type FormatParamFunc = func(int) string
+
 type Database interface {
 	Type() DatabaseType
 	TypeName() string
@@ -41,6 +43,7 @@ type Database interface {
 	CreateNew(DatabaseArgs) (Database, error)
 	Extensions() []DBExtension
 	LoadExtension(DBExtension) error
+	FormatParamFunc() FormatParamFunc
 	fmt.Stringer
 }
 
