@@ -2,6 +2,7 @@ package duckdbpkg
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
@@ -18,6 +19,12 @@ type database = dbpkg.BaseDatabase
 
 type DuckDB struct {
 	*database
+}
+
+func (d *DuckDB) FormatParamFunc() dbpkg.FormatParamFunc {
+	return func(index int) string {
+		return fmt.Sprintf("$%d", index)
+	}
 }
 
 func (d *DuckDB) CreateNewFromConfig(config cfgldr.DatabaseConfig) (dbpkg.Database, error) {

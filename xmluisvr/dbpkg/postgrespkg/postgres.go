@@ -31,6 +31,12 @@ type Postgres struct {
 	logger *slog.Logger
 }
 
+func (d *Postgres) FormatParamFunc() dbpkg.FormatParamFunc {
+	return func(index int) string {
+		return fmt.Sprintf("$%d", index)
+	}
+}
+
 func (p *Postgres) CreateNewFromConfig(config cfgldr.DatabaseConfig) (dbpkg.Database, error) {
 	//TODO implement me
 	panic("implement me")
