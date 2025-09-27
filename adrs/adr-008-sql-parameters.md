@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The XMLUI test server allows developers to define APIs using JSON. Each API maps HTTP path/query/body parameters into SQL queries. These queries are executed against a database (initially SQLite, with planned support for PostgreSQL, MySQL, and SQL Server).
+The XMLUI test server allows developers to define APIs using JSON. Each API maps HTTP path/query/body parameters into SQL queries. These queries are executed against a database (initially SQLite, with planned support for DuckDB, PostgreSQL, MySQL, MariaDB, and maybe others).
 
 A key requirement is a **safe, consistent way to represent query parameters in SQL templates**:
 
@@ -39,11 +39,11 @@ Additionally, optional parameters and default values are already handled **upstr
   ```
   {name}
   {payload.user.id}
-  {items[0].sku}
+  {items.0.sku}
   {body.event}
   ```
 
-  Placeholders may include **dot-separated names** and **array indices** to traverse JSON request bodies, enabling expressions like `{user.id}` or `{payload.items[0].sku}`.
+  Placeholders may include **dot-separated names** and **array indices** to traverse JSON request bodies, enabling expressions like `{user.id}` or `{payload.items.0.sku}`.
 
 * **Scope of SQL layer**:
 
