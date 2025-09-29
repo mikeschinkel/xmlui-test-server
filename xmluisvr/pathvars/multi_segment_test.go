@@ -6,13 +6,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 func TestMultiSegmentParameters(t *testing.T) {
 	tests := []struct {
 		name         string
-		pathSpec     pathvars.PathSpec
+		method       common.HTTPMethod
+		path         common.URLPath
 		testPath     string
 		query        string
 		params       []pathvars.Parameter
@@ -20,32 +22,32 @@ func TestMultiSegmentParameters(t *testing.T) {
 		expectedDate string
 	}{
 		// Basic multi-segment date parameter tests using natural slash format
-		{"year-only", "GET /archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025", "", nil, true, "2025"},
-		{"year-month", "GET /archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/09", "", nil, true, "2025/09"},
-		{"full-date", "GET /archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/09/18", "", nil, true, "2025/09/18"},
+		{"year-only", "GET", "/archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025", "", nil, true, "2025"},
+		{"year-month", "GET", "/archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/09", "", nil, true, "2025/09"},
+		{"full-date", "GET", "/archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/09/18", "", nil, true, "2025/09/18"},
 
 		// Invalid date tests
-		{"invalid-year", "GET /archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/abcd", "", nil, false, ""},
-		{"invalid-month", "GET /archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/13", "", nil, false, ""},
-		{"invalid-day", "GET /archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/09/32", "", nil, false, ""},
+		{"invalid-year", "GET", "/archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/abcd", "", nil, false, ""},
+		{"invalid-month", "GET", "/archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/13", "", nil, false, ""},
+		{"invalid-day", "GET", "/archive/{post_date*:date:format[yyyy/mm/dd]}", "/archive/2025/09/32", "", nil, false, ""},
 
 		// Different date format tests
-		{"us-format-month-day", "GET /posts/{date*:date:format[mm/dd/yyyy]}", "/posts/09/18", "", nil, true, "09/18"},
-		{"us-format-full", "GET /posts/{date*:date:format[mm/dd/yyyy]}", "/posts/09/18/2025", "", nil, true, "09/18/2025"},
+		{"us-format-month-day", "GET", "/posts/{date*:date:format[mm/dd/yyyy]}", "/posts/09/18", "", nil, true, "09/18"},
+		{"us-format-full", "GET", "/posts/{date*:date:format[mm/dd/yyyy]}", "/posts/09/18/2025", "", nil, true, "09/18/2025"},
 
 		// Multi-segment with literal segments after
-		{"with-trailing-literal", "GET /archive/{date*:date:format[yyyy/mm/dd]}/list", "/archive/2025/09/18/list", "", nil, true, "2025/09/18"},
-		{"with-trailing-literal-partial", "GET /archive/{date*:date:format[yyyy/mm/dd]}/list", "/archive/2025/list", "", nil, true, "2025"},
+		{"with-trailing-literal", "GET", "/archive/{date*:date:format[yyyy/mm/dd]}/list", "/archive/2025/09/18/list", "", nil, true, "2025/09/18"},
+		{"with-trailing-literal-partial", "GET", "/archive/{date*:date:format[yyyy/mm/dd]}/list", "/archive/2025/list", "", nil, true, "2025"},
 
 		// Edge cases
-		{"too-many-segments", "GET /archive/{date*:date:format[yyyy/mm/dd]}", "/archive/2025/09/18/extra", "", nil, false, ""},
-		{"empty-segment", "GET /archive/{date*:date:format[yyyy/mm/dd]}", "/archive//09/18", "", nil, false, ""},
+		{"too-many-segments", "GET", "/archive/{date*:date:format[yyyy/mm/dd]}", "/archive/2025/09/18/extra", "", nil, false, ""},
+		{"empty-segment", "GET", "/archive/{date*:date:format[yyyy/mm/dd]}", "/archive//09/18", "", nil, false, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+			err := router.AddRoute(tt.method, tt.path, &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -90,24 +92,25 @@ func TestMultiSegmentParameters(t *testing.T) {
 func TestMultiSegmentParameterParsing(t *testing.T) {
 	tests := []struct {
 		name                 string
-		pathSpec             pathvars.PathSpec
+		method               common.HTTPMethod
+		path                 common.URLPath
 		query                string
 		params               []pathvars.Parameter
 		expectError          bool
 		expectedParamName    string
 		expectedMultiSegment bool
 	}{
-		{"regular-param", "GET /users/{id:int}", "", nil, false, "id", false},
-		{"multi-segment-param", "GET /archive/{date*:date:format[yyyy/mm/dd]}", "", nil, false, "date", true},
-		{"multi-segment-no-type", "GET /path/{param*}", "", nil, false, "param", true},
-		{"multi-segment-empty-name", "GET /path/{*}", "", nil, true, "", false},
-		{"multi-segment-only-star", "GET /path/{*:string}", "", nil, true, "", false},
+		{"regular-param", "GET", "/users/{id:int}", "", nil, false, "id", false},
+		{"multi-segment-param", "GET", "/archive/{date*:date:format[yyyy/mm/dd]}", "", nil, false, "date", true},
+		{"multi-segment-no-type", "GET", "/path/{param*}", "", nil, false, "param", true},
+		{"multi-segment-empty-name", "GET", "/path/{*}", "", nil, true, "", false},
+		{"multi-segment-only-star", "GET", "/path/{*:string}", "", nil, true, "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+			err := router.AddRoute(tt.method, tt.path, &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 
@@ -134,24 +137,25 @@ func TestMultiSegmentParameterParsing(t *testing.T) {
 func TestMultiSegmentRegexGeneration(t *testing.T) {
 	tests := []struct {
 		name     string
-		pathSpec pathvars.PathSpec
+		method   common.HTTPMethod
+		path     common.URLPath
 		testPath string
 		query    string
 		params   []pathvars.Parameter
 		matches  bool
 	}{
 		// Test that multi-segment regexes work correctly
-		{"basic-multi-segment", "GET /archive/{date*}", "/archive/2025/09/18", "", nil, true},
-		{"single-segment-capture", "GET /archive/{date*}", "/archive/2025", "", nil, true},
-		{"no-segments", "GET /archive/{date*}", "/archive", "", nil, false},
-		{"mixed-params", "GET /api/{version}/{data*}", "/api/v1/users/123/posts", "", nil, true},
-		{"multi-segment-at-end", "GET /files/{path*}", "/files/docs/readme.txt", "", nil, true},
+		{"basic-multi-segment", "GET", "/archive/{date*}", "/archive/2025/09/18", "", nil, true},
+		{"single-segment-capture", "GET", "/archive/{date*}", "/archive/2025", "", nil, true},
+		{"no-segments", "GET", "/archive/{date*}", "/archive", "", nil, false},
+		{"mixed-params", "GET", "/api/{version}/{data*}", "/api/v1/users/123/posts", "", nil, true},
+		{"multi-segment-at-end", "GET", "/files/{path*}", "/files/docs/readme.txt", "", nil, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+			err := router.AddRoute(tt.method, tt.path, &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {

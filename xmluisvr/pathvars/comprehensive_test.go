@@ -80,7 +80,8 @@ func TestDataTypeValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, nil)
+			method, path := parsePathSpec(string(tt.pathSpec))
+			err := router.AddRoute(common.HTTPMethod(method), common.URLPath(path), nil)
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}
@@ -128,7 +129,8 @@ func TestMethodMatching(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, nil)
+			method, path := parsePathSpec(string(tt.pathSpec))
+			err := router.AddRoute(common.HTTPMethod(method), common.URLPath(path), nil)
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}
@@ -152,7 +154,7 @@ func TestMethodMatching(t *testing.T) {
 
 func TestMatchResultMethods(t *testing.T) {
 	router := pathvars.NewRouter()
-	err := router.AddRoute("GET /users/{id:int}/posts/{slug:string}", &pathvars.RouteArgs{
+	err := router.AddRoute("GET", "/users/{id:int}/posts/{slug:string}", &pathvars.RouteArgs{
 		Index: 42,
 	})
 	if err != nil {
@@ -209,8 +211,8 @@ func TestMatchResultMethods(t *testing.T) {
 	}
 
 	// Test ForEachVar
-	paramMap := make(map[common.Identifier]string)
-	result.ForEachVar(func(name common.Identifier, value string) bool {
+	paramMap := make(map[common.Identifier]any)
+	result.ForEachVar(func(name common.Identifier, value any) bool {
 		paramMap[name] = value
 		return true
 	})
@@ -227,7 +229,7 @@ func TestMatchResultMethods(t *testing.T) {
 
 	// Test ForEachVar early termination
 	count := 0
-	result.ForEachVar(func(name common.Identifier, value string) bool {
+	result.ForEachVar(func(name common.Identifier, value any) bool {
 		count++
 		return false // Stop after first parameter
 	})
@@ -238,7 +240,7 @@ func TestMatchResultMethods(t *testing.T) {
 
 func TestNoParametersMatchResult(t *testing.T) {
 	router := pathvars.NewRouter()
-	err := router.AddRoute("GET /static/path", nil)
+	err := router.AddRoute("GET", "/static/path", nil)
 	if err != nil {
 		t.Fatalf("Failed to add route: %v", err)
 	}
@@ -265,7 +267,7 @@ func TestNoParametersMatchResult(t *testing.T) {
 
 	// Test ForEachVar with no parameters
 	called := false
-	result.ForEachVar(func(name common.Identifier, value string) bool {
+	result.ForEachVar(func(name common.Identifier, value any) bool {
 		called = true
 		return true
 	})
@@ -281,7 +283,7 @@ func TestComplexPaths(t *testing.T) {
 		method   string
 		path     string
 		wantErr  bool
-		expected map[common.Identifier]string
+		expected map[common.Identifier]any
 	}{
 		{
 			name:     "multi-segment-path",
@@ -289,7 +291,7 @@ func TestComplexPaths(t *testing.T) {
 			method:   "GET",
 			path:     "/api/v1/users/123/posts/my-post/comments/456",
 			wantErr:  false,
-			expected: map[common.Identifier]string{"id": "123", "slug": "my-post", "comment_id": "456"},
+			expected: map[common.Identifier]any{"id": "123", "slug": "my-post", "comment_id": "456"},
 		},
 		{
 			name:     "mixed-types",
@@ -297,7 +299,7 @@ func TestComplexPaths(t *testing.T) {
 			method:   "POST",
 			path:     "/users/42/profile/email_verified/value/true",
 			wantErr:  false,
-			expected: map[common.Identifier]string{"user_id": "42", "field": "email_verified", "active": "true"},
+			expected: map[common.Identifier]any{"user_id": "42", "field": "email_verified", "active": "true"},
 		},
 		{
 			name:     "uuid-in-path",
@@ -305,14 +307,15 @@ func TestComplexPaths(t *testing.T) {
 			method:   "GET",
 			path:     "/entities/550e8400-e29b-41d4-a716-446655440000/data",
 			wantErr:  false,
-			expected: map[common.Identifier]string{"entity_id": "550e8400-e29b-41d4-a716-446655440000"},
+			expected: map[common.Identifier]any{"entity_id": "550e8400-e29b-41d4-a716-446655440000"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, nil)
+			method, path := parsePathSpec(string(tt.pathSpec))
+			err := router.AddRoute(common.HTTPMethod(method), common.URLPath(path), nil)
 			if err != nil {
 				t.Fatalf("Failed to add route: %v", err)
 			}

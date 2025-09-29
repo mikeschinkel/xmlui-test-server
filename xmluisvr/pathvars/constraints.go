@@ -99,7 +99,7 @@ func (c *baseConstraint) MapKey(dt PVDataTypeName) ConstraintMapKey {
 
 // ParseConstraints parses constraint specifications from a string.
 //
-// Parse constraint specs like:
+// ParseBytes constraint specs like:
 //   - not-empty
 //   - range[0..100]
 //   - length[5..50]
@@ -181,7 +181,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 					)
 					continue
 				}
-				// Parse constraint with empty value (no arguments)
+				// ParseBytes constraint with empty value (no arguments)
 				constraint, err = constraint.Parse("", dataType)
 				if err != nil {
 					errs = append(errs,

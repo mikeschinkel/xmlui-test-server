@@ -128,7 +128,7 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 	var constraints []Constraint
 	var props *NameSpecProps
 
-	// Parse the {name:type:constraints} or {name*:type:constraints} format
+	// ParseBytes the {name:type:constraints} or {name*:type:constraints} format
 	// Return Parameter object with parsed components
 
 	if useType == UnspecifiedParamUseType {
@@ -155,7 +155,7 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 	parts = strings.SplitN(content, ":", 3)
 	name = parts[0]
 
-	// Parse the first part which may contain name, optional marker (?), and default value
+	// ParseBytes the first part which may contain name, optional marker (?), and default value
 	// Possible formats:
 	// - "name" -> required parameter
 	// - "name?" -> optional parameter, no default

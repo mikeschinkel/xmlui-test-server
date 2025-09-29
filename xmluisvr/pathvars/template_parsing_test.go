@@ -28,9 +28,9 @@ func TestTemplateParsing(t *testing.T) {
 		{"all-types", "/test/{str:string}/{num:int}/{dec:decimal}/{ident:identifier}/{uuid:uuid}/{alpha:alphanum}/{slug:slug}/{bool:bool}", false, "All supported types"},
 		{"long-path", "/very/long/path/with/many/{segments:string}/and/{parameters:int}/here", false, "Long path with many segments"},
 
-		// Invalid templates
-		{"empty-template", "", true, "Empty template"},
-		{"no-leading-slash", "users/{id}", true, "No leading slash - invalid path"},
+		// Auto-corrected templates (no longer errors)
+		{"empty-template", "", false, "Empty template gets converted to '/'"},
+		{"no-leading-slash", "users/{id}", false, "No leading slash gets auto-corrected"},
 		{"empty-braces", "/users/{}", true, "Empty parameter braces"},
 		{"unmatched-open", "/users/{id", true, "Unmatched opening brace"},
 		{"unmatched-close", "/users/id}", true, "Unmatched closing brace - now consistently an error"},
@@ -52,8 +52,7 @@ func TestTemplateParsing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			pathSpec := pathvars.PathSpec("GET " + tt.template)
-			err := router.AddRoute(pathSpec, nil)
+			err := router.AddRoute("GET", common.URLPath(tt.template), nil)
 
 			if tt.expectError {
 				if err == nil {
@@ -144,7 +143,7 @@ func TestParameterExtraction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(pathvars.PathSpec("GET "+tt.template), &pathvars.RouteArgs{
+			err := router.AddRoute("GET", common.URLPath(tt.template), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -233,7 +232,7 @@ func TestRegexGeneration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(pathvars.PathSpec("GET "+tt.template), &pathvars.RouteArgs{
+			err := router.AddRoute("GET", common.URLPath(tt.template), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -311,7 +310,7 @@ func TestParameterTypes(t *testing.T) {
 		t.Run("type-"+name, func(t *testing.T) {
 			template := "/test/{value:" + name + "}"
 			router := pathvars.NewRouter()
-			err := router.AddRoute(pathvars.PathSpec("GET "+template), &pathvars.RouteArgs{
+			err := router.AddRoute("GET", common.URLPath(template), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 

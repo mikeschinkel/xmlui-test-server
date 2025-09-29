@@ -8,7 +8,25 @@ import (
 )
 
 // VarsMap is a map of parameter names to their extracted string values.
-type VarsMap map[common.Identifier]string
+type VarsMap map[common.Identifier]any
+
+func (vm VarsMap) GetValues(namesIn []common.Identifier) (values []any, namesOut []common.Identifier) {
+	n := len(namesIn)
+	values = make([]any, n)
+	namesOut = make([]common.Identifier, n)
+
+	i := 0
+	for _, name := range namesIn {
+		value, ok := vm[name]
+		if !ok {
+			continue
+		}
+		values[i] = value
+		namesOut[i] = name
+		i++
+	}
+	return values[:i], namesOut[:i]
+}
 
 // MatchResult represents the result of matching an HTTP request against a route template.
 // It contains the matched route index and extracted parameter values for memory efficiency.
@@ -16,17 +34,24 @@ type MatchResult struct {
 	// Index indicates which route was matched in the router's route list.
 	Index int
 
+	Route *Route
+
 	// varsMap contains the extracted parameter values from the matched request.
 	// This field is private to control access and ensure proper initialization.
 	varsMap VarsMap
 }
 
 // NewMatchResult creates a new MatchResult with the specified route index and parameter values.
-func NewMatchResult(index int, varsMap VarsMap) MatchResult {
+func NewMatchResult(r *Route, varsMap VarsMap) MatchResult {
 	return MatchResult{
-		Index:   index,
+		Index:   r.Index,
+		Route:   r,
 		varsMap: varsMap,
 	}
+}
+
+func (m MatchResult) GetValues(names []common.Identifier) ([]any, []common.Identifier) {
+	return m.varsMap.GetValues(names)
 }
 
 // ParamsMap returns the map of extracted parameter values.
@@ -40,7 +65,7 @@ func (m MatchResult) ParamsMap() VarsMap {
 
 // GetValue returns the value of a named parameter and whether it was found.
 // Returns the parameter value and true if the parameter exists, or empty string and false otherwise.
-func (m MatchResult) GetValue(name common.Identifier) (value string, found bool) {
+func (m MatchResult) GetValue(name common.Identifier) (value any, found bool) {
 	value, found = m.varsMap[name]
 	return value, found
 }
@@ -58,7 +83,7 @@ func (m MatchResult) HasVars() bool {
 // ForEachVar iterates over all extracted parameters, calling the provided function
 // for each name-value pair. If the function returns true, iteration continues;
 // if it returns false, iteration stops early.
-func (m MatchResult) ForEachVar(fn func(name common.Identifier, value string) bool) {
+func (m MatchResult) ForEachVar(fn func(name common.Identifier, value any) bool) {
 	for name, value := range m.varsMap {
 		if fn(name, value) {
 			continue

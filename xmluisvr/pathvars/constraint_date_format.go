@@ -154,7 +154,7 @@ func ParseDateFormatConstraint(spec string) (constraint *DateFormatConstraint, e
 		goto end
 	}
 
-	// Parse the format specification to build Go time layout
+	// ParseBytes the format specification to build Go time layout
 	goLayout, err = buildGoTimeLayout(spec)
 	if err != nil {
 		err = errors.Join(
@@ -183,7 +183,7 @@ func buildGoTimeLayout(spec string) (layout string, err error) {
 	var token string
 	var hasAnyToken bool
 
-	// Parse character by character, looking for date/time tokens
+	// ParseBytes character by character, looking for date/time tokens
 	for i < len(spec) {
 		// Try to match each possible token at current position
 		token, hasHour, err = matchToken(spec, i, hasHour)
@@ -450,7 +450,7 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 		goto end
 	}
 
-	// Parse minimum date (try ISO format first)
+	// ParseBytes minimum date (try ISO format first)
 	minimum, err = time.Parse("2006-01-02", parts[0])
 	if err != nil {
 		err = errors.Join(
@@ -462,7 +462,7 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 		goto end
 	}
 
-	// Parse maximum date (try ISO format first)
+	// ParseBytes maximum date (try ISO format first)
 	maximum, err = time.Parse("2006-01-02", parts[1])
 	if err != nil {
 		err = errors.Join(

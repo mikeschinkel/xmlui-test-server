@@ -31,7 +31,7 @@ func main() {
     params := []pathvars.Parameter{
         // Parameter definitions...
     }
-    err := router.AddRoute("GET /users/{id:int}", params)
+    err := router.AddRoute("GET", "/users/{id:int}", params)
     if err != nil {
         // handle error
     }
@@ -69,10 +69,9 @@ type Router struct {
 
 **Functions:**
 - `NewRouter() *Router` - Creates a new router instance
-- `(r *Router) AddRoute(pathSpec PathSpec, params []Parameter) error` - Adds a route to the router
-- `(r *Router) AddRouteWithIndex(pathSpec PathSpec, params []Parameter, index int) error` - Adds a route with custom ordering
+- `(r *Router) AddRoute(common.HTTPMethod, common.URLPath, pathvars.RouteArgs{...}) error` - Adds a route to the router
 - `(r *Router) Compile() error` - Pre-compiles all routes for efficient matching
-- `(r *Router) Match(req *http.Request) (MatchResult, error)` - Matches HTTP request against compiled routes
+- `(r *Router) Match(*http.Request) (pathvars.MatchResult, error)` - Matches HTTP request against compiled routes
 
 #### PathSpec, Method, Path
 
@@ -440,12 +439,12 @@ Parameters use a flexible syntax in path templates:
 
 ### Simple Route
 ```go
-router.AddRoute("GET /users/{id:int}", []Parameter{})
+router.AddRoute("GET", "/users/{id:int}", []Parameter{})
 ```
 
 ### Route with Constraints
 ```go
-router.AddRoute("GET /users/{id:int:range[1..1000]}", []Parameter{})
+router.AddRoute("GET", "/users/{id:int:range[1..1000]}", []Parameter{})
 ```
 
 ### Route with Query Parameters
@@ -459,17 +458,17 @@ params := []Parameter{
         DefaultValue: stringPtr("10"),
     }),
 }
-router.AddRoute("GET /users", params)
+router.AddRoute("GET", "/users", params)
 ```
 
 ### Optional Parameters with Defaults
 ```go
-router.AddRoute("GET /posts/{category?general:string}", []Parameter{})
+router.AddRoute("GET", "/posts/{category?general:string}", []Parameter{})
 ```
 
 ### Multi-segment Parameters
 ```go
-router.AddRoute("GET /files/{path*:string}", []Parameter{})
+router.AddRoute("GET", "/files/{path*:string}", []Parameter{})
 ```
 
 This README provides comprehensive documentation of all public APIs in the pathvars package, including types, functions, methods, constants, and usage examples.

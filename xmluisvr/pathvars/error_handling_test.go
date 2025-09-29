@@ -14,38 +14,38 @@ import (
 func TestRouterErrorHandling(t *testing.T) {
 	tests := []struct {
 		name        string
-		pathSpec    pathvars.PathSpec
+		method      common.HTTPMethod
+		path        common.URLPath
 		expectError bool
 		errorType   error
 		query       string
 		params      []pathvars.Parameter
 	}{
 		// Valid cases
-		{"valid-simple", "GET /users", false, nil, "", nil},
-		{"valid-with-param", "GET /users/{id:int}", false, nil, "", nil},
-		{"valid-no-method", "/users", false, nil, "", nil},
+		{"valid-simple", "GET", "/users", false, nil, "", nil},
+		{"valid-with-param", "GET", "/users/{id:int}", false, nil, "", nil},
+		{"valid-no-method", "", "/users", false, nil, "", nil},
 
-		// Invalid path specs
-		{"empty-spec", "", true, pathvars.ErrInvalidTemplate, "", nil},
-		{"no-leading-slash", "GET users", true, pathvars.ErrInvalidTemplate, "", nil},
-		{"missing-space", "GET/users", true, pathvars.ErrInvalidTemplate, "", nil},
-		{"empty-path-after-method", "GET ", true, pathvars.ErrInvalidTemplate, "", nil},
+		// Path specs that are auto-corrected by router
+		{"empty-spec", "", "", false, nil, "", nil},
+		{"no-leading-slash", "GET", "users", false, nil, "", nil},
+		{"empty-path-after-method", "GET", "", false, nil, "", nil},
 
 		// Invalid parameter syntax
-		{"empty-braces", "GET /users/{}", true, pathvars.ErrInvalidParameter, "", nil},
-		{"unmatched-open-brace", "GET /users/{id", true, pathvars.ErrInvalidParameter, "", nil},
-		{"unmatched-close-brace", "GET /users/id}", true, pathvars.ErrInvalidParameter, "", nil}, // Now consistent - error like unmatched opening
-		{"no-param-name", "GET /users/{:int}", true, pathvars.ErrNameSpecNameCannotBeEmpty, "", nil},
+		{"empty-braces", "GET", "/users/{}", true, pathvars.ErrInvalidParameter, "", nil},
+		{"unmatched-open-brace", "GET", "/users/{id", true, pathvars.ErrInvalidParameter, "", nil},
+		{"unmatched-close-brace", "GET", "/users/id}", true, pathvars.ErrInvalidParameter, "", nil}, // Now consistent - error like unmatched opening
+		{"no-param-name", "GET", "/users/{:int}", true, pathvars.ErrNameSpecNameCannotBeEmpty, "", nil},
 
 		// Invalid types
-		{"invalid-type", "GET /users/{id:invalid}", true, pathvars.ErrInvalidParameterType, "", nil},
-		{"typo-in-type", "GET /users/{id:integr}", true, pathvars.ErrInvalidParameterType, "", nil},
+		{"invalid-type", "GET", "/users/{id:invalid}", true, pathvars.ErrInvalidParameterType, "", nil},
+		{"typo-in-type", "GET", "/users/{id:integr}", true, pathvars.ErrInvalidParameterType, "", nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+			err := router.AddRoute(tt.method, tt.path, &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 
@@ -68,7 +68,7 @@ func TestRouterErrorHandling(t *testing.T) {
 
 func TestNotCompiledRouter(t *testing.T) {
 	router := pathvars.NewRouter()
-	err := router.AddRoute("GET /users/{id}", nil)
+	err := router.AddRoute("GET", "/users/{id}", nil)
 	if err != nil {
 		t.Fatalf("Failed to add route: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestNotCompiledRouter(t *testing.T) {
 
 func TestNoMatchingRoute(t *testing.T) {
 	router := pathvars.NewRouter()
-	err := router.AddRoute("GET /users/{id}", nil)
+	err := router.AddRoute("GET", "/users/{id}", nil)
 	if err != nil {
 		t.Fatalf("Failed to add route: %v", err)
 	}
@@ -128,25 +128,26 @@ func TestMultipleRoutes(t *testing.T) {
 	router := pathvars.NewRouter()
 
 	routes := []struct {
-		pathSpec pathvars.PathSpec
-		index    int
-		params   []pathvars.Parameter
+		method common.HTTPMethod
+		path   common.URLPath
+		index  int
+		params []pathvars.Parameter
 	}{
-		{"POST /users", 1, nil},
-		{"GET /users/{id:int}", 2, nil},
-		{"PUT /users/{id:int}", 3, nil},
-		{"GET /posts/{slug:slug}", 4, nil},
-		{"/health", 5, nil}, // Any method
-		{"GET /users", 6, nil},
+		{"POST", "/users", 1, nil},
+		{"GET", "/users/{id:int}", 2, nil},
+		{"PUT", "/users/{id:int}", 3, nil},
+		{"GET", "/posts/{slug:slug}", 4, nil},
+		{"", "/health", 5, nil}, // Any method
+		{"GET", "/users", 6, nil},
 	}
 
 	for _, route := range routes {
-		err := router.AddRoute(route.pathSpec, &pathvars.RouteArgs{
+		err := router.AddRoute(route.method, route.path, &pathvars.RouteArgs{
 			Parameters: route.params,
 			Index:      route.index,
 		})
 		if err != nil {
-			t.Fatalf("Failed to add route %s: %v", route.pathSpec, err)
+			t.Fatalf("Failed to add route %s %s: %v", route.method, route.path, err)
 		}
 	}
 
@@ -233,7 +234,8 @@ func TestEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+			m, p := parsePathSpec(string(tt.pathSpec))
+			err := router.AddRoute(common.HTTPMethod(m), common.URLPath(p), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -266,7 +268,8 @@ func TestEdgeCases(t *testing.T) {
 func TestParameterParsing(t *testing.T) {
 	tests := []struct {
 		name         string
-		pathSpec     pathvars.PathSpec
+		method       common.HTTPMethod
+		path         common.URLPath
 		testPath     string
 		query        string
 		params       []pathvars.Parameter
@@ -275,26 +278,26 @@ func TestParameterParsing(t *testing.T) {
 		wantErr      bool
 	}{
 		// Basic parameter parsing
-		{"name-only", "GET /{name}", "/test", "", nil, "name", "string", false},
-		{"name-with-type", "GET /{id:int}", "/123", "", nil, "id", "integer", false},
-		{"complex-name", "GET /{user_id:int}", "/456", "", nil, "user_id", "integer", false},
+		{"name-only", "GET", "/{name}", "/test", "", nil, "name", "string", false},
+		{"name-with-type", "GET", "/{id:int}", "/123", "", nil, "id", "integer", false},
+		{"complex-name", "GET", "/{user_id:int}", "/456", "", nil, "user_id", "integer", false},
 
 		// All supported types
-		{"type-string", "GET /{value:string}", "/hello", "", nil, "value", "string", false},
-		{"type-int", "GET /{value:int}", "/42", "", []pathvars.Parameter{}, "value", "integer", false},
-		{"type-decimal", "GET /{value:decimal}", "/3.14", "", []pathvars.Parameter{}, "value", "decimal", false},
-		{"type-real", "GET /{value:real}", "/2.71", "", []pathvars.Parameter{}, "value", "real", false},
-		{"type-identifier", "GET /{value:identifier}", "/valid_id", "", []pathvars.Parameter{}, "value", "identifier", false},
-		{"type-uuid", "GET /{value:uuid}", "/550e8400-e29b-41d4-a716-446655440000", "", []pathvars.Parameter{}, "value", "uuid", false},
-		{"type-alphanum", "GET /{value:alphanum}", "/ABC123", "", []pathvars.Parameter{}, "value", "alphanumeric", false},
-		{"type-slug", "GET /{value:slug}", "/my-slug", "", []pathvars.Parameter{}, "value", "slug", false},
-		{"type-bool", "GET /{value:bool}", "/true", "", []pathvars.Parameter{}, "value", "boolean", false},
+		{"type-string", "GET", "/{value:string}", "/hello", "", nil, "value", "string", false},
+		{"type-int", "GET", "/{value:int}", "/42", "", []pathvars.Parameter{}, "value", "integer", false},
+		{"type-decimal", "GET", "/{value:decimal}", "/3.14", "", []pathvars.Parameter{}, "value", "decimal", false},
+		{"type-real", "GET", "/{value:real}", "/2.71", "", []pathvars.Parameter{}, "value", "real", false},
+		{"type-identifier", "GET", "/{value:identifier}", "/valid_id", "", []pathvars.Parameter{}, "value", "identifier", false},
+		{"type-uuid", "GET", "/{value:uuid}", "/550e8400-e29b-41d4-a716-446655440000", "", []pathvars.Parameter{}, "value", "uuid", false},
+		{"type-alphanum", "GET", "/{value:alphanum}", "/ABC123", "", []pathvars.Parameter{}, "value", "alphanumeric", false},
+		{"type-slug", "GET", "/{value:slug}", "/my-slug", "", []pathvars.Parameter{}, "value", "slug", false},
+		{"type-bool", "GET", "/{value:bool}", "/true", "", []pathvars.Parameter{}, "value", "boolean", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, &pathvars.RouteArgs{
+			err := router.AddRoute(tt.method, tt.path, &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {

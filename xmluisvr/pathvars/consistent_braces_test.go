@@ -4,27 +4,29 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 func TestConsistentBraceHandling(t *testing.T) {
 	tests := []struct {
-		name     string
-		pathSpec pathvars.PathSpec
-		wantErr  bool
-		reason   string
+		name    string
+		method  common.HTTPMethod
+		path    common.URLPath
+		wantErr bool
+		reason  string
 	}{
-		{"valid-param", "GET /users/{id}", false, "Valid parameter"},
-		{"empty-braces", "GET /users/{}", true, "Empty parameter - error"},
-		{"unmatched-open", "GET /users/{id", true, "Unmatched opening brace - error"},
-		{"unmatched-close", "GET /users/id}", true, "Unmatched closing brace - error (now consistent!)"},
-		{"valid-literal", "GET /users/myid", false, "No braces at all - valid literal"},
+		{"valid-param", "GET", "/users/{id}", false, "Valid parameter"},
+		{"empty-braces", "GET", "/users/{}", true, "Empty parameter - error"},
+		{"unmatched-open", "GET", "/users/{id", true, "Unmatched opening brace - error"},
+		{"unmatched-close", "GET", "/users/id}", true, "Unmatched closing brace - error (now consistent!)"},
+		{"valid-literal", "GET", "/users/myid", false, "No braces at all - valid literal"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.pathSpec, nil)
+			err := router.AddRoute(tt.method, tt.path, nil)
 
 			if tt.wantErr {
 				if err == nil {

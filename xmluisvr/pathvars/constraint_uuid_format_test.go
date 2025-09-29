@@ -184,10 +184,10 @@ func TestUUIDFormatConstraintInterface(t *testing.T) {
 		t.Errorf("Expected String() to return 'v4', got %q", constraint.String())
 	}
 
-	// Test Parse method
+	// Test ParseBytes method
 	parsed, err := constraint.Parse("v7", UUIDType)
 	if err != nil {
-		t.Errorf("Expected Parse() to succeed, got error: %v", err)
+		t.Errorf("Expected ParseBytes() to succeed, got error: %v", err)
 	}
 	want := "v7"
 	if parsed.String() != want {

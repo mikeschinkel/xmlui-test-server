@@ -20,7 +20,7 @@
 //	params := []pathvars.Parameter{
 //		// Parameter definitions go here
 //	}
-//	err := router.AddRoute("GET /users/{id:int}", params)
+//	err := router.AddRoute("GET" "/users/{id:int}", params)
 //	if err != nil {
 //		// handle error
 //	}
@@ -41,7 +41,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
@@ -71,17 +70,18 @@ func NewRouter() *Router {
 }
 
 type RouteArgs struct {
-	BasePath   common.URLPath
-	Parameters []Parameter
-	Index      int
+	Parameters  []Parameter
+	Index       int
+	Description string              // Human-readable description of the endpoint
+	Cardinality common.Cardinality  // Expected number of result rows (one, many, etc.)
+	RowType     common.DBRowType    // Format for returning results (json, columns, etc.)
+	ColumnTypes []common.DBDataType // Expected data types for result columns
 }
 
 // AddRoute adds a route to the router with the specified path specification and parameters.
 // The pathSpec can be in format "METHOD /path" (e.g., "GET /users/{id}") or just "/path"
 // for any method. Parameters define the expected path and query parameters for this route.
-func (r *Router) AddRoute(pathSpec PathSpec, args *RouteArgs) (err error) {
-	var method string
-	var path string
+func (r *Router) AddRoute(method common.HTTPMethod, path common.URLPath, args *RouteArgs) (err error) {
 	var template *Template
 	var route *Route
 	var paramCount int
@@ -89,31 +89,21 @@ func (r *Router) AddRoute(pathSpec PathSpec, args *RouteArgs) (err error) {
 	if args == nil {
 		args = &RouteArgs{}
 	}
-	if len(args.BasePath) != 0 && args.BasePath[len(args.BasePath)-1] == '/' {
-		// Trim trailing slash ('/') from base path
-		args.BasePath = args.BasePath[:len(args.BasePath)-1]
-	}
 
-	// Parse "GET /users/{id}" format
-	method, path, err = ParsePathSpec(pathSpec)
-	if err != nil {
-		err = errors.Join(
-			err,
-			fmt.Errorf("path_spec=%q", pathSpec),
-		)
-		goto end
+	if path == "" {
+		// Trim leading slash ('/') on sub path
+		path = "/"
 	}
-	if path != "" && path[0] != '/' {
+	if path[0] != '/' {
 		// Trim leading slash ('/') on sub path
 		path = "/" + path
 	}
-	path = fmt.Sprintf("%s%s", args.BasePath, path)
 
 	template, err = ParseTemplate(path)
 	if err != nil {
 		err = errors.Join(
 			err,
-			fmt.Errorf("path_spec=%q", pathSpec),
+			fmt.Errorf("path_spec=%q", path),
 			fmt.Errorf("method=%q", method),
 			fmt.Errorf("path=%q", path),
 		)
@@ -143,9 +133,13 @@ func (r *Router) AddRoute(pathSpec PathSpec, args *RouteArgs) (err error) {
 		args.Index = len(r.routes) + 1
 	}
 	route = &Route{
-		Method:   method,
-		Template: template,
-		Index:    args.Index,
+		Method:      method,
+		Template:    template,
+		Index:       args.Index,
+		Description: args.Description,
+		Cardinality: args.Cardinality,
+		RowType:     args.RowType,
+		ColumnTypes: args.ColumnTypes,
 	}
 
 	r.routes = append(r.routes, route)
@@ -188,7 +182,7 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 
 	for _, route := range r.routes {
 		// Check method match (empty method means any)
-		if route.Method != "" && route.Method != req.Method {
+		if route.Method != "" && route.Method != common.HTTPMethod(req.Method) {
 			continue
 		}
 
@@ -196,6 +190,7 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 		if matched {
 			result = MatchResult{
 				Index:   route.Index,
+				Route:   route,
 				varsMap: varsMap,
 			}
 			goto end
@@ -213,55 +208,4 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 
 end:
 	return result, err
-}
-
-// ParsePathSpec splits a path specification like "GET /path" into method and path components.
-// If the spec starts with '/', it's treated as a path-only spec (any method).
-// Otherwise, it expects "METHOD /path" format with a space separator.
-func ParsePathSpec(spec PathSpec) (method string, path string, err error) {
-	var found bool
-
-	// Parse the method and path from spec
-	// Handle cases: "GET /path", "/path" (any method)
-	if spec == "" {
-		err = errors.Join(
-			ErrInvalidTemplate,
-			fmt.Errorf("spec=%q", spec),
-			fmt.Errorf("reason=%s", "empty path specification"),
-		)
-		goto end
-	}
-
-	// If starts with '/', it's just a path (any method)
-	if spec[0] == '/' {
-		path = string(spec)
-		goto end
-	}
-
-	// Otherwise, split on first space
-	method, path, found = strings.Cut(string(spec), " ")
-	if !found {
-		err = errors.Join(
-			ErrInvalidTemplate,
-			fmt.Errorf("spec=%q", spec),
-			fmt.Errorf("method=%q", method),
-			fmt.Errorf("reason=%s", "missing space between method and path"),
-		)
-		goto end
-	}
-
-	// Validate path starts with '/'
-	if path == "" || path[0] != '/' {
-		err = errors.Join(
-			ErrInvalidTemplate,
-			fmt.Errorf("spec=%q", spec),
-			fmt.Errorf("method=%q", method),
-			fmt.Errorf("path=%q", path),
-			fmt.Errorf("reason=%s", "path must start with '/' or be non-empty"),
-		)
-		goto end
-	}
-
-end:
-	return method, path, err
 }

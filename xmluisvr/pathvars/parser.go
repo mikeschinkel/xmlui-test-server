@@ -16,7 +16,7 @@ import (
 // ParseTemplate parses a template string like "/users/{id:int}/posts?{limit?10:int}"
 // into a Template object with compiled regex and parameter definitions.
 // Returns an error if the template syntax is invalid.
-func ParseTemplate(template string) (t *Template, err error) {
+func ParseTemplate(template common.URLPath) (t *Template, err error) {
 	var segments []Segment
 	var params map[common.Identifier]Parameter
 	var regex *regexp.Regexp
@@ -41,7 +41,7 @@ func ParseTemplate(template string) (t *Template, err error) {
 	}
 
 	t = &Template{
-		raw:      template,
+		raw:      string(template),
 		segments: segments,
 		params:   params,
 		regex:    regex,
@@ -54,7 +54,7 @@ end:
 // parseSegments splits a template into segments and extracts parameters.
 // Handles both path and query portions of the template, parsing each
 // according to their specific syntax rules.
-func parseSegments(template string) (segments []Segment, params map[common.Identifier]Parameter, err error) {
+func parseSegments(template common.URLPath) (segments []Segment, params map[common.Identifier]Parameter, err error) {
 	var pathPart, queryPart string
 	var pathSegments []Segment
 	var pathParams, queryParams map[common.Identifier]Parameter
@@ -81,7 +81,7 @@ func parseSegments(template string) (segments []Segment, params map[common.Ident
 		goto end
 	}
 
-	// Parse path segments
+	// ParseBytes path segments
 	pathSegments, pathParams, err = parsePathPart(pathPart)
 	if err != nil {
 		err = errors.Join(
@@ -101,7 +101,7 @@ func parseSegments(template string) (segments []Segment, params map[common.Ident
 		position++
 	}
 
-	// Parse query parameters if present
+	// ParseBytes query parameters if present
 	if queryPart != "" {
 		queryParams, err = parseQueryPart(queryPart, position)
 		if err != nil {
@@ -249,7 +249,7 @@ end:
 // splitPathAndQuery splits a template into path and query parts at the first '?'
 // that's not inside braces. This allows query parameters to contain '?' characters
 // within their constraint definitions.
-func splitPathAndQuery(template string) (pathPart, queryPart string, err error) {
+func splitPathAndQuery(template common.URLPath) (pathPart, queryPart string, err error) {
 	var i int
 	var inBraces bool
 	var braceDepth int
@@ -279,8 +279,8 @@ func splitPathAndQuery(template string) (pathPart, queryPart string, err error) 
 		case '?':
 			if !inBraces {
 				// Found the split point
-				pathPart = template[:i]
-				queryPart = template[i+1:]
+				pathPart = string(template[:i])
+				queryPart = string(template[i+1:])
 				goto end
 			}
 		}
@@ -299,7 +299,7 @@ func splitPathAndQuery(template string) (pathPart, queryPart string, err error) 
 	}
 
 	// No query part found
-	pathPart = template
+	pathPart = string(template)
 
 end:
 	return pathPart, queryPart, err
@@ -316,7 +316,7 @@ func parsePathPart(pathPart string) (segments []Segment, params map[common.Ident
 
 	params = make(map[common.Identifier]Parameter)
 
-	// Parse path segments using existing logic
+	// ParseBytes path segments using existing logic
 	parts, err = parsePathSegments(pathPart)
 	if err != nil {
 		err = errors.Join(

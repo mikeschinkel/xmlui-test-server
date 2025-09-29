@@ -3,6 +3,7 @@ package pathvars_test
 import (
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -56,7 +57,8 @@ func TestImplicitTypeInference(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(pathvars.PathSpec(tt.template), nil)
+			method, path := parsePathSpec(tt.template)
+			err := router.AddRoute(common.HTTPMethod(method), common.URLPath(path), nil)
 
 			if tt.expectError {
 				if err == nil {

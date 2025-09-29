@@ -610,8 +610,8 @@ HTTP Request → Router.Match() → MatchResult → Execute SQL
 ```go
 // Startup
 router := pathvars.NewRouter()
-for i, endpoint := range config.Endpoints {
-    err := router.AddRouteWithIndex(endpoint.Path, i)
+for i, ep := range config.Endpoints {
+    err := router.AddRoute(ep.Method,ep.Path, i)
     if err != nil {
         log.Error("Invalid endpoint", "index", i, "error", err)
         return err

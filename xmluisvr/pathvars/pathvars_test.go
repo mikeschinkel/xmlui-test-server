@@ -10,12 +10,16 @@ import (
 )
 
 type ep struct {
-	pathSpec pathvars.PathSpec
+	method common.HTTPMethod
+	path   common.URLPath
 }
 
 func TestPathVars(t *testing.T) {
 	api := []ep{
-		{pathSpec: "GET /foos/{foo:string}/bars/{bars:int}"},
+		{
+			method: "GET",
+			path:   "/foos/{foo:string}/bars/{bars:int}",
+		},
 	}
 	tests := []struct {
 		method   string
@@ -26,7 +30,7 @@ func TestPathVars(t *testing.T) {
 		{
 			method: "GET",
 			path:   "/foos/myfoo/bars/1",
-			expected: pathvars.NewMatchResult(1, pathvars.VarsMap{
+			expected: pathvars.NewMatchResult(&pathvars.Route{Index: 1}, pathvars.VarsMap{
 				"foo":  "myfoo",
 				"bars": "1",
 			}),
@@ -59,7 +63,7 @@ func TestPathVars(t *testing.T) {
 	}
 	router := pathvars.NewRouter()
 	for _, ep := range api {
-		err := router.AddRoute(ep.pathSpec, nil)
+		err := router.AddRoute(ep.method, ep.path, nil)
 		if err != nil {
 			t.Error(err)
 		}
@@ -108,7 +112,7 @@ func TestPathVars(t *testing.T) {
 			}
 
 			// Check for unexpected parameters
-			result.ForEachVar(func(name common.Identifier, value string) bool {
+			result.ForEachVar(func(name common.Identifier, value any) bool {
 				_, expected := tt.expected.GetValue(name)
 				if !expected {
 					t.Errorf("Unexpected parameter %q = %q", name, value)

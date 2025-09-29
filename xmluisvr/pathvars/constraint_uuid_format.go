@@ -9,7 +9,7 @@ import (
 )
 
 // Note: UUIDFormatConstraint is not registered directly.
-// It's handled by DateFormatConstraint.Parse() based on dataType.
+// It's handled by DateFormatConstraint.ParseBytes() based on dataType.
 
 var _ Constraint = (*UUIDFormatConstraint)(nil)
 

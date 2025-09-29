@@ -116,7 +116,7 @@ func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 	var found bool
 	var err error
 
-	// Parse query string
+	// ParseBytes query string
 	if queryString != "" {
 		queryValues, err = url.ParseQuery(queryString)
 		if err != nil {

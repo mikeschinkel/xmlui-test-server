@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -310,7 +311,8 @@ func TestConstraints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute(tt.ps, &pathvars.RouteArgs{
+			m, p := parsePathSpec(string(tt.ps))
+			err := router.AddRoute(common.HTTPMethod(m), common.URLPath(p), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -340,7 +342,7 @@ func TestConstraints(t *testing.T) {
 			}
 
 			// Test path matching
-			method, _, _ := strings.Cut(string(tt.ps), " ")
+			method, _ := parsePathSpec(string(tt.ps))
 
 			req := httptest.NewRequest(method, fmt.Sprintf("%s?%s", tt.path, tt.query), nil)
 			result, err := router.Match(req)
@@ -425,7 +427,9 @@ func TestCreativeDateFormats(t *testing.T) {
 			router := pathvars.NewRouter()
 			pathSpec := pathvars.PathSpec(fmt.Sprintf("GET /test/{date:date:format[%s]}", tt.regex))
 
-			err := router.AddRoute(pathSpec, nil)
+			method, path := parsePathSpec(string(pathSpec))
+			err := router.AddRoute(common.HTTPMethod(method), common.URLPath(path), nil)
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("Expected error for regex %q but got none", tt.regex)
