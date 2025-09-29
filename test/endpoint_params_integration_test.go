@@ -240,8 +240,8 @@ func TestEndpointParams_RoundTripMarshalUnmarshal(t *testing.T) {
 			}
 
 			// Compare key fields
-			if endpoint1.Endpoint != endpoint2.Endpoint {
-				t.Errorf("Endpoint mismatch: %q vs %q", endpoint1.Endpoint, endpoint2.Endpoint)
+			if endpoint1.Endpoint() != endpoint2.Endpoint() {
+				t.Errorf("Endpoint mismatch: %q vs %q", endpoint1.Endpoint(), endpoint2.Endpoint())
 			}
 			if endpoint1.Description != endpoint2.Description {
 				t.Errorf("Description mismatch: %q vs %q", endpoint1.Description, endpoint2.Description)
@@ -254,10 +254,10 @@ func TestEndpointParams_RoundTripMarshalUnmarshal(t *testing.T) {
 			params1, ok1 := endpoint1.Params.(cfgldr.APIParamsV1)
 			params2, ok2 := endpoint2.Params.(cfgldr.APIParamsV1)
 			if !ok1 || !ok2 {
-				t.Fatalf("Params type mismatch: %T vs %T", endpoint1.Params, endpoint2.Params)
+				t.Fatalf("Parameters type mismatch: %T vs %T", endpoint1.Params, endpoint2.Params)
 			}
 			if len(params1) != len(params2) {
-				t.Fatalf("Params length mismatch: %d vs %d", len(params1), len(params2))
+				t.Fatalf("Parameters length mismatch: %d vs %d", len(params1), len(params2))
 			}
 
 			// Compare individual params (order might differ for map format, so check by name)
