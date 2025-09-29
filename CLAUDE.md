@@ -15,36 +15,28 @@ xmlui-test-server is a lightweight Go HTTP server that provides:
 
 ### Standard Build
 ```bash
-go build -v
+make build
 ```
 
-### Extension-Enabled Builds
-
-**macOS ARM (Apple Silicon):**
+## Running tests
 ```bash
-./build-macos-arm.sh
+make test 
+make test xmluisvrr/pathvars
+make test xmluisvrr test 
 ```
-Requires a locally patched go-sqlite3 repository at `$HOME/go-sqlite3` with the extension loading patch applied.
-
-**Linux AMD64:**  
-```bash
-./build-linux-amd.sh
-```
-Downloads and builds a custom SQLite library with extension loading enabled.
 
 ## Running the Server
 
 Basic usage:
 ```bash
-./xmlui-test-server
+make run
 ```
 
 Common options:
 ```bash
-./xmlui-test-server --port 3000
-./xmlui-test-server --extension steampipe-sqlite-github.so
-./xmlui-test-server --api api.json --show-responses
-./xmlui-test-server --pg-conn postgres://user@127.0.0.1:9193/db
+TODO: NEEDS TO UPDATE Makefile to support parameters
+TODO: THEN THIS NEEDS TO BE UPDATED WITH EXAMPLES
+make run ...
 ```
 
 ## Architecture
@@ -53,11 +45,11 @@ Common options:
 
 **Server struct** (`Server`): Central handler containing database connection, API description, path regexes cache, and configuration flags.
 
-**Database abstraction**: Supports both SQLite (default) and PostgreSQL with automatic parameter placeholder conversion (`?` → `$1`, `$2` for PostgreSQL).
+**Database abstraction**: Supports both SQLite (default) with plans for DuckDB, PostgreSQL, MySQL etc.  with automatic parameter placeholder conversion (e.g. `?` → `$1`, `$2` for PostgreSQL).
 
-**API Description system**: JSON-based configuration defining endpoints, HTTP methods, and SQL queries. Supports both inline SQL and external SQL files via `sqlFile` property.
+**API Description system**: JSON-based configuration defining endpoints with path and query params (`{name:type:comma_sep_constraints}`), HTTP methods, and SQL queries. Supports both inline SQL and external SQL files via `query_file` property.
 
-**Parameter extraction**: Unified parameter handling from URL path segments (`:param`), query parameters, and JSON request bodies.
+**Parameter extraction**: Unified parameter handling from URL path segments (`{param}`), query parameters, and JSON request bodies (`{topLevelProp.propsList.0.subProp`).
 
 ### Request Flow
 
@@ -68,7 +60,7 @@ Common options:
 
 ### Database Integration
 
-**SQLite**: Uses patched `go-sqlite3` with `C.sqlite3_enable_load_extension(db, 1)` for extension support. Sets `MaxOpenConns(1)` and `MaxIdleConns(1)` for thread safety.
+**SQLite**: `sqlite3_enable_load_extension(db, 1)` for extension support. Sets `MaxOpenConns(1)` and `MaxIdleConns(1)` for thread safety.
 
 **PostgreSQL**: Standard `lib/pq` driver with automatic parameter placeholder conversion.
 
@@ -77,10 +69,10 @@ Common options:
 ### API Description Format
 
 JSON structure defining API endpoints:
-- `basePath`: Common prefix for all endpoints  
+- `base_path`: Common prefix for all endpoints  
 - `endpoints[].path`: URL pattern with `:param` placeholders
 - `methods`: HTTP method → SQL query mapping
-- `sql` or `sqlFile`: Inline SQL or external file reference
+- `query` or `query_file`: Inline (SQL) query or external file reference
 - `params[]`: Named parameter binding order
 
-Path parameters (`:id`) are extracted via regex and bound to SQL parameters in the order specified by the `params` array.
+Path parameters (`{id}`) are extracted via regex and bound to SQL parameters in the order specified by the `params` array.
