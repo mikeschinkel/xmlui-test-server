@@ -39,7 +39,15 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (val
 
 	// Set up streaming with TeeReader to capture raw bytes
 	teeReader = io.TeeReader(reader, &buffer)
-	rawBytes = readAllBytes(teeReader)
+	rawBytes, err = readAllBytes(teeReader)
+	if err != nil {
+		err = errors.Join(
+			ErrJSONStreamingParseFailed,
+			ErrJSONReadFailed,
+			fmt.Errorf("error=%v", err),
+		)
+		goto end
+	}
 
 	values = make([]any, len(selectors))
 	found = make([]common.Selector, 0, len(selectors))
@@ -178,8 +186,8 @@ end:
 }
 
 // readAllBytes reads all bytes from a reader
-func readAllBytes(reader io.Reader) []byte {
+func readAllBytes(reader io.Reader) ([]byte, error) {
 	var buffer bytes.Buffer
-	buffer.ReadFrom(reader)
-	return buffer.Bytes()
+	_, err := buffer.ReadFrom(reader)
+	return buffer.Bytes(), err
 }

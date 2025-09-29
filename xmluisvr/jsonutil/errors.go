@@ -13,6 +13,7 @@ var (
 	ErrJSONPathExpectedObjectAtSegment = errors.New("JSON path expected object at segment")
 	ErrJSONPathSegmentNotFound         = errors.New("JSON path segment not found")
 	ErrJSONPathTraversalFailed         = errors.New("JSON path traversal failed")
+	ErrJSONReadFailed                  = errors.New("JSON read failed")
 	ErrJSONStreamingParseFailed        = errors.New("JSON streaming parse failed")
 	ErrJSONTokenReadFailed             = errors.New("JSON token read failed")
 	ErrJSONUnmarshalFailed             = errors.New("JSON unmarshal failed")
