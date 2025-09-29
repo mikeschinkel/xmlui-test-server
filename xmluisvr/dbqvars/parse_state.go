@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 type FormatParamFunc = func(int) string
@@ -16,18 +18,18 @@ type parseState struct {
 	edits   []editState
 	order   []string
 	indexOf map[string]int
-	params  []SQLParam
+	tokens  QueryTokens
 }
 
-func newParseState(sqlText string) parseState {
+func newParseState(sqlText common.SQLQuery) parseState {
 	return parseState{
-		src:     sqlText,
+		src:     string(sqlText),
 		n:       len(sqlText),
 		i:       0,
 		edits:   make([]editState, 0),
 		order:   make([]string, 0),
 		indexOf: make(map[string]int),
-		params:  make([]SQLParam, 0),
+		tokens:  make([]QueryToken, 0),
 	}
 }
 
@@ -267,8 +269,8 @@ func (s *parseState) consumePlaceholder(formatFunc FormatParamFunc) (err error) 
 		goto end
 	}
 	idx = s.getIndex(rawName)
-	s.params = append(s.params, SQLParam{
-		Name:  rawName,
+	s.tokens = append(s.tokens, QueryToken{
+		Name:  Parameter(rawName),
 		Index: idx,
 		Start: start,
 		End:   j + 1,
@@ -284,7 +286,7 @@ end:
 	return err
 }
 
-func (s *parseState) buildSQL() string {
+func (s *parseState) buildSQL() common.SQLQuery {
 	var b strings.Builder
 	var last int
 
@@ -299,19 +301,19 @@ func (s *parseState) buildSQL() string {
 	if last < len(s.src) {
 		b.WriteString(s.src[last:])
 	}
-	return b.String()
+	return common.SQLQuery(b.String())
 }
 
-func (s *parseState) orderParams() []SQLParam {
-	ordered := make([]SQLParam, len(s.order))
-	for _, p := range s.params {
+func (s *parseState) orderedTokens() QueryTokens {
+	ordered := make(QueryTokens, len(s.order))
+	for _, p := range s.tokens {
 		if p.Index < 1 {
 			continue
 		}
 		if p.Index > len(s.order) {
 			continue
 		}
-		if s.order[p.Index-1] != p.Name {
+		if s.order[p.Index-1] != string(p.Name) {
 			continue
 		}
 		ordered[p.Index-1] = p

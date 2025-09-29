@@ -5,13 +5,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
+
+// noinspection SqlResolveForFile
 
 func TestParseSQL(t *testing.T) {
 	tests := []struct {
 		name            string
-		sql             string
+		sql             common.SQLQuery
 		formatParamFunc dbqvars.FormatParamFunc
 		expected        dbqvars.ParsedSQL
 		expectError     bool
@@ -24,10 +27,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL:    "SELECT * FROM users WHERE active = true",
-				Params: []dbqvars.SQLParam{},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE active = true", nil),
 		},
 		{
 			name: "single placeholder",
@@ -35,26 +35,15 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users WHERE id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = $1", []dbqvars.Parameter{"id"}),
 		},
 		{
 			name: "multiple unique placeholders",
-			sql:  "SELECT * FROM orders WHERE account_id = {accountId} AND created_at >= {since}",
+			sql:  "SELECT * FROM orders WHERE account_id={accountId} AND created_at>={since}",
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM orders WHERE account_id = $1 AND created_at >= $2",
-				Params: []dbqvars.SQLParam{
-					{Name: "accountId", Index: 1},
-					{Name: "since", Index: 2},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM orders WHERE account_id=$1 AND created_at>=$2", []dbqvars.Parameter{"accountId", "since"}),
 		},
 		{
 			name: "duplicate placeholders",
@@ -62,12 +51,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM orders WHERE created_at >= $1 AND updated_at >= $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "since", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM orders WHERE created_at >= $1 AND updated_at >= $1", []dbqvars.Parameter{"since"}),
 		},
 		// Dotted path placeholders (ADR-008)
 		{
@@ -76,27 +60,15 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "INSERT INTO events (user_id, payload) VALUES ($1, $2)",
-				Params: []dbqvars.SQLParam{
-					{Name: "user.id", Index: 1},
-					{Name: "body.event", Index: 2},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("INSERT INTO events (user_id, payload) VALUES ($1, $2)", []dbqvars.Parameter{"user.id", "body.event"}),
 		},
 		{
 			name: "array index placeholders",
-			sql:  "SELECT * FROM products WHERE id = {items[0].id} AND sku = {items[0].sku}",
+			sql:  "SELECT * FROM products WHERE id = {items.0.id} AND sku = {items.0.sku}",
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM products WHERE id = $1 AND sku = $2",
-				Params: []dbqvars.SQLParam{
-					{Name: "items[0].id", Index: 1},
-					{Name: "items[0].sku", Index: 2},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM products WHERE id = $1 AND sku = $2", []dbqvars.Parameter{"items.0.id", "items.0.sku"}),
 		},
 		// Different database backends
 		{
@@ -105,12 +77,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(int) string {
 				return "?"
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users WHERE id = ?",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = ?", []dbqvars.Parameter{"id"}),
 		},
 		{
 			name: "sql server format",
@@ -118,12 +85,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("@p%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users WHERE id = @p1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = @p1", []dbqvars.Parameter{"id"}),
 		},
 		// String literal skipping
 		{
@@ -132,12 +94,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users WHERE name = 'John {id} Doe' AND id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE name = 'John {id} Doe' AND id = $1", []dbqvars.Parameter{"id"}),
 		},
 		{
 			name: "placeholder in double quotes ignored",
@@ -145,12 +102,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: `SELECT * FROM users WHERE name = "John {id} Doe" AND id = $1`,
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL(`SELECT * FROM users WHERE name = "John {id} Doe" AND id = $1`, []dbqvars.Parameter{"id"}),
 		},
 		// Comment skipping
 		{
@@ -159,12 +111,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users -- WHERE id = {id}\nWHERE active = true AND id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users -- WHERE id = {id}\nWHERE active = true AND id = $1", []dbqvars.Parameter{"id"}),
 		},
 		{
 			name: "placeholder in block comment ignored",
@@ -172,12 +119,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users /* WHERE id = {id} */ WHERE active = true AND id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users /* WHERE id = {id} */ WHERE active = true AND id = $1", []dbqvars.Parameter{"id"}),
 		},
 		// Whitespace handling
 		{
@@ -186,12 +128,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users WHERE id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = $1", []dbqvars.Parameter{"id"}),
 		},
 		// Error cases
 		{
@@ -251,8 +188,8 @@ ORDER BY u.created_at DESC`,
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: `SELECT u.*, p.title
+			expected: dbqvars.NewParsedSQL(
+				`SELECT u.*, p.title
 FROM users u
 LEFT JOIN posts p ON u.id = p.user_id
 WHERE u.created_at >= $1
@@ -260,21 +197,13 @@ WHERE u.created_at >= $1
   AND (u.name LIKE $2 OR u.email LIKE $3)
   AND u.org_id = $4
 ORDER BY u.created_at DESC`,
-				Params: []dbqvars.SQLParam{
-					{Name: "filters.since", Index: 1},
-					{Name: "search.name", Index: 2},
-					{Name: "search.email", Index: 3},
-					{Name: "auth.org_id", Index: 4},
-				},
-			},
+				[]dbqvars.Parameter{"filters.since", "search.name", "search.email", "auth.org_id"}),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := dbqvars.ParseSQL(tt.sql, dbqvars.ParseSQLArgs{
-				FormatParamFunc: tt.formatParamFunc,
-			})
+			result, err := dbqvars.ParseSQL(tt.sql, tt.formatParamFunc)
 
 			if tt.expectError {
 				if err == nil {
@@ -295,16 +224,13 @@ ORDER BY u.created_at DESC`,
 			}
 
 			// Compare only the essential fields (Name and Index)
-			if len(result.Params) != len(tt.expected.Params) {
-				t.Errorf("Params length mismatch: expected %d, got %d", len(tt.expected.Params), len(result.Params))
+			if len(result.Parameters()) != len(tt.expected.Parameters()) {
+				t.Errorf("Parameters length mismatch: expected %d, got %d", len(tt.expected.Parameters()), len(result.Parameters()))
 			} else {
-				for i, expectedParam := range tt.expected.Params {
-					actualParam := result.Params[i]
-					if actualParam.Name != expectedParam.Name {
-						t.Errorf("Param[%d] Name mismatch: expected %q, got %q", i, expectedParam.Name, actualParam.Name)
-					}
-					if actualParam.Index != expectedParam.Index {
-						t.Errorf("Param[%d] Index mismatch: expected %d, got %d", i, expectedParam.Index, actualParam.Index)
+				for i, expectedParam := range tt.expected.Parameters() {
+					actualParam := result.Parameters()[i]
+					if actualParam != expectedParam {
+						t.Errorf("Param[%d] Name mismatch: expected %q, got %q", i, expectedParam, actualParam)
 					}
 				}
 			}
@@ -315,7 +241,7 @@ ORDER BY u.created_at DESC`,
 func TestParseSQL_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name            string
-		sql             string
+		sql             common.SQLQuery
 		formatParamFunc dbqvars.FormatParamFunc
 		expected        dbqvars.ParsedSQL
 	}{
@@ -325,12 +251,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users WHERE name = 'O''Brien {id}' AND id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE name = 'O''Brien {id}' AND id = $1", []dbqvars.Parameter{"id"}),
 		},
 		{
 			name: "backtick identifiers",
@@ -338,12 +259,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM `users` WHERE `user-id` = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM `users` WHERE `user-id` = $1", []dbqvars.Parameter{"id"}),
 		},
 		{
 			name: "bracket identifiers",
@@ -351,12 +267,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM [users] WHERE [user-id] = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL("SELECT * FROM [users] WHERE [user-id] = $1", []dbqvars.Parameter{"id"}),
 		},
 		{
 			name: "hash comment",
@@ -364,12 +275,10 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users # WHERE id = {id}\nWHERE active = true AND id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL(
+				"SELECT * FROM users # WHERE id = {id}\nWHERE active = true AND id = $1",
+				[]dbqvars.Parameter{"id"},
+			),
 		},
 		{
 			name: "postgresql dollar quoting",
@@ -377,20 +286,16 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.ParsedSQL{
-				SQL: "SELECT * FROM users WHERE desc = $tag${id} not a placeholder$tag$ AND id = $1",
-				Params: []dbqvars.SQLParam{
-					{Name: "id", Index: 1},
-				},
-			},
+			expected: dbqvars.NewParsedSQL(
+				"SELECT * FROM users WHERE desc = $tag${id} not a placeholder$tag$ AND id = $1",
+				[]dbqvars.Parameter{"id"},
+			),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := dbqvars.ParseSQL(tt.sql, dbqvars.ParseSQLArgs{
-				FormatParamFunc: tt.formatParamFunc,
-			})
+			result, err := dbqvars.ParseSQL(tt.sql, tt.formatParamFunc)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -401,16 +306,13 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			}
 
 			// Compare only the essential fields (Name and Index)
-			if len(result.Params) != len(tt.expected.Params) {
-				t.Errorf("Params length mismatch: expected %d, got %d", len(tt.expected.Params), len(result.Params))
+			if len(result.Parameters()) != len(tt.expected.Parameters()) {
+				t.Errorf("Parameters length mismatch: expected %d, got %d", len(tt.expected.Parameters()), len(result.Parameters()))
 			} else {
-				for i, expectedParam := range tt.expected.Params {
-					actualParam := result.Params[i]
-					if actualParam.Name != expectedParam.Name {
-						t.Errorf("Param[%d] Name mismatch: expected %q, got %q", i, expectedParam.Name, actualParam.Name)
-					}
-					if actualParam.Index != expectedParam.Index {
-						t.Errorf("Param[%d] Index mismatch: expected %d, got %d", i, expectedParam.Index, actualParam.Index)
+				for i, expectedParam := range tt.expected.Parameters() {
+					actualParam := result.Parameters()[i]
+					if actualParam != expectedParam {
+						t.Errorf("Param[%d] Name mismatch: expected %q, got %q", i, expectedParam, actualParam)
 					}
 				}
 			}

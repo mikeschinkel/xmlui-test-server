@@ -2,36 +2,23 @@ package dbqvars
 
 import (
 	"unicode"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
-type SQLParam struct {
-	Name  string // logical name: e.g., "path.accountId" or "body.items[0].id"
-	Index int    // assigned parameter index (1-based)
-	Start int    // byte offset start in original SQL
-	End   int    // byte offset end (exclusive)
-	Raw   string // full token, e.g. "{user.id}"
-}
-
-type ParsedSQL struct {
-	SQL    string
-	Params []SQLParam // ordered by first appearance, deduped by Name
-}
-
-type ParseSQLArgs struct {
-	// Required: render a bind placeholder for the given 1-based position.
-	// Examples: Postgres: func(i int) string { return fmt.Sprintf("$%d", i) }
-	//           MySQL/SQLite: func(int) string { return "?" }
-	//           SQL Server: func(i int) string { return fmt.Sprintf("@p%d", i) }
-	FormatParamFunc FormatParamFunc
-}
+type ParseSQLArgs struct{}
 
 // ParseSQL finds {name} placeholders OUTSIDE of strings/identifiers/comments,
-// rewrites them via FormatParamFunc, and returns the rewritten SQL & ordered params.
-func ParseSQL(sqlText string, args ParseSQLArgs) (sql ParsedSQL, err error) {
+// rewrites them via FormatParamFunc, and returns the rewritten SQL & ordered tokens.
+// FormatParamFunc examples:
+//
+//	Postgres: func(i int) string { return fmt.Sprintf("$%d", i) }
+//	MySQL/SQLite: func(int) string { return "?" }
+//	SQL Server: func(i int) string { return fmt.Sprintf("@p%d", i) }
+func ParseSQL(sqlText common.SQLQuery, formatFunc FormatParamFunc) (ps ParsedSQL, err error) {
 	var state parseState
-	var ordered []SQLParam
 
-	if args.FormatParamFunc == nil {
+	if formatFunc == nil {
 		err = ErrFormatParamFuncRequired
 		goto end
 	}
@@ -75,7 +62,7 @@ func ParseSQL(sqlText string, args ParseSQLArgs) (sql ParsedSQL, err error) {
 			state.consumeOracleQ()
 			continue
 		case '{':
-			err = state.consumePlaceholder(args.FormatParamFunc)
+			err = state.consumePlaceholder(formatFunc)
 			if err != nil {
 				goto end
 			}
@@ -86,15 +73,20 @@ func ParseSQL(sqlText string, args ParseSQLArgs) (sql ParsedSQL, err error) {
 	}
 
 	if len(state.edits) == 0 {
-		sql = ParsedSQL{SQL: state.src, Params: state.orderParams()}
+		ps = NewParsedSQL(
+			common.SQLQuery(state.src),
+			state.tokens.Parameters(),
+		)
 		goto end
 	}
 
-	ordered = state.orderParams()
-	sql = ParsedSQL{SQL: state.buildSQL(), Params: ordered}
+	ps = NewParsedSQL(
+		state.buildSQL(),
+		state.orderedTokens().Parameters(),
+	)
 
 end:
-	return sql, err
+	return ps, err
 }
 
 func isValidName(s string) (is bool) {
@@ -111,33 +103,10 @@ func isValidName(s string) (is bool) {
 		case '.':
 			i++
 			if !readIdent(s, &i) {
-				goto end
-			}
-		case '[':
-			i++
-			start := i
-			for {
-				if i >= len(s) {
-					break
+				if !readDigits(s, &i) {
+					goto end
 				}
-				if s[i] < '0' {
-					break
-				}
-				if s[i] > '9' {
-					break
-				}
-				i++
 			}
-			if i == start {
-				goto end
-			}
-			if i >= len(s) {
-				goto end
-			}
-			if s[i] != ']' {
-				goto end
-			}
-			i++
 		default:
 			goto end
 		}
@@ -168,6 +137,30 @@ func readIdent(s string, i *int) (ok bool) {
 			continue
 		}
 		break
+	}
+
+	ok = true
+
+end:
+	return ok
+}
+
+func readDigits(s string, i *int) (ok bool) {
+	start := *i
+
+	if *i >= len(s) {
+		goto end
+	}
+
+	for *i < len(s) {
+		if s[*i] < '0' || s[*i] > '9' {
+			break
+		}
+		*i++
+	}
+
+	if *i == start {
+		goto end
 	}
 
 	ok = true

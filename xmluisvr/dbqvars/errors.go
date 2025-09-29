@@ -10,7 +10,7 @@ import (
 // Sentinel errors for various dbqvars operations.
 var (
 	// ErrFormatParamFuncRequired indicates that ParseSQLArgs.FormatParamFunc is nil.
-	ErrFormatParamFuncRequired = errors.New("ParseSQLArgs.FormatParamFunc is required")
+	ErrFormatParamFuncRequired = errors.New("ParseSQLArgs.GetFormatParamFunc is required")
 
 	// ErrUnclosedPlaceholder indicates that a '{' placeholder was not closed with '}'.
 	ErrUnclosedPlaceholder = errors.New("unclosed placeholder")
