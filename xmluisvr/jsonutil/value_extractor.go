@@ -11,10 +11,12 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
+type VarsMap map[common.Selector]any
+
 // ExtractValuesFromReader processes multiple selectors in a single pass through JSON.
 // Returns values for found selectors, list of selectors that were found, and any errors.
 // Continues processing all selectors even when some fail to provide comprehensive error reporting.
-func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (values []any, found []common.Selector, err error) {
+func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (varsMap VarsMap, notFound []common.Selector, err error) {
 	var buffer bytes.Buffer
 	var teeReader io.Reader
 	var errs []error
@@ -49,11 +51,11 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (val
 		goto end
 	}
 
-	values = make([]any, len(selectors))
-	found = make([]common.Selector, 0, len(selectors))
+	varsMap = make(VarsMap, len(selectors))
+	notFound = make([]common.Selector, 0, len(selectors))
 
 	// Process each selector individually
-	for i, selector := range selectors {
+	for _, selector := range selectors {
 		var value any
 		var selectorErr error
 
@@ -65,8 +67,7 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (val
 			continue
 		}
 
-		values[i] = value
-		found = append(found, selector)
+		varsMap[selector] = value
 	}
 
 	// Join all collected errors
@@ -74,12 +75,21 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (val
 		err = errors.Join(errs...)
 	}
 
+	// Not create the list of selectors not found.
+	for _, s := range selectors {
+		_, ok := varsMap[s]
+		if ok {
+			continue
+		}
+		notFound = append(notFound, s)
+	}
+
 end:
-	return values, found, err
+	return varsMap, notFound, err
 }
 
 // ExtractValuesFromBytes is a convenience wrapper for ExtractValuesFromReader
-func ExtractValuesFromBytes(jsonBytes []byte, selectors []common.Selector) (values []any, found []common.Selector, err error) {
+func ExtractValuesFromBytes(jsonBytes []byte, selectors []common.Selector) (varsMap VarsMap, found []common.Selector, err error) {
 	if len(jsonBytes) == 0 {
 		err = errors.Join(
 			ErrJSONPathTraversalFailed,
@@ -89,28 +99,53 @@ func ExtractValuesFromBytes(jsonBytes []byte, selectors []common.Selector) (valu
 		goto end
 	}
 
-	values, found, err = ExtractValuesFromReader(bytes.NewReader(jsonBytes), selectors)
+	varsMap, found, err = ExtractValuesFromReader(bytes.NewReader(jsonBytes), selectors)
 
 end:
-	return values, found, err
+	return varsMap, found, err
 }
+
+var (
+	ErrSelectorNotFound         = errors.New("selector not found")
+	ErrExtractingFromReader     = errors.New("extracting from reader")
+	ErrExtractingFromBytes      = errors.New("extracting from bytes")
+	ErrExtractingJSONBodyValues = errors.New("extracting JSON body values")
+	ErrFailedToExtractValue     = errors.New("failed to extract value")
+)
 
 // ExtractValueFromReader extracts a single value from JSON - convenience wrapper
 func ExtractValueFromReader(reader io.Reader, selector common.Selector) (value any, err error) {
-	var values []any
-	var found []common.Selector
+	var varsMap VarsMap
+	var notFound []common.Selector
+	var ok bool
 
-	values, found, err = ExtractValuesFromReader(reader, []common.Selector{selector})
+	varsMap, notFound, err = ExtractValuesFromReader(reader, []common.Selector{selector})
 	if err != nil {
+		err = errors.Join(
+			ErrFailedToExtractValue,
+			ErrExtractingFromReader,
+			fmt.Errorf("selector=%s", selector),
+			err,
+		)
 		goto end
 	}
 
-	if len(found) == 0 {
-		err = fmt.Errorf("selector_not_found=%s", selector)
+	if len(notFound) > 0 {
+		err = errors.Join(
+			ErrSelectorNotFound,
+			ErrExtractingFromReader,
+			fmt.Errorf("selector=%s", selector))
 		goto end
 	}
 
-	value = values[0]
+	value, ok = varsMap[selector]
+	if !ok {
+		err = errors.Join(
+			ErrSelectorNotFound,
+			ErrExtractingFromReader,
+			fmt.Errorf("selector=%s", selector))
+		goto end
+	}
 
 end:
 	return value, err
@@ -118,20 +153,37 @@ end:
 
 // ExtractValueFromBytes extracts a single value from JSON bytes - convenience wrapper
 func ExtractValueFromBytes(jsonBytes []byte, selector common.Selector) (value any, err error) {
-	var values []any
-	var found []common.Selector
+	var varsMap VarsMap
+	var notFound []common.Selector
+	var ok bool
 
-	values, found, err = ExtractValuesFromBytes(jsonBytes, []common.Selector{selector})
+	varsMap, notFound, err = ExtractValuesFromBytes(jsonBytes, []common.Selector{selector})
 	if err != nil {
+		err = errors.Join(
+			ErrFailedToExtractValue,
+			ErrExtractingFromBytes,
+			fmt.Errorf("selector=%s", selector),
+			err,
+		)
 		goto end
 	}
 
-	if len(found) == 0 {
-		err = fmt.Errorf("selector_not_found=%s", selector)
+	if len(notFound) > 0 {
+		err = errors.Join(
+			ErrSelectorNotFound,
+			ErrExtractingFromBytes,
+			fmt.Errorf("selector=%s", selector))
 		goto end
 	}
 
-	value = values[0]
+	value, ok = varsMap[selector]
+	if !ok {
+		err = errors.Join(
+			ErrSelectorNotFound,
+			ErrExtractingFromBytes,
+			fmt.Errorf("selector=%s", selector))
+		goto end
+	}
 
 end:
 	return value, err

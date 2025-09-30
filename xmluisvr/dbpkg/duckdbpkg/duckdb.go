@@ -21,7 +21,7 @@ type DuckDB struct {
 	*database
 }
 
-func (d *DuckDB) FormatParamFunc() dbpkg.FormatParamFunc {
+func (d *DuckDB) GetFormatParamFunc() dbpkg.FormatParamFunc {
 	return func(index int) string {
 		return fmt.Sprintf("$%d", index)
 	}

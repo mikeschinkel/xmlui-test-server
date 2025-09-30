@@ -25,31 +25,31 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "simple object key",
 			raw:   `{"foo":"bar"}`,
-			query: dbqvars.Parameter("foo"),
+			query: dbqvars.NewParameter("foo", 1),
 			want:  "bar",
 		},
 		{
 			name:  "nested object key",
 			raw:   `{"a":{"b":{"c":123}}}`,
-			query: dbqvars.Parameter("a.b.c"),
+			query: dbqvars.NewParameter("a.b.c", 1),
 			want:  float64(123), // json.Unmarshal numbers → float64 in interface{}
 		},
 		{
 			name:  "array index",
 			raw:   `{"xs":[10,20,30]}`,
-			query: dbqvars.Parameter("xs.1"),
+			query: dbqvars.NewParameter("xs.1", 1),
 			want:  float64(20),
 		},
 		{
 			name:  "array of objects then key",
 			raw:   `{"foo":[{"bar":"baz"}]}`,
-			query: dbqvars.Parameter("foo.0.bar"),
+			query: dbqvars.NewParameter("foo.0.bar", 1),
 			want:  "baz",
 		},
 		{
 			name:  "array index out of range",
 			raw:   `{"xs":[10,20,30]}`,
-			query: dbqvars.Parameter("xs.3"),
+			query: dbqvars.NewParameter("xs.3", 1),
 			wantErrIsAny: []error{
 				jsonutil.ErrJSONIndexOutOfRange,
 			},
@@ -57,7 +57,7 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "missing object key",
 			raw:   `{"obj":{"have":1}}`,
-			query: dbqvars.Parameter("obj.missing"),
+			query: dbqvars.NewParameter("obj.missing", 1),
 			wantErrIsAny: []error{
 				jsonutil.ErrJSONPathSegmentNotFound,
 			},
@@ -65,7 +65,7 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "expects array but found object",
 			raw:   `{"obj":{"k":1}}`,
-			query: dbqvars.Parameter("obj.0"),
+			query: dbqvars.NewParameter("obj.0", 1),
 			wantErrIsAny: []error{
 				jsonutil.ErrJSONPathExpectedArrayAtSegment,
 			},
@@ -73,7 +73,7 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "expects object but found array",
 			raw:   `{"xs":[{"k":1}]}`,
-			query: dbqvars.Parameter("xs.k"),
+			query: dbqvars.NewParameter("xs.k", 1),
 			wantErrIsAny: []error{
 				jsonutil.ErrJSONPathExpectedObjectAtSegment,
 			},
@@ -81,7 +81,7 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "empty segment in path",
 			raw:   `{"a":{"b":1}}`,
-			query: dbqvars.Parameter("a..b"),
+			query: dbqvars.NewParameter("a..b", 1),
 			wantErrIsAny: []error{
 				jsonutil.ErrJSONPathContainsEmptySegment,
 			},
@@ -89,7 +89,7 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "negative index",
 			raw:   `{"xs":[0,1]}`,
-			query: dbqvars.Parameter("xs.-1"),
+			query: dbqvars.NewParameter("xs.-1", 1),
 			wantErrIsAny: []error{
 				jsonutil.ErrJSONIndexOutOfRange,
 			},
@@ -97,7 +97,7 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "empty body",
 			raw:   ``,
-			query: dbqvars.Parameter("foo"),
+			query: dbqvars.NewParameter("foo", 1),
 			wantErrIsAll: []error{
 				jsonutil.ErrJSONPathTraversalFailed,
 				jsonutil.ErrJSONBodyCannotBeEmpty,
@@ -106,7 +106,7 @@ func TestStreamingExtractValue(t *testing.T) {
 		{
 			name:  "empty SQL parameter name",
 			raw:   `{"foo":"bar"}`,
-			query: dbqvars.Parameter(""),
+			query: dbqvars.NewParameter("", 1),
 			wantErrIsAny: []error{
 				jsonutil.ErrJSONValueSelectorCannotBeEmpty,
 			},
@@ -116,7 +116,7 @@ func TestStreamingExtractValue(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := jsonutil.ExtractValueFromBytes([]byte(tt.raw), common.Selector(tt.query))
+			got, err := jsonutil.ExtractValueFromBytes([]byte(tt.raw), tt.query.Name)
 
 			// Error expectations
 			if len(tt.wantErrIsAny) > 0 || len(tt.wantErrIsAll) > 0 {
@@ -244,11 +244,11 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 	}`
 
 	tests := []struct {
-		name       string
-		selectors  []common.Selector
-		wantValues []any
-		wantFound  []common.Selector
-		wantErr    bool
+		name         string
+		selectors    []common.Selector
+		wantVarsMap  jsonutil.VarsMap
+		wantNotFound []common.Selector
+		wantErr      bool
 	}{
 		{
 			name: "multiple valid selectors",
@@ -258,9 +258,14 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"scores.1",
 				"settings.theme",
 			},
-			wantValues: []any{"Alice", float64(30), float64(85), "dark"},
-			wantFound:  []common.Selector{"user.name", "user.age", "scores.1", "settings.theme"},
-			wantErr:    false,
+			wantVarsMap: jsonutil.VarsMap{
+				"user.name":      "Alice",
+				"user.age":       float64(30),
+				"scores.1":       float64(85),
+				"settings.theme": "dark",
+			},
+			wantNotFound: []common.Selector{},
+			wantErr:      false,
 		},
 		{
 			name: "mixed valid and invalid selectors",
@@ -270,9 +275,12 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"scores.0",     // valid
 				"scores.10",    // invalid - out of range
 			},
-			wantValues: []any{"Alice", nil, float64(100), nil},
-			wantFound:  []common.Selector{"user.name", "scores.0"},
-			wantErr:    true,
+			wantVarsMap: jsonutil.VarsMap{
+				"user.name": "Alice",
+				"scores.0":  float64(100),
+			},
+			wantNotFound: []common.Selector{"user.missing", "scores.10"},
+			wantErr:      true,
 		},
 		{
 			name: "all invalid selectors",
@@ -281,15 +289,15 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"user.nonexistent",
 				"scores.999",
 			},
-			wantValues: []any{nil, nil, nil},
-			wantFound:  []common.Selector{},
-			wantErr:    true,
+			wantVarsMap:  jsonutil.VarsMap{},
+			wantNotFound: []common.Selector{"missing.key", "user.nonexistent", "scores.999"},
+			wantErr:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			values, found, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), tt.selectors)
+			varsMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), tt.selectors)
 
 			// Check error expectation
 			if tt.wantErr && err == nil {
@@ -299,30 +307,14 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			// Check found selectors
-			if !reflect.DeepEqual(found, tt.wantFound) {
-				t.Errorf("Found selectors mismatch:\n  got:  %v\n  want: %v", found, tt.wantFound)
+			// Check notFound selectors
+			if !reflect.DeepEqual(notFound, tt.wantNotFound) {
+				t.Errorf("NotFound selectors mismatch:\n  got:  %v\n  want: %v", notFound, tt.wantNotFound)
 			}
 
-			// Check values for found selectors
-			for _, selector := range tt.wantFound {
-				selectorIndex := -1
-				for j, s := range tt.selectors {
-					if s == selector {
-						selectorIndex = j
-						break
-					}
-				}
-				if selectorIndex == -1 {
-					t.Fatalf("Found selector %s not in original selectors", selector)
-				}
-
-				expectedValue := tt.wantValues[selectorIndex]
-				actualValue := values[selectorIndex]
-				if !reflect.DeepEqual(actualValue, expectedValue) {
-					t.Errorf("Value mismatch for selector %s:\n  got:  %#v (%T)\n  want: %#v (%T)",
-						selector, actualValue, actualValue, expectedValue, expectedValue)
-				}
+			// Check varsMap
+			if !reflect.DeepEqual(varsMap, tt.wantVarsMap) {
+				t.Errorf("VarsMap mismatch:\n  got:  %#v\n  want: %#v", varsMap, tt.wantVarsMap)
 			}
 		})
 	}
@@ -334,24 +326,25 @@ func TestExtractValuesFromReader_MultipleSelectors(t *testing.T) {
 	selectors := []common.Selector{"a", "b.c", "d.2"}
 
 	reader := strings.NewReader(jsonData)
-	values, found, err := jsonutil.ExtractValuesFromReader(reader, selectors)
+	varsMap, notFound, err := jsonutil.ExtractValuesFromReader(reader, selectors)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	expectedValues := []any{float64(1), float64(2), float64(5)}
-	expectedFound := []common.Selector{"a", "b.c", "d.2"}
+	expectedVarsMap := jsonutil.VarsMap{
+		"a":   float64(1),
+		"b.c": float64(2),
+		"d.2": float64(5),
+	}
+	expectedNotFound := []common.Selector{}
 
-	if !reflect.DeepEqual(found, expectedFound) {
-		t.Errorf("Found selectors mismatch:\n  got:  %v\n  want: %v", found, expectedFound)
+	if !reflect.DeepEqual(notFound, expectedNotFound) {
+		t.Errorf("NotFound selectors mismatch:\n  got:  %v\n  want: %v", notFound, expectedNotFound)
 	}
 
-	for i, expected := range expectedValues {
-		if !reflect.DeepEqual(values[i], expected) {
-			t.Errorf("Value %d mismatch:\n  got:  %#v (%T)\n  want: %#v (%T)",
-				i, values[i], values[i], expected, expected)
-		}
+	if !reflect.DeepEqual(varsMap, expectedVarsMap) {
+		t.Errorf("VarsMap mismatch:\n  got:  %#v\n  want: %#v", varsMap, expectedVarsMap)
 	}
 }
 
@@ -366,22 +359,22 @@ func TestExtractValuesFromBytes_ErrorCollection(t *testing.T) {
 		"missing3",
 	}
 
-	values, found, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), selectors)
+	varsMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), selectors)
 
 	// Should have error for the missing selectors
 	if err == nil {
 		t.Fatal("Expected error for missing selectors")
 	}
 
-	// Should find the valid selector
-	expectedFound := []common.Selector{"valid"}
-	if !reflect.DeepEqual(found, expectedFound) {
-		t.Errorf("Found selectors mismatch:\n  got:  %v\n  want: %v", found, expectedFound)
+	// Should have the not found selectors
+	expectedNotFound := []common.Selector{"missing1", "missing2", "missing3"}
+	if !reflect.DeepEqual(notFound, expectedNotFound) {
+		t.Errorf("NotFound selectors mismatch:\n  got:  %v\n  want: %v", notFound, expectedNotFound)
 	}
 
-	// Should have the valid value
-	if values[2] != "value" {
-		t.Errorf("Expected valid value 'value', got %v", values[2])
+	// Should have the valid value in the map
+	if varsMap["valid"] != "value" {
+		t.Errorf("Expected valid value 'value', got %v", varsMap["valid"])
 	}
 
 	// Error should contain information about all missing selectors

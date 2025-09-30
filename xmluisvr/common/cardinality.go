@@ -8,6 +8,10 @@ import (
 
 type Cardinality string
 
+func (c Cardinality) EmptyOk() bool {
+	return c[len(c)-1] == '?'
+}
+
 const (
 	OneRow         Cardinality = "one"
 	ManyRows       Cardinality = "many"

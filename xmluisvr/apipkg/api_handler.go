@@ -3,34 +3,14 @@ package apipkg
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
-	"path/filepath"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
-
-// ErrFailedToReadQueryFile indicates that an SQL file referenced by an endpoint could not be read.
-var ErrFailedToReadQueryFile = errors.New("failed to read query file")
-
-// loadAPIQuery loads the SQL query for an endpoint, either from inline configuration
-// or from an external SQL file. If a query file is specified, it reads the file
-// relative to the API configuration file's directory.
-func (api *API) loadAPIQuery(ep *Endpoint) (q common.QueryString, err error) {
-	var qf common.Filepath
-
-	dir := common.DirPath(filepath.Dir(string(api.SourceFile)))
-	q, qf, err = ep.GetQuery(dir)
-
-	// Check if SQL should be loaded from a file
-	if qf != "" {
-		api.Info("Loaded query from file: %s", qf)
-	}
-	return q, err
-}
 
 // HandleAPIFunc returns an HTTP handler function that processes API requests.
 // The handler:
@@ -45,13 +25,19 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var result pathvars.MatchResult
 		var err error
+		var dbq dbqvars.ParsedQuery
+		var qs common.QueryString
+		var endpoint *Endpoint
+		var queryValues []any
+		var dbResult dbpkg.QueryResult
+		var notFound []common.Selector
 
-		cliutil.Printf("APIConfig: %s %s", r.Method, r.URL.Path)
+		cliutil.Printf("API Request: %s %s\n", r.Method, r.URL.Path)
 
 		if api == nil {
 			// IS THIS EVEN NEEDED?
 			common.SendErrorResponse(w, "APIConfig route not found; no APIConfig was loaded", http.StatusNotFound)
-			return
+			goto end
 		}
 
 		// Find the matching endpoint
@@ -59,47 +45,61 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 		if errors.Is(err, pathvars.ErrNoMatch) {
 			api.Errorf("%s %s not matched: %v\n", r.Method, r.URL.Path, err.Error())
 			http.NotFound(w, r)
-			return
+			goto end
 		}
 		if err != nil {
 			api.internalServerError(result, w, r, err, "Unexpected error while attempting to match")
-			return
+			goto end
 		}
 		if result.Index < 0 || len(api.Endpoints) <= result.Index {
 			api.internalServerError(result, w, r, err, "Unexpected match index out of bounds while attempting to match")
-			return
+			goto end
 		}
-		endpoint := api.Endpoints[result.Index]
+		endpoint = api.Endpoints[result.Index]
 
-		// Extract body JSON if present
-		bodyJSON, err := extractBodyJSON(r)
+		queryValues, notFound, err = endpoint.GetParameterValues(r.Body)
 		if err != nil {
-			log.Printf("Warning: Failed to parse request body as JSON: %v", err)
+			msg := "Database parameters not found"
+			status := http.StatusBadRequest
+			if len(notFound) == 0 {
+				msg = "Unexpected database parameter error"
+				status = http.StatusInternalServerError
+			}
+			_ = api.ErrorError(msg, "error", err)
+			common.SendErrorResponse(w, fmt.Sprintf("%s: check the logs for details", msg), status)
+			goto end
 		}
-		common.Noop(bodyJSON)
 
-		// Prepare SQL query
-		query, err := api.loadAPIQuery(endpoint)
+		qs = endpoint.ParsedQuery.QueryString()
+		dbResult, err = dbpkg.ExecuteQuery(ctx, db, qs, queryValues)
 		if err != nil {
-			api.internalServerError(result, w, r, err, "Failed to load API query")
-			return
+			// TODO: Response should not return err
+			_ = api.ErrorError("Database error",
+				"endpoint", endpoint.Endpoint(),
+				"sql_query", dbq.QueryString(),
+				"sql_params", dbq.Parameters(),
+				"url_params", result.ParamsMap(),
+				"error", err,
+			)
+			common.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
+			goto end
 		}
-
-		// Replace named parameters with ? placeholders and build params array
-		//queryParams := extractQueryParams(endpoint, qpArgs{
-		//	params:   result.ParamsMap(),
-		//	bodyJSON: bodyJSON,
-		//})
-		// Execute the query
-		queryParams := []any{}
-		dbResult, err := dbpkg.ExecuteQuery(ctx, db, query, queryParams)
-		if err != nil {
-			common.SendErrorResponse(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)
-			return
+		if len(dbResult) == 0 && !result.Route.Cardinality.EmptyOk() {
+			common.SendErrorResponse(w, "No results found", http.StatusNotFound)
+			api.InfoPrint("No results found",
+				"endpoint", endpoint.Endpoint(),
+				"sql_query", dbq.QueryString(),
+				"sql_params", dbq.Parameters(),
+				"url_params", result.ParamsMap(),
+			)
+			goto end
 		}
+		// TODO Validate result types and column types
 
 		// Return response
 		common.SendJSONResponse(w, r, dbResult, http.StatusOK)
+	end:
+		return
 	}
 }
 

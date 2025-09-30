@@ -15,7 +15,7 @@ import (
 // TestCreateGoldenData is not a real test but a convenience to write a "Golden" file we can cherry pick from
 func TestCreateGoldenData(t *testing.T) {
 	api := cfgldr.NewAPIConfigV2(".")
-	api.AddEndpoint(cfgldr.NewAPIEndpointV2("GET /hello", cfgldr.APIEndpointV2Args{
+	api.AddEndpoint(cfgldr.NewAPIEndpointV2("GET", "/hello", cfgldr.APIEndpointV2Args{
 		Description: "Hello World Endpoint",
 		Query:       "SELECT 'Hello World';",
 		Cardinality: "one",
@@ -71,7 +71,8 @@ func TestLoadRootConfigV1(t *testing.T) {
 				"server.api.webroot":                        "./webroot",
 				"server.api.endpoints|exists()":             true,
 				"server.api.endpoints|len()":                5,
-				"server.api.endpoints.0.endpoint":           "GET /tasks/search/{project_id:int}",
+				"server.api.endpoints.0.method":             "GET",
+				"server.api.endpoints.0.path":               "/tasks/search/{project_id:int}",
 				"server.api.endpoints.0.description":        "Search tasks within a given project (path param project_id + query-string param q)",
 				"server.api.endpoints.0.query":              "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id;",
 				"server.api.endpoints.0.query_file":         "",
@@ -110,45 +111,3 @@ func TestLoadRootConfigV1(t *testing.T) {
 		})
 	}
 }
-
-//func TestNewRootConfigV1(t *testing.T) {
-//	tests := []struct {
-//		name string
-//		want *RootConfigV1
-//	}{
-//		// TODO: Add test cases.
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			if got := NewRootConfigV1(); !reflect.DeepEqual(got, tt.want) {
-//				t.Errorf("NewRootConfigV1() = %v, want %v", got, tt.want)
-//			}
-//		})
-//	}
-//}
-//
-//func TestRootConfigV1_Config(t *testing.T) {
-//	type fields struct {
-//		Schema        string
-//		Version int
-//		Server        *ServerConfigV1
-//		Database      *DatabaseConfigV1
-//	}
-//	tests := []struct {
-//		name   string
-//		fields fields
-//	}{
-//		// TODO: Add test cases.
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			c := &RootConfigV1{
-//				Schema:        tt.fields.Schema,
-//				Version: tt.fields.Version,
-//				Server:        tt.fields.Server,
-//				Database:      tt.fields.Database,
-//			}
-//			c.Config()
-//		})
-//	}
-//}

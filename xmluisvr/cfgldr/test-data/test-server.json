@@ -14,7 +14,8 @@
 			"webroot": ".",
 			"endpoints": [
 				{
-					"endpoint": "GET /hello",
+					"method": "GET",
+					"path": "/hello",
 					"description": "Hello World Endpoint",
 					"query": "SELECT 'Hello World';",
 					"query_file": "",

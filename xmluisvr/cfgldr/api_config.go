@@ -7,6 +7,11 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
+type APIConfig interface {
+	Config()
+	IsNil() bool
+}
+
 func LoadAPIFileIfExists(apiFile string) (_ APIConfig, err error) {
 	var apiV1 *APIDescription
 	var apiV2 *APIConfigV2

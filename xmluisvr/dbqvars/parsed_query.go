@@ -7,5 +7,4 @@ import (
 type ParsedQuery interface {
 	QueryString() common.QueryString
 	Parameters() Parameters
-	//GetValues(varMap map[common.Identifier]any, json []byte) ([]any, error)
 }

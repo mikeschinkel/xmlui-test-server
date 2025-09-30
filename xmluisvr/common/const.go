@@ -21,7 +21,7 @@
 //
 // # Parsing Functions
 //
-// Most types have corresponding Parse* functions that validate input and return
+// Most types have corresponding ParseBytes* functions that validate input and return
 // typed values or descriptive errors:
 //
 //	port, err := common.ParseServerPort(8080, common.ZeroInvalid)

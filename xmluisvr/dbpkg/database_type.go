@@ -8,17 +8,6 @@ import (
 
 type DatabaseType string
 
-//func (dt DatabaseType) String() (s string) {
-//	db, err := GetRegisteredDatabase(dt)
-//	if err != nil {
-//		s = "Unspecified"
-//		goto end
-//	}
-//	s = db.TypeName()
-//end:
-//	return s
-//}
-
 func ParseDatabaseType(ctx Context, connStr string) (dt DatabaseType, err error) {
 	var errs []error
 	var cs common.ConnectString

@@ -5,6 +5,8 @@ import (
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
@@ -19,13 +21,35 @@ type APIEndpointV2 struct {
 
 // APIEndpointBase contains all the non-polymorphic properties for APIEndpointV2
 type APIEndpointBase struct {
-	Endpoint    string   `json:"endpoint"`
-	Description string   `json:"description"`
-	Query       string   `json:"query"`
-	QueryFile   string   `json:"query_file"`
-	Cardinality string   `json:"cardinality"`  // 'one' or 'many'
-	RowType     string   `json:"row_type"`     // 'int', 'real','string','json','columns'
-	ColumnTypes []string `json:"column_types"` // used when row_type="columns"
+	Method        string `json:"method"`
+	Path          string `json:"path"`
+	Description   string `json:"description"`
+	Query         string `json:"query"`
+	QueryFile     string `json:"query_file"`
+	configDir     string
+	queryFilepath string
+	Cardinality   string   `json:"cardinality"`  // 'one' or 'many'
+	RowType       string   `json:"row_type"`     // 'int', 'real','string','json','columns'
+	ColumnTypes   []string `json:"column_types"` // used when row_type="columns"
+}
+
+func (ep APIEndpointBase) Endpoint() string {
+	var method string
+	var path string
+	if ep.Method == "" {
+		method = string(common.ANYMethod)
+	} else {
+		method = ep.Method
+	}
+	switch {
+	case ep.Path == "":
+		path = "/"
+	case ep.Path[0] != '/':
+		path = fmt.Sprintf("./%s", ep.Path)
+	default:
+		path = ep.Path
+	}
+	return fmt.Sprintf("%s %s", method, path)
 }
 
 type APIEndpointV2Args struct {
@@ -39,7 +63,7 @@ type APIEndpointV2Args struct {
 	ParamsType  reflect.Type
 }
 
-func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
+func NewAPIEndpointV2(method, path string, args APIEndpointV2Args) *APIEndpointV2 {
 	if args.Params == nil {
 		args.Params = APIParamsV1{}
 	}
@@ -53,11 +77,12 @@ func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
 	case reflect.TypeOf(([]APIParamV1)(nil)):
 	case reflect.TypeOf((*APIParamsMap)(nil)):
 	default:
-		panic(fmt.Sprintf("Unsupported Params Type '%T' for endpoint %s'", args.ParamsType, endpoint))
+		panic(fmt.Sprintf("Unsupported Parameters Type '%T' for endpoint %s %s'", args.ParamsType, method, path))
 	}
 	return &APIEndpointV2{
 		APIEndpointBase: APIEndpointBase{
-			Endpoint:    endpoint,
+			Method:      method,
+			Path:        path,
 			Description: args.Description,
 			Query:       args.Query,
 			QueryFile:   args.QueryFile,
@@ -70,9 +95,9 @@ func NewAPIEndpointV2(endpoint string, args APIEndpointV2Args) *APIEndpointV2 {
 	}
 }
 
-func (ep *APIEndpointV2) Normalize() {
+func (ep *APIEndpointV2) Normalize(sourceFile string) {
 	if ep.Description == "" {
-		ep.Description = ep.Endpoint
+		ep.Description = ep.Endpoint()
 	}
 	if ep.Cardinality == "" {
 		ep.Cardinality = string(common.DefaultCardinality)
@@ -85,6 +110,9 @@ func (ep *APIEndpointV2) Normalize() {
 	}
 	if ep.paramsType == nil {
 		ep.paramsType = reflect.TypeOf(([]APIParamV1)(nil))
+	}
+	if ep.configDir == "" {
+		ep.configDir = filepath.Dir(sourceFile)
 	}
 }
 
@@ -119,7 +147,7 @@ func (ep *APIEndpointV2) MarshalJSON() (json []byte, err error) {
 	apiParams, ok = ep.Params.(APIParamsV1)
 	if !ok {
 		err = errors.Join(ErrAPIParamsIsAnInvalidDataType,
-			fmt.Errorf("endpoint=%s", ep.Endpoint),
+			fmt.Errorf("endpoint=%s", ep.Endpoint()),
 			fmt.Errorf("data_type=%T", ep.Params),
 		)
 		goto end
@@ -189,4 +217,69 @@ func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
 
 end:
 	return err
+}
+
+// ErrFailedToReadQueryFile indicates that an SQL file referenced by an endpoint could not be read.
+var ErrFailedToReadQueryFile = errors.New("failed to read query file")
+var ErrEitherQueryOrQueryFile = errors.New("both query file and query cannot have values")
+
+func (ep *APIEndpointV2) GetQuery() (q string, err error) {
+	var queryBytes []byte
+
+	q = ep.Query
+
+	if q != "" && ep.QueryFile != "" {
+		err = errors.Join(ErrEitherQueryOrQueryFile,
+			fmt.Errorf("endpoint=%s", ep.Endpoint()),
+			fmt.Errorf("query=%s", leftN(ep.QueryFile, 50)),
+			fmt.Errorf("query_file=%s", ep.QueryFile),
+		)
+	}
+	// Check if SQL should be loaded from a file
+	if ep.QueryFile == "" {
+		// Use the inline SQL from the APIConfig definition
+		goto end
+	}
+	ep.queryFilepath = ep.GetQueryFilepath()
+	if err != nil {
+	}
+	// Determine the APIConfig description file's directory to make relative paths work
+
+	// Read the SQL file
+	queryBytes, err = os.ReadFile(ep.queryFilepath)
+	if err != nil {
+		err = errors.Join(ErrFailedToReadQueryFile,
+			fmt.Errorf("endpoint=%s", ep.Endpoint()),
+			fmt.Errorf("query=%s", leftN(ep.QueryFile, 50)),
+			fmt.Errorf("query_file=%s", ep.QueryFile),
+			err,
+		)
+		goto end
+	}
+
+	q = string(queryBytes)
+end:
+	return q, err
+}
+
+func (ep *APIEndpointV2) GetQueryFilepath() string {
+	if ep.configDir == "" {
+		panic(fmt.Sprintf("Config Directory not set for %s", ep.Endpoint()))
+	}
+	if ep.queryFilepath != "" {
+		goto end
+	}
+	// Build the SQL file path relative to the APIConfig description file
+	ep.queryFilepath = filepath.Join(ep.configDir, string(ep.QueryFile))
+end:
+	return ep.queryFilepath
+}
+
+func leftN(s string, n int) string {
+	if len(s) < n {
+		goto end
+	}
+	s = s[:n]
+end:
+	return s
 }

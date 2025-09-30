@@ -48,7 +48,7 @@ func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, filePath comm
 // Handle direct SQL query requests
 func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.V2().Printf("Query request: %s", r.URL.Path)
+		s.V2().Printf("Query request: %s\n", r.URL.Path)
 
 		if !s.options.AllowUntrustedQueries {
 			s.WarnError("Query disallowed!")
@@ -103,7 +103,7 @@ func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFun
 // Handle proxy requests
 func (s *Server) handleProxyFunc(method common.HTTPMethod) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Parse "/proxy/<host>/<subpath...>?<query>"
+		// ParseBytes "/proxy/<host>/<subpath...>?<query>"
 		targetPath := strings.TrimPrefix(r.URL.Path, "/proxy/")
 		hostPart, rest, _ := strings.Cut(targetPath, "/")
 		if hostPart == "" {

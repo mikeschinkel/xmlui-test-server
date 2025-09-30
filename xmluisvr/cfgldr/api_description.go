@@ -4,7 +4,6 @@ import (
 	"context"
 	jsonv2 "encoding/json/v2"
 	"errors"
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -62,17 +61,14 @@ func (d *EndpointDefinition) Migrate() (eps []*APIEndpointV2) {
 			}
 		}
 		name = strings.ToUpper(name)
-		eps = append(eps, NewAPIEndpointV2(
-			fmt.Sprintf("%s %s", name, d.Path),
-			APIEndpointV2Args{
-				Description: m.Description,
-				Query:       m.SQL,
-				QueryFile:   m.SQLFile,
-				Params:      params,
-				Cardinality: "many?", // TODO: Move the constants to common?
-				RowType:     "any",
-			},
-		))
+		eps = append(eps, NewAPIEndpointV2(name, d.Path, APIEndpointV2Args{
+			Description: m.Description,
+			Query:       m.SQL,
+			QueryFile:   m.SQLFile,
+			Params:      params,
+			Cardinality: string(common.ManyRowsOrNone),
+			RowType:     string(common.AnyRowType),
+		}))
 	}
 	return eps
 }

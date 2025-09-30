@@ -10,22 +10,22 @@ import (
 // VarsMap is a map of parameter names to their extracted string values.
 type VarsMap map[common.Identifier]any
 
-func (vm VarsMap) GetValues(namesIn []common.Identifier) (values []any, namesOut []common.Identifier) {
-	n := len(namesIn)
-	values = make([]any, n)
-	namesOut = make([]common.Identifier, n)
+func (vm VarsMap) GetValues(names []common.Identifier) (values VarsMap, notFound []common.Identifier) {
+	n := len(names)
+	values = make(VarsMap, n)
+	notFound = make([]common.Identifier, n)
 
 	i := 0
-	for _, name := range namesIn {
+	for _, name := range names {
 		value, ok := vm[name]
 		if !ok {
 			continue
 		}
-		values[i] = value
-		namesOut[i] = name
+		values[name] = value
+		notFound[i] = name
 		i++
 	}
-	return values[:i], namesOut[:i]
+	return values, notFound[:i]
 }
 
 // MatchResult represents the result of matching an HTTP request against a route template.
@@ -50,7 +50,7 @@ func NewMatchResult(r *Route, varsMap VarsMap) MatchResult {
 	}
 }
 
-func (m MatchResult) GetValues(names []common.Identifier) ([]any, []common.Identifier) {
+func (m MatchResult) GetValues(names []common.Identifier) (VarsMap, []common.Identifier) {
 	return m.varsMap.GetValues(names)
 }
 

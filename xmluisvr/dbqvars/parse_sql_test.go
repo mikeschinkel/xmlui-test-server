@@ -35,7 +35,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = $1", dbqvars.NewParameters("id")),
 		},
 		{
 			name: "multiple unique placeholders",
@@ -43,7 +43,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM orders WHERE account_id=$1 AND created_at>=$2", []dbqvars.Parameter{"accountId", "since"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM orders WHERE account_id=$1 AND created_at>=$2", dbqvars.NewParameters("accountId", "since")),
 		},
 		{
 			name: "duplicate placeholders",
@@ -51,7 +51,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM orders WHERE created_at >= $1 AND updated_at >= $1", []dbqvars.Parameter{"since"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM orders WHERE created_at >= $1 AND updated_at >= $1", dbqvars.NewParameters("since")),
 		},
 		// Dotted path placeholders (ADR-008)
 		{
@@ -60,7 +60,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("INSERT INTO events (user_id, payload) VALUES ($1, $2)", []dbqvars.Parameter{"user.id", "body.event"}),
+			expected: dbqvars.NewParsedSQL("INSERT INTO events (user_id, payload) VALUES ($1, $2)", dbqvars.NewParameters("user.id", "body.event")),
 		},
 		{
 			name: "array index placeholders",
@@ -68,7 +68,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM products WHERE id = $1 AND sku = $2", []dbqvars.Parameter{"items.0.id", "items.0.sku"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM products WHERE id = $1 AND sku = $2", dbqvars.NewParameters("items.0.id", "items.0.sku")),
 		},
 		// Different database backends
 		{
@@ -77,7 +77,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(int) string {
 				return "?"
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = ?", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = ?", dbqvars.NewParameters("id")),
 		},
 		{
 			name: "sql server format",
@@ -85,7 +85,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("@p%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = @p1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = @p1", dbqvars.NewParameters("id")),
 		},
 		// String literal skipping
 		{
@@ -94,7 +94,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE name = 'John {id} Doe' AND id = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE name = 'John {id} Doe' AND id = $1", dbqvars.NewParameters("id")),
 		},
 		{
 			name: "placeholder in double quotes ignored",
@@ -102,7 +102,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL(`SELECT * FROM users WHERE name = "John {id} Doe" AND id = $1`, []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL(`SELECT * FROM users WHERE name = "John {id} Doe" AND id = $1`, dbqvars.NewParameters("id")),
 		},
 		// Comment skipping
 		{
@@ -111,7 +111,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users -- WHERE id = {id}\nWHERE active = true AND id = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users -- WHERE id = {id}\nWHERE active = true AND id = $1", dbqvars.NewParameters("id")),
 		},
 		{
 			name: "placeholder in block comment ignored",
@@ -119,7 +119,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users /* WHERE id = {id} */ WHERE active = true AND id = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users /* WHERE id = {id} */ WHERE active = true AND id = $1", dbqvars.NewParameters("id")),
 		},
 		// Whitespace handling
 		{
@@ -128,7 +128,7 @@ func TestParseSQL(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE id = $1", dbqvars.NewParameters("id")),
 		},
 		// Error cases
 		{
@@ -197,7 +197,7 @@ WHERE u.created_at >= $1
   AND (u.name LIKE $2 OR u.email LIKE $3)
   AND u.org_id = $4
 ORDER BY u.created_at DESC`,
-				[]dbqvars.Parameter{"filters.since", "search.name", "search.email", "auth.org_id"}),
+				dbqvars.NewParameters("filters.since", "search.name", "search.email", "auth.org_id")),
 		},
 	}
 
@@ -251,7 +251,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE name = 'O''Brien {id}' AND id = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM users WHERE name = 'O''Brien {id}' AND id = $1", dbqvars.NewParameters("id")),
 		},
 		{
 			name: "backtick identifiers",
@@ -259,7 +259,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM `users` WHERE `user-id` = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM `users` WHERE `user-id` = $1", dbqvars.NewParameters("id")),
 		},
 		{
 			name: "bracket identifiers",
@@ -267,7 +267,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			formatParamFunc: func(i int) string {
 				return fmt.Sprintf("$%d", i)
 			},
-			expected: dbqvars.NewParsedSQL("SELECT * FROM [users] WHERE [user-id] = $1", []dbqvars.Parameter{"id"}),
+			expected: dbqvars.NewParsedSQL("SELECT * FROM [users] WHERE [user-id] = $1", dbqvars.NewParameters("id")),
 		},
 		{
 			name: "hash comment",
@@ -277,7 +277,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			},
 			expected: dbqvars.NewParsedSQL(
 				"SELECT * FROM users # WHERE id = {id}\nWHERE active = true AND id = $1",
-				[]dbqvars.Parameter{"id"},
+				dbqvars.NewParameters("id"),
 			),
 		},
 		{
@@ -288,7 +288,7 @@ func TestParseSQL_EdgeCases(t *testing.T) {
 			},
 			expected: dbqvars.NewParsedSQL(
 				"SELECT * FROM users WHERE desc = $tag${id} not a placeholder$tag$ AND id = $1",
-				[]dbqvars.Parameter{"id"},
+				dbqvars.NewParameters("id"),
 			),
 		},
 	}

@@ -2,6 +2,14 @@ package apipkg
 
 import (
 	"errors"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil"
+)
+
+var (
+	ErrExtractingFromReader     = jsonutil.ErrExtractingFromReader
+	ErrExtractingJSONBodyValues = jsonutil.ErrExtractingJSONBodyValues
+	ErrSelectorNotFound         = jsonutil.ErrSelectorNotFound
 )
 
 var (
@@ -13,4 +21,10 @@ var (
 
 	// ErrCannotTypeAssert indicates a type assertion failure during parameter parsing.
 	ErrCannotTypeAssert = errors.New("cannot type assert")
+
+	// ErrOneOfQueryAndQueryFileMustNotBeEmpty is returned when an endpoint has neither
+	// an inline query nor a query file specified.
+	ErrOneOfQueryAndQueryFileMustNotBeEmpty = errors.New("at least one of query for query file must not be empty")
+
+	ErrQueryTypeParsingNotYetSupported = errors.New("query type parsing not yet supported")
 )

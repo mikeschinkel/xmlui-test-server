@@ -107,7 +107,7 @@ func (o *OrderedMap[K, V]) Keys() iter.Seq[K] {
 //
 // Usage:
 //
-//	for v := range om.Values() {
+//	for v := range om.GetValues() {
 //		...
 //	}
 func (o *OrderedMap[K, V]) Values() iter.Seq[V] {

@@ -3,48 +3,67 @@ package apipkg
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 // ParseEndpoints converts a slice of configuration endpoint definitions
 // into parsed Endpoint structs. Each endpoint is validated during parsing.
-func ParseEndpoints(cfgEPs []*cfgldr.APIEndpointV2) (eps []*Endpoint, err error) {
+func ParseEndpoints(cfgEPs []*cfgldr.APIEndpointV2, basePath common.URLPath, db dbpkg.Database) (eps []*Endpoint, err error) {
 	var errs []error
 	eps = make([]*Endpoint, len(cfgEPs))
 	for i, cfgEP := range cfgEPs {
-		eps[i], err = ParseEndpoint(cfgEP)
+		eps[i], err = ParseEndpoint(cfgEP, basePath, db)
 		errs = append(errs, err)
 	}
 	return eps, errors.Join(errs...)
 }
 
-// ErrOneOfQueryAndQueryFileMustNotBeEmpty is returned when an endpoint has neither
-// an inline query nor a query file specified.
-var ErrOneOfQueryAndQueryFileMustNotBeEmpty = errors.New("at least one of query for query file must not be empty")
+func ParseQuery(query common.QueryString, db dbpkg.Database) (pq dbqvars.ParsedQuery, err error) {
+
+	// QueryFileExt is a proxy for Query Type.
+	// TODO: Maybe add a first-class QueryType later
+	qt := strings.ToLower(db.QueryFileExt())
+	switch qt {
+	case ".sql":
+		pq, err = dbqvars.ParseSQL(common.SQLQuery(query), db.GetFormatParamFunc())
+	default:
+		err = errors.Join(ErrQueryTypeParsingNotYetSupported, fmt.Errorf("query_type=%s", qt))
+	}
+	return pq, err
+}
 
 // ParseEndpoint converts a configuration endpoint into a parsed Endpoint struct.
 // It validates all fields including HTTP method, URL path, parameters, and SQL configuration.
-func ParseEndpoint(cfg *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
+func ParseEndpoint(cfg *cfgldr.APIEndpointV2, basePath common.URLPath, db dbpkg.Database) (ep *Endpoint, err error) {
 	var errs []error
-
+	var q string
 	ep = &Endpoint{
 		Description: cfg.Description,
-		Query:       common.QueryString(cfg.Query),
-		QueryFile:   common.Filepath(cfg.QueryFile),
 	}
-	method, path := splitEndPoint(cfg.Endpoint)
-	// TODO: Should we allow defining endpoints without explicitly specifying a method?
-	ep.method, err = common.ParseHTTPMethod(method, common.EmptyOk)
+	q, err = cfg.GetQuery()
+	if err == nil {
+		ep.ParsedQuery, err = ParseQuery(common.QueryString(q), db)
+	}
 	errs = append(errs, err)
-	ep.path, err = common.ParseURLPath(path)
+
+	// TODO: Allow or disallow defining endpoints without explicitly specifying a method? Maybe we should require "ANY"?
+	ep.method, err = common.ParseHTTPMethod(cfg.Method, common.EmptyOk)
 	errs = append(errs, err)
-	ep.QueryFile, err = common.ParseFilepath(cfg.QueryFile)
+	var relPath common.RelativeURL
+	relPath, err = common.ParseRelativeURL(cfg.Path)
+	errs = append(errs, err)
+
+	// TODO Allow or disallow root-based URLs that ignore basepath; which to choose?
+	//      Need override setting to explicitly allow
+	ep.path = common.URLPath(fmt.Sprintf("%s/%s", basePath, relPath))
 	errs = append(errs, err)
 	ep.Params, err = ParseEndpointParams(cfg.Params, ep.path)
 	errs = append(errs, err)
@@ -55,13 +74,12 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2) (ep *Endpoint, err error) {
 	errs = append(errs, err)
 	ep.ColumnTypes, err = common.ParseColumnTypes(cfg.ColumnTypes)
 	errs = append(errs, err)
-	if ep.Query == "" && ep.QueryFile == "" {
-		errs = append(errs, ErrOneOfQueryAndQueryFileMustNotBeEmpty)
-	}
 	err = errors.Join(errs...)
 	if err != nil {
 		ep = nil
-		err = errors.Join(err, fmt.Errorf("endpoint=%s", cfg.Endpoint))
+		err = errors.Join(err,
+			fmt.Errorf("endpoint=%s", cfg.Endpoint()),
+		)
 	}
 
 	return ep, err
@@ -74,8 +92,7 @@ type EndPointString string
 // It contains the HTTP method, URL path, SQL query, parameters, and response formatting options.
 type Endpoint struct {
 	Description   string              // Human-readable description of the endpoint
-	Query         common.QueryString  // Inline SQL query to execute
-	QueryFile     common.Filepath     // Path to external SQL file (relative to config file)
+	ParsedQuery   dbqvars.ParsedQuery // Query to execute parsed by dbqvars.ParseBytes()
 	queryFilepath common.Filepath     // Resolved absolute path to SQL file
 	Params        []EndpointParam     // Parameters that can be extracted from requests
 	Cardinality   common.Cardinality  // Expected number of result rows (one, many, etc.)
@@ -84,6 +101,81 @@ type Endpoint struct {
 	method        common.HTTPMethod   // HTTP method (GET, POST, etc.)
 	path          common.URLPath      // URL path pattern with parameter placeholders
 	pathParsed    bool
+}
+
+func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []common.Selector) (varsMap jsonutil.VarsMap, notFound []common.Selector, err error) {
+	dbq := ep.ParsedQuery
+	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
+	varsMap, notFound, err = jsonutil.ExtractValuesFromReader(r, selectors)
+	if err != nil {
+		err = errors.Join(ErrExtractingFromReader,
+			fmt.Errorf("endpoint=%v", ep.Endpoint()),
+			fmt.Errorf("sql_query=%v", dbq.QueryString()),
+			fmt.Errorf("sql_params=%v", dbq.Parameters()),
+			fmt.Errorf("body_matched=%v", varsMap),
+			fmt.Errorf("not_matched=%v", notFound),
+			err,
+		)
+		goto end
+	}
+end:
+	return varsMap, notFound, err
+}
+
+func (ep *Endpoint) GetParameterValues(r io.Reader) (queryValues []any, notFound []common.Selector, err error) {
+	var result pathvars.MatchResult
+	var pathValuesMap pathvars.VarsMap
+	var namesNotFound []common.Identifier
+	var jsonValuesMap jsonutil.VarsMap
+	var selectors []common.Selector
+
+	dbq := ep.ParsedQuery
+	parameters := dbq.Parameters()
+
+	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
+	pathValuesMap, namesNotFound = result.GetValues(parameters.Identifiers())
+
+	// Note get the selectors to search JSON
+	selectors = parameters.DottedSelectors()
+	if len(namesNotFound) > 0 {
+		// If some non-dotted selectors were not found in path or query, add to selectors
+		// to potentially extract values for from the JSON body.
+		selectors = combineStringsAsY(namesNotFound, selectors)
+	}
+
+	switch {
+	case r != nil:
+		// We got a reader for the JSON body
+		jsonValuesMap, notFound, err = ep.GetBodyValuesMap(r, selectors)
+		if err != nil {
+			err = errors.Join(ErrExtractingJSONBodyValues, err)
+			goto end
+		}
+	default:
+		// We did NOT get a reader for the JSON body
+		// Convert slice of []common.Identifier to slice of []common.Selector{}.
+		notFound = combineStringsAsY(namesNotFound, []common.Selector{})
+	}
+
+	queryValues = make([]any, len(parameters))
+	for i, p := range parameters {
+		qv, ok := pathValuesMap[common.Identifier(p.Name)]
+		if ok {
+			queryValues[i] = qv
+			continue
+		}
+		if r == nil {
+			// We did not get a body ready so no jsonValuesMap to look at
+			continue
+		}
+		qv, ok = jsonValuesMap[p.Name]
+		if ok {
+			queryValues[i] = qv
+			continue
+		}
+	}
+end:
+	return queryValues, notFound, err
 }
 
 // ParsePathVarsParameters converts endpoint parameters into pathvars.Parameter instances
@@ -120,38 +212,13 @@ func (ep *Endpoint) ParsePathVarsParameters() (params []pathvars.Parameter, err 
 	return params, err
 }
 
-// GetQuery returns the SQL query for this endpoint, loading from a file if necessary.
-// If QueryFile is specified, it loads the SQL from the file relative to the provided directory.
-// Otherwise, it returns the inline Query string.
-func (ep *Endpoint) GetQuery(dir common.DirPath) (q common.QueryString, queryFile common.Filepath, err error) {
-	var queryBytes []byte
-
-	q = ep.Query
-
-	// Check if SQL should be loaded from a file
-	if ep.QueryFile == "" {
-		// Use the inline SQL from the APIConfig definition
-		goto end
-	}
-	if ep.queryFilepath != "" {
-		goto end
-	}
-	// Determine the APIConfig description file's directory to make relative paths work
-
-	// Build the SQL file path relative to the APIConfig description file
-	ep.queryFilepath = common.Filepath(filepath.Join(string(dir), string(ep.QueryFile)))
-
-	// Read the SQL file
-	queryBytes, err = os.ReadFile(string(queryFile))
-	if err != nil {
-		err = errors.Join(ErrFailedToReadQueryFile, err)
-		goto end
-	}
-
-	q = common.QueryString(queryBytes)
-end:
-	return q, ep.queryFilepath, err
-}
+//// GetQuery returns the SQL query for this endpoint, loading from a file if necessary.
+//// If QueryFile is specified, it loads the SQL from the file relative to the provided directory.
+//// Otherwise, it returns the inline Query string.
+//func (ep *Endpoint) GetQuery(dir common.DirPath) (q common.QueryString, queryFile common.Filepath, err error) {
+//	panic("FIX THIS")
+//	return q, "", err
+//}
 
 // Endpoint returns a string representation of the endpoint in "METHOD /path" format.
 func (ep *Endpoint) Endpoint() EndPointString {

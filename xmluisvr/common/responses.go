@@ -44,8 +44,8 @@ func maybeEchoResponse(r *http.Request, responseJSON []byte, statusCode int, ver
 		goto end
 	}
 
-	cliutil.Printf("Request: %s", r.URL.String())
-	cliutil.Printf("Status:  %d", statusCode)
+	cliutil.Printf("Request: %s\n", r.URL.String())
+	cliutil.Printf("Status:  %d\n", statusCode)
 	cliutil.Printf("Response:\n%s", string(responseJSON))
 end:
 	return

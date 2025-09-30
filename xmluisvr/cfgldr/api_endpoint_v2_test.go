@@ -2,6 +2,7 @@ package cfgldr_test
 
 import (
 	jsonv2 "encoding/json/v2"
+	"strings"
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
@@ -9,7 +10,8 @@ import (
 
 func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
 	jsonData := `{
-		"endpoint": "GET /users/{id:int}",
+		"method": "GET",
+		"path": "/users/{id:int}",
 		"description": "Get a single user by ID",
 		"query": "SELECT id, email, name FROM users WHERE id = :id",
 		"params": [
@@ -27,8 +29,8 @@ func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
 	}
 
 	// Check basic fields
-	if endpoint.Endpoint != "GET /users/{id:int}" {
-		t.Errorf("endpoint: got %q, want %q", endpoint.Endpoint, "GET /users/{id:int}")
+	if endpoint.Endpoint() != "GET /users/{id:int}" {
+		t.Errorf("endpoint: got %q, want %q", endpoint.Endpoint(), "GET /users/{id:int}")
 	}
 	if endpoint.Description != "Get a single user by ID" {
 		t.Errorf("description: got %q, want %q", endpoint.Description, "Get a single user by ID")
@@ -72,7 +74,8 @@ func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
 
 func TestAPIEndpointV2_UnmarshalJSON_MapParams(t *testing.T) {
 	jsonData := `{
-		"endpoint": "GET /tasks/search/{project_id:int}",
+		"method": "GET",
+		"path": "/tasks/search/{project_id:int}",
 		"description": "Search tasks within a given project",
 		"query": "SELECT t.id, t.title FROM tasks t WHERE t.project_id = :project_id",
 		"params": {
@@ -93,8 +96,8 @@ func TestAPIEndpointV2_UnmarshalJSON_MapParams(t *testing.T) {
 	}
 
 	// Check basic fields
-	if endpoint.Endpoint != "GET /tasks/search/{project_id:int}" {
-		t.Errorf("endpoint: got %q, want %q", endpoint.Endpoint, "GET /tasks/search/{project_id:int}")
+	if endpoint.Endpoint() != "GET /tasks/search/{project_id:int}" {
+		t.Errorf("endpoint: got %q, want %q", endpoint.Endpoint(), "GET /tasks/search/{project_id:int}")
 	}
 	if endpoint.Cardinality != "many" {
 		t.Errorf("cardinality: got %q, want %q", endpoint.Cardinality, "many")
@@ -167,7 +170,8 @@ func TestAPIEndpointV2_UnmarshalJSON_EmptyParams(t *testing.T) {
 		{
 			name: "null params",
 			jsonData: `{
-				"endpoint": "GET /hello",
+				"method": "GET",
+				"path": "/hello",
 				"description": "Hello World",
 				"query": "SELECT 'Hello World'",
 				"params": null
@@ -177,7 +181,8 @@ func TestAPIEndpointV2_UnmarshalJSON_EmptyParams(t *testing.T) {
 		{
 			name: "empty array params",
 			jsonData: `{
-				"endpoint": "GET /hello",
+				"method": "GET",
+				"path": "/hello",
 				"description": "Hello World",
 				"query": "SELECT 'Hello World'",
 				"params": []
@@ -187,7 +192,8 @@ func TestAPIEndpointV2_UnmarshalJSON_EmptyParams(t *testing.T) {
 		{
 			name: "empty object params",
 			jsonData: `{
-				"endpoint": "GET /hello",
+				"method": "GET",
+				"path": "/hello",
 				"description": "Hello World",
 				"query": "SELECT 'Hello World'",
 				"params": {}
@@ -197,7 +203,8 @@ func TestAPIEndpointV2_UnmarshalJSON_EmptyParams(t *testing.T) {
 		{
 			name: "missing params field",
 			jsonData: `{
-				"endpoint": "GET /hello",
+				"method": "GET",
+				"path": "/hello",
 				"description": "Hello World",
 				"query": "SELECT 'Hello World'"
 			}`,
@@ -247,8 +254,8 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 				RowType:     "string",
 			},
 			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
-				if ep.Endpoint != "GET /test" {
-					t.Errorf("endpoint: got %q, want %q", ep.Endpoint, "GET /test")
+				if ep.Endpoint() != "GET /test" {
+					t.Errorf("endpoint: got %q, want %q", ep.Endpoint(), "GET /test")
 				}
 				if ep.Description != "Test endpoint" {
 					t.Errorf("description: got %q, want %q", ep.Description, "Test endpoint")
@@ -295,7 +302,11 @@ func TestAPIEndpointV2_NewAPIEndpointV2(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			endpoint := cfgldr.NewAPIEndpointV2(tt.endpoint, tt.args)
+			method, path, _ := strings.Cut(tt.endpoint, " ")
+			if path == "" {
+				method, path = "", method
+			}
+			endpoint := cfgldr.NewAPIEndpointV2(method, path, tt.args)
 			if endpoint == nil {
 				t.Fatal("NewAPIEndpointV2 returned nil")
 			}
@@ -314,7 +325,8 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 			name: "empty description gets endpoint value",
 			endpoint: &cfgldr.APIEndpointV2{
 				APIEndpointBase: cfgldr.APIEndpointBase{
-					Endpoint:    "GET /test",
+					Method:      "GET",
+					Path:        "/test",
 					Description: "",
 				},
 			},
@@ -328,7 +340,8 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 			name: "empty cardinality gets default",
 			endpoint: &cfgldr.APIEndpointV2{
 				APIEndpointBase: cfgldr.APIEndpointBase{
-					Endpoint:    "GET /test",
+					Method:      "GET",
+					Path:        "/test",
 					Cardinality: "",
 				},
 			},
@@ -342,8 +355,9 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 			name: "empty row_type gets default",
 			endpoint: &cfgldr.APIEndpointV2{
 				APIEndpointBase: cfgldr.APIEndpointBase{
-					Endpoint: "GET /test",
-					RowType:  "",
+					Method:  "GET",
+					Path:    "/test",
+					RowType: "",
 				},
 			},
 			check: func(t *testing.T, ep *cfgldr.APIEndpointV2) {
@@ -356,7 +370,8 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 			name: "nil params gets empty array",
 			endpoint: &cfgldr.APIEndpointV2{
 				APIEndpointBase: cfgldr.APIEndpointBase{
-					Endpoint: "GET /test",
+					Method: "GET",
+					Path:   "/test",
 				},
 				Params: nil,
 			},
@@ -373,7 +388,7 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.endpoint.Normalize()
+			tt.endpoint.Normalize("")
 			tt.check(t, tt.endpoint)
 		})
 	}
@@ -388,7 +403,8 @@ func TestAPIEndpointV2_UnmarshalJSON_ErrorHandling(t *testing.T) {
 		{
 			name: "invalid JSON",
 			jsonData: `{
-				"endpoint": "GET /test",
+				"method": "GET",
+				"path": "/test",
 				"params": {invalid json}
 			}`,
 			wantErr: true,
@@ -396,7 +412,8 @@ func TestAPIEndpointV2_UnmarshalJSON_ErrorHandling(t *testing.T) {
 		{
 			name: "invalid param type in map",
 			jsonData: `{
-				"endpoint": "GET /test",
+				"method": "GET",
+				"path": "/test",
 				"params": {
 					"id": "invalid_type:constraint"
 				}
@@ -429,7 +446,8 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 		{
 			name: "search tasks endpoint",
 			jsonData: `{
-				"endpoint": "GET /tasks/search/{project_id:int}",
+				"method": "GET",
+				"path": "/tasks/search/{project_id:int}",
 				"description": "Search tasks within a given project (path param project_id + query-string param q)",
 				"query": "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id;",
 				"params": {
@@ -458,7 +476,8 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 		{
 			name: "tasks by project endpoint",
 			jsonData: `{
-				"endpoint": "GET /tasks/by-project/{project:string}",
+				"method":"GET",
+				"path":"/tasks/by-project/{project:string}",
 				"description": "Tasks for a project using project in the path and owner email as a query-string parameter",
 				"query": "SELECT t.id, t.title, t.status, t.priority, t.due_date, au.email AS assignee_email, au.name AS assignee_name, t.created_at FROM tasks t JOIN projects p ON p.id = t.project_id JOIN users ou ON ou.id = p.owner_id LEFT JOIN users au ON au.id = t.assignee_id WHERE ou.email = :email AND p.name = :project ORDER BY t.priority DESC, t.created_at;",
 				"params": [
@@ -500,7 +519,8 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 		{
 			name: "simple get user endpoint",
 			jsonData: `{
-				"endpoint": "GET /users/{id:int}",
+				"method":"GET",
+				"path":"/users/{id:int}",
 				"description": "Get a single user by numeric id (path parameter only)",
 				"query": "SELECT id, email, name, created_at FROM users WHERE id = :id;",
 				"cardinality": "one",
@@ -541,7 +561,8 @@ func TestAPIEndpointV2_RealWorldExamples(t *testing.T) {
 
 func TestAPIEndpointV2_Roundtrip_ArrayFormat(t *testing.T) {
 	originalJSON := `{
-		"endpoint": "GET /users/{id:int}",
+		"method":"GET",
+		"path":"/users/{id:int}",
 		"description": "Get a single user by ID",
 		"query": "SELECT id, email, name FROM users WHERE id = :id",
 		"params": [
@@ -579,8 +600,8 @@ func TestAPIEndpointV2_Roundtrip_ArrayFormat(t *testing.T) {
 	}
 
 	// Step 4: Verify data integrity
-	if endpoint2.Endpoint != endpoint1.Endpoint {
-		t.Errorf("endpoint mismatch: got %q, want %q", endpoint2.Endpoint, endpoint1.Endpoint)
+	if endpoint2.Endpoint() != endpoint1.Endpoint() {
+		t.Errorf("endpoint mismatch: got %q, want %q", endpoint2.Endpoint(), endpoint1.Endpoint())
 	}
 	if endpoint2.Description != endpoint1.Description {
 		t.Errorf("description mismatch: got %q, want %q", endpoint2.Description, endpoint1.Description)
@@ -610,7 +631,8 @@ func TestAPIEndpointV2_Roundtrip_ArrayFormat(t *testing.T) {
 
 func TestAPIEndpointV2_Roundtrip_MapFormat(t *testing.T) {
 	originalJSON := `{
-		"endpoint": "GET /tasks/search/{project_id:int}",
+		"method":"GET",
+			"path":"/tasks/search/{project_id:int}",
 		"description": "Search tasks within a given project",
 		"query": "SELECT t.id, t.title FROM tasks t WHERE t.project_id = :project_id",
 		"params": {
@@ -650,8 +672,8 @@ func TestAPIEndpointV2_Roundtrip_MapFormat(t *testing.T) {
 	}
 
 	// Step 4: Verify data integrity
-	if endpoint2.Endpoint != endpoint1.Endpoint {
-		t.Errorf("endpoint mismatch: got %q, want %q", endpoint2.Endpoint, endpoint1.Endpoint)
+	if endpoint2.Endpoint() != endpoint1.Endpoint() {
+		t.Errorf("endpoint mismatch: got %q, want %q", endpoint2.Endpoint(), endpoint1.Endpoint())
 	}
 	if endpoint2.Description != endpoint1.Description {
 		t.Errorf("description mismatch: got %q, want %q", endpoint2.Description, endpoint1.Description)
@@ -699,7 +721,8 @@ func TestAPIEndpointV2_Roundtrip_EmptyParams(t *testing.T) {
 		{
 			name: "empty array",
 			originalJSON: `{
-				"endpoint": "GET /hello",
+				"method":"GET",
+			"path":"/hello",
 				"description": "Hello World",
 				"query": "SELECT 'Hello World'",
 				"params": []
@@ -709,7 +732,8 @@ func TestAPIEndpointV2_Roundtrip_EmptyParams(t *testing.T) {
 		{
 			name: "empty object",
 			originalJSON: `{
-				"endpoint": "GET /hello",
+				"method":"GET",
+				"path":"/hello",
 				"description": "Hello World",
 				"query": "SELECT 'Hello World'",
 				"params": {}
@@ -719,7 +743,8 @@ func TestAPIEndpointV2_Roundtrip_EmptyParams(t *testing.T) {
 		{
 			name: "null params",
 			originalJSON: `{
-				"endpoint": "GET /hello",
+				"method":"GET",
+				"path":"/hello",
 				"description": "Hello World",
 				"query": "SELECT 'Hello World'",
 				"params": null

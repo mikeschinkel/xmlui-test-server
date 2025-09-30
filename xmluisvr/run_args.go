@@ -53,7 +53,7 @@ func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 // parseAPI loads and creates the API configuration from either a file or the root config.
 // If no API file is specified or found, it falls back to the API configuration
 // embedded in the root configuration.
-func (args *RunArgs) parseAPI(apiFile string) (api *apipkg.API, err error) {
+func (args *RunArgs) parseAPI(apiFile string, db dbpkg.Database) (api *apipkg.API, err error) {
 	var apiCfg cfgldr.APIConfig
 
 	apiCfg, err = cfgldr.LoadAPIFileIfExists(apiFile)
@@ -64,9 +64,10 @@ func (args *RunArgs) parseAPI(apiFile string) (api *apipkg.API, err error) {
 		apiCfg = args.Config.APIConfig()
 	}
 	api, err = apipkg.CreateAPI(apipkg.CreateAPIArgs{
-		Config: apiCfg,
-		Writer: args.CLIWriter,
-		Logger: args.Logger,
+		Database: db,
+		Config:   apiCfg,
+		Writer:   args.CLIWriter,
+		Logger:   args.Logger,
 	})
 end:
 	return api, err

@@ -43,7 +43,7 @@ type Database interface {
 	CreateNew(DatabaseArgs) (Database, error)
 	Extensions() []DBExtension
 	LoadExtension(DBExtension) error
-	FormatParamFunc() FormatParamFunc
+	GetFormatParamFunc() FormatParamFunc
 	fmt.Stringer
 }
 

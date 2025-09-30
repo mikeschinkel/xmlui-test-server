@@ -173,7 +173,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	m.Set("@note", "Just a little bit of info\nfor posterity")
 
 	// Add tasks search endpoint with path parameter and params map
-	api.AddEndpoint(NewAPIEndpointV2("GET /tasks/search/{project_id:int}", APIEndpointV2Args{
+	api.AddEndpoint(NewAPIEndpointV2("GET", "/tasks/search/{project_id:int}", APIEndpointV2Args{
 		Description: "Search tasks within a given project (path param project_id + query-string param q)",
 		Query:       "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id;",
 		Cardinality: string(common.ManyRows),
@@ -189,7 +189,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	}))
 
 	// Add tasks by project endpoint with array params
-	api.AddEndpoint(NewAPIEndpointV2("GET /tasks/by-project/{project:string}", APIEndpointV2Args{
+	api.AddEndpoint(NewAPIEndpointV2("GET", "/tasks/by-project/{project:string}", APIEndpointV2Args{
 		Description: "Tasks for a project using project in the path and owner email as a query-string parameter",
 		Query:       "SELECT t.id, t.title, t.status, t.priority, t.due_date, au.email AS assignee_email, au.name AS assignee_name, t.created_at FROM tasks t JOIN projects p ON p.id = t.project_id JOIN users ou ON ou.id = p.owner_id LEFT JOIN users au ON au.id = t.assignee_id WHERE ou.email = :email AND p.name = :project ORDER BY t.priority DESC, t.created_at;",
 		Cardinality: string(common.ManyRows),
@@ -210,7 +210,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	}))
 
 	// Add user by ID endpoint
-	api.AddEndpoint(NewAPIEndpointV2("GET /users/{id:int}", APIEndpointV2Args{
+	api.AddEndpoint(NewAPIEndpointV2("GET", "/users/{id:int}", APIEndpointV2Args{
 		Description: "Get a single user by numeric id (path parameter only)",
 		Query:       "SELECT id, email, name, created_at FROM users WHERE id = :id;",
 		Cardinality: string(common.OneRow),
@@ -224,7 +224,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	}))
 
 	// Add hello world endpoint
-	api.AddEndpoint(NewAPIEndpointV2("GET /hello", APIEndpointV2Args{
+	api.AddEndpoint(NewAPIEndpointV2("GET", "/hello", APIEndpointV2Args{
 		Description: "Hello World Endpoint",
 		Query:       "SELECT 'Hello World';",
 		Cardinality: string(common.OneRow),
@@ -233,7 +233,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	}))
 
 	// Add projects by owner endpoint
-	api.AddEndpoint(NewAPIEndpointV2("GET /projects/by-owner/{email:string}", APIEndpointV2Args{
+	api.AddEndpoint(NewAPIEndpointV2("GET", "/projects/by-owner/{email:string}", APIEndpointV2Args{
 		Description: "Projects owned by a given user (owner email as a path parameter)",
 		Query:       "SELECT p.id, p.name, p.status, p.created_at FROM projects p WHERE p.owner_id = (SELECT id FROM users WHERE email = :email) ORDER BY p.created_at DESC;",
 		Cardinality: string(common.ManyRows),
@@ -300,39 +300,25 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (r
 	var schemaBytes []byte
 	var apiConfig *APIConfigV2
 	var opts *Options
-	var fp string
 
 	cs = stores[cfgutil.DotConfigDir]
 	userConfig, err = ensureConfig(cs)
 	if err != nil {
-		var err2 error
-		fp, err2 = cs.GetFilepath()
-		if err2 != nil {
-			err = errors.Join(err, err2)
-		}
-		if fp != "" {
-			err = errors.Join(err, fmt.Errorf("filepath=%s", fp))
-		}
+		err = addFilepathToErr(cs)
 		goto end
 	}
 
 	cs = stores[cfgutil.LocalConfigDir]
 	localConfig, err = loadConfigIfExists(cs)
 	if err != nil {
-		var err2 error
-		fp, err2 = cs.GetFilepath()
-		if err2 != nil {
-			err = errors.Join(err, err2)
-		}
-		if fp != "" {
-			err = errors.Join(err, fmt.Errorf("filepath=%s", fp))
-		}
+		err = addFilepathToErr(cs)
 		goto end
 	}
 
 	// TODO Merge them here instead of just returning userConfig
 	common.Noop(localConfig)
 	rc = userConfig
+	rc = localConfig
 
 	opts, err = GetOptions()
 	if err != nil {
@@ -357,6 +343,18 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (r
 
 end:
 	return rc, err
+}
+
+func addFilepathToErr(cs cfgutil.ConfigStore) (err error) {
+	var fp string
+	fp, err = cs.GetFilepath()
+	if err != nil {
+		err = errors.Join(err, err)
+	}
+	if fp != "" {
+		err = errors.Join(err, fmt.Errorf("filepath=%s", fp))
+	}
+	return err
 }
 
 func loadAPIFileIfExists(apiFile string) (api *APIConfigV2, err error) {

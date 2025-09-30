@@ -20,11 +20,12 @@ var (
 )
 
 var (
-	ErrURLPathMustNotBeEmpty = errors.New("URL path must not be empty")
-	ErrInvalidURLPath        = errors.New("invalid URL path")
-	ErrHostMustNotBeEmpty    = errors.New("host must not be empty")
-	ErrPortMustNotBeZero     = errors.New("port must not be zero")
-	ErrPortMustBeZero        = errors.New("port must be zero")
+	ErrURLPathMustNotBeEmpty        = errors.New("URL path must not be empty")
+	ErrURLPathMustNotBeginWithSlash = errors.New("URL path must not begin with a slash ('/')")
+	ErrInvalidURLPath               = errors.New("invalid URL path")
+	ErrHostMustNotBeEmpty           = errors.New("host must not be empty")
+	ErrPortMustNotBeZero            = errors.New("port must not be zero")
+	ErrPortMustBeZero               = errors.New("port must be zero")
 )
 var (
 	ErrIdentifierCannotBeEmpty                      = errors.New("identifier can not be empty")

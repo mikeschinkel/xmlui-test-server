@@ -11,6 +11,7 @@ const (
 	DefaultOnFailurePolicy            = "warn"
 	DefaultVarScope                   = "app"
 	DefaultAPIBasePath                = "/api"
+	DefaultAPIConfigFile              = "./api.json"
 	DefaultWebroot                    = "webroot"
 	DefaultDBRoot                     = "dbroot"
 	DefaultSQLite3DBFile              = "data.db"

@@ -15,11 +15,6 @@ const (
 	APIConfigV2Schema  = "https://schemas.xmlui.org/v2/test-server/api-schema.json"
 )
 
-type APIConfig interface {
-	Config()
-	IsNil() bool
-}
-
 var _ APIConfig = (*APIConfigV2)(nil)
 
 type APIConfigV2 struct {
@@ -55,16 +50,16 @@ func NewAPIConfigV2(webroot string) *APIConfigV2 {
 		Schema:     APIConfigV2Schema,
 		Version:    APIConfigV2Version,
 		Name:       fmt.Sprintf("User-definable %s APIConfig", common.AppName),
-		BasePath:   "/api",
+		BasePath:   DefaultAPIBasePath,
 		Webroot:    webroot,
 		Endpoints:  make([]*APIEndpointV2, 0),
-		SourceFile: "./api.json",
+		SourceFile: DefaultAPIConfigFile,
 	}
 }
 
 func (*APIConfigV2) Config() {}
 
-func (c *APIConfigV2) normalizeEndpoints() {
+func (c *APIConfigV2) normalizeEndpoints(sourceFile string) {
 	if c.Endpoints == nil {
 		c.Endpoints = make([]*APIEndpointV2, 0)
 	}
@@ -72,7 +67,7 @@ func (c *APIConfigV2) normalizeEndpoints() {
 		goto end
 	}
 	for _, ep := range c.Endpoints {
-		ep.Normalize()
+		ep.Normalize(sourceFile)
 	}
 end:
 	return
@@ -92,7 +87,7 @@ func (c *APIConfigV2) Normalize(sourceFile string) {
 	if c.Webroot == "" {
 		c.Webroot = DefaultWebroot
 	}
-	c.normalizeEndpoints()
+	c.normalizeEndpoints(sourceFile)
 }
 
 func (c *APIConfigV2) AddEndpoint(endpoint *APIEndpointV2) {

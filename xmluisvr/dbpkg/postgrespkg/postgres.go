@@ -31,7 +31,7 @@ type Postgres struct {
 	logger *slog.Logger
 }
 
-func (d *Postgres) FormatParamFunc() dbpkg.FormatParamFunc {
+func (d *Postgres) GetFormatParamFunc() dbpkg.FormatParamFunc {
 	return func(index int) string {
 		return fmt.Sprintf("$%d", index)
 	}

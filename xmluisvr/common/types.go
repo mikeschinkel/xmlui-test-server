@@ -10,10 +10,13 @@ type (
 	QueryString     string //Absolute or Relative
 	FullURL         string
 	Identifier      string //Absolute or Relative
-	LoadOrder       int
-	OSArch          string
-	SHA256          string
-	Version         string
-	Host            string
-	ServerPort      int
+	JSONBytes       []byte //Absolute or Relative
+
+	LoadOrder  int
+	OSArch     string
+	SHA256     string
+	Version    string
+	Host       string
+	ServerPort int
+	Selector   string
 )

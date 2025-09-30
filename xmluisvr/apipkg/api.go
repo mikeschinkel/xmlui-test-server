@@ -45,7 +45,6 @@ package apipkg
 import (
 	"bytes"
 	"context"
-	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -55,6 +54,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -86,9 +86,10 @@ type APIArgs struct {
 
 // CreateAPIArgs contains dependencies needed to create an API from configuration.
 type CreateAPIArgs struct {
-	Config cfgldr.APIConfig // Loaded API configuration
-	Writer cliutil.Writer   // CLI writer for output
-	Logger *slog.Logger     // Logger instance
+	Database dbpkg.Database
+	Config   cfgldr.APIConfig // Loaded API configuration
+	Writer   cliutil.Writer   // CLI writer for output
+	Logger   *slog.Logger     // Logger instance
 }
 
 // CreateAPI creates a new API instance from the provided configuration.
@@ -118,7 +119,7 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	if err != nil {
 		goto end
 	}
-	endpoints, err = ParseEndpoints(cfgV2.Endpoints)
+	endpoints, err = ParseEndpoints(cfgV2.Endpoints, basePath, args.Database)
 	if err != nil {
 		goto end
 	}
@@ -174,10 +175,13 @@ func (api *API) initializeRouter() (err error) {
 		if err != nil {
 			errs = append(errs, err)
 		}
-		err = api.Router.AddRoute(pathvars.PathSpec(ep.path), &pathvars.RouteArgs{
-			BasePath:   api.BasePath,
-			Parameters: pp,
-			Index:      i,
+		err = api.Router.AddRoute(ep.method, ep.path, &pathvars.RouteArgs{
+			Parameters:  pp,
+			Index:       i,
+			Description: ep.Description,
+			Cardinality: ep.Cardinality,
+			RowType:     ep.RowType,
+			ColumnTypes: ep.ColumnTypes,
 		})
 		if err != nil {
 			errs = append(errs, err)
@@ -192,21 +196,12 @@ func (api *API) initializeRouter() (err error) {
 	return err
 }
 
-// qpArgs contains parameters extracted from different sources for query building.
-type qpArgs struct {
-	params   map[pathvars.PVNameSpec]string // Path and query parameters
-	bodyJSON map[common.Identifier]any      // JSON body parameters
-}
-
-// extractBodyJSON parses JSON from the request body into a parameter map.
-// It uses a TeeReader to preserve the request body for potential future use.
-// Returns an empty map if no JSON body is present or parsing fails.
-func extractBodyJSON(r *http.Request) (params map[common.Identifier]any, err error) {
+// extractBodyJSON extracts JSON from the request body into a common.JSONBytes
+// variable. It uses a TeeReader to preserve the request body for potential
+// future use. On error it returns nil result and a populated error.
+func extractBodyJSON(r *http.Request) (json common.JSONBytes, err error) {
 	var buffer bytes.Buffer
 	var jsonBytes []byte
-
-	params = make(map[common.Identifier]any)
-
 	if r.Body == nil {
 		goto end
 	}
@@ -216,16 +211,10 @@ func extractBodyJSON(r *http.Request) (params map[common.Identifier]any, err err
 		goto end
 	}
 
-	if len(jsonBytes) > 0 {
-		err = jsonv2.Unmarshal(jsonBytes, &params)
-		if err != nil {
-			goto end
-		}
-	}
-
 	// Reset r.Body for potential future use
 	r.Body = io.NopCloser(&buffer)
+	json = jsonBytes
 
 end:
-	return params, err
+	return json, err
 }

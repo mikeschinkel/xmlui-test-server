@@ -230,7 +230,7 @@ func TestOrderedMap_Values(t *testing.T) {
 		t.Errorf("unexpected value on empty map: %d", v)
 	}
 	if count != 0 {
-		t.Errorf("empty Values() count = %d; want 0", count)
+		t.Errorf("empty GetValues() count = %d; want 0", count)
 	}
 
 	// Set up test data
@@ -240,20 +240,20 @@ func TestOrderedMap_Values(t *testing.T) {
 		om.Set(key, expectedValues[i])
 	}
 
-	// Test Values iterator
+	// Test GetValues iterator
 	i := 0
 	for v := range om.Values() {
 		if i >= len(expectedValues) {
-			t.Errorf("Values() returned more items than expected")
+			t.Errorf("GetValues() returned more items than expected")
 			break
 		}
 		if v != expectedValues[i] {
-			t.Errorf("Values()[%d] = %d; want %d", i, v, expectedValues[i])
+			t.Errorf("GetValues()[%d] = %d; want %d", i, v, expectedValues[i])
 		}
 		i++
 	}
 	if i != len(expectedValues) {
-		t.Errorf("Values() returned %d items; want %d", i, len(expectedValues))
+		t.Errorf("GetValues() returned %d items; want %d", i, len(expectedValues))
 	}
 }
 

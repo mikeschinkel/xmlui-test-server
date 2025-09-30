@@ -21,7 +21,7 @@ var (
 //
 // The function follows this execution flow:
 //  1. Initialize global settings (writer, logger)
-//  2. Parse and validate options
+//  2. ParseBytes and validate options
 //  3. Initialize database connection
 //  4. Load API configuration
 //  5. Create and configure server
@@ -55,7 +55,7 @@ func Run(ctx Context, args *RunArgs) (err error) {
 		goto end
 	}
 
-	api, err = args.parseAPI(rawOpts.APIFile)
+	api, err = args.parseAPI(rawOpts.APIFile, db)
 	if err != nil {
 		goto end
 	}

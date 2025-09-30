@@ -270,7 +270,7 @@ func (s *parseState) consumePlaceholder(formatFunc FormatParamFunc) (err error) 
 	}
 	idx = s.getIndex(rawName)
 	s.tokens = append(s.tokens, QueryToken{
-		Name:  Parameter(rawName),
+		Name:  common.Selector(rawName),
 		Index: idx,
 		Start: start,
 		End:   j + 1,

@@ -2,6 +2,7 @@ package dbpkg
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -65,6 +66,15 @@ func NewQuerySource(start, end int, src common.QueryString, fp common.Filepath) 
 
 type QueryResult []map[string]any
 
+func formatParams(db Database, params []any) (out []string) {
+	fn := db.GetFormatParamFunc()
+	out = make([]string, len(params))
+	for i, p := range params {
+		out[i] = fmt.Sprintf("%s=%v", fn(i), p)
+	}
+	return out
+}
+
 // ExecuteQuery and return results as a map of any
 func ExecuteQuery(ctx Context, db Database, query common.QueryString, params []any) (result QueryResult, err error) {
 	var rows *sql.Rows
@@ -76,7 +86,7 @@ func ExecuteQuery(ctx Context, db Database, query common.QueryString, params []a
 	defer mutex.Unlock()
 
 	// Log the SQL query (just once)
-	cliutil.Printf("SQL: %s", query)
+	cliutil.Printf("Query: %s %v\n", query, formatParams(db, params))
 
 	// Execute the query
 	rows, err = db.Query(ctx, string(query), params...)
