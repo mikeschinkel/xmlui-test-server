@@ -163,7 +163,7 @@ func (r *Router) Compile() (err error) {
 // Returns ErrAPIRouterNotCompiled if the router hasn't been compiled,
 // or ErrNoMatch if no route matches the request.
 func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
-	var varsMap VarsMap
+	var valuesMap ValuesMap
 	var matched bool
 
 	u := req.URL
@@ -186,12 +186,12 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 			continue
 		}
 
-		varsMap, matched = route.Template.Match(u.Path, u.RawQuery)
+		valuesMap, matched = route.Template.Match(u.Path, u.RawQuery)
 		if matched {
 			result = MatchResult{
-				Index:   route.Index,
-				Route:   route,
-				varsMap: varsMap,
+				Index:     route.Index,
+				Route:     route,
+				valuesMap: valuesMap,
 			}
 			goto end
 		}

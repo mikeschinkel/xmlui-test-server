@@ -270,9 +270,9 @@ func (s *configStore) SetConfigDir(dir string) {
 	s.fs = os.DirFS(dir)
 }
 
-type ConfigStoreDirTypeMap = map[ConfigDirType]ConfigStore
+type ConfigStoresMap = map[ConfigDirType]ConfigStore
 
-func GetConfigStoreDirTypeMap(appConfigDirPath, file string) ConfigStoreDirTypeMap {
+func GetConfigStoresMap(appConfigDirPath, file string) ConfigStoresMap {
 	return map[ConfigDirType]ConfigStore{
 		DefaultConfigDirType: NewConfigStoreWithFilename(appConfigDirPath, file, DefaultConfigDirType),
 		LocalConfigDir:       NewConfigStoreWithFilename(appConfigDirPath, file, LocalConfigDir),

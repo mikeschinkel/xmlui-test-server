@@ -11,12 +11,12 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
-type VarsMap map[common.Selector]any
+type ValuesMap map[common.Selector]any
 
 // ExtractValuesFromReader processes multiple selectors in a single pass through JSON.
 // Returns values for found selectors, list of selectors that were found, and any errors.
 // Continues processing all selectors even when some fail to provide comprehensive error reporting.
-func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (varsMap VarsMap, notFound []common.Selector, err error) {
+func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (valuesMap ValuesMap, notFound []common.Selector, err error) {
 	var buffer bytes.Buffer
 	var teeReader io.Reader
 	var errs []error
@@ -51,7 +51,7 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (var
 		goto end
 	}
 
-	varsMap = make(VarsMap, len(selectors))
+	valuesMap = make(ValuesMap, len(selectors))
 	notFound = make([]common.Selector, 0, len(selectors))
 
 	// Process each selector individually
@@ -67,7 +67,7 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (var
 			continue
 		}
 
-		varsMap[selector] = value
+		valuesMap[selector] = value
 	}
 
 	// Join all collected errors
@@ -77,7 +77,7 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (var
 
 	// Not create the list of selectors not found.
 	for _, s := range selectors {
-		_, ok := varsMap[s]
+		_, ok := valuesMap[s]
 		if ok {
 			continue
 		}
@@ -85,11 +85,11 @@ func ExtractValuesFromReader(reader io.Reader, selectors []common.Selector) (var
 	}
 
 end:
-	return varsMap, notFound, err
+	return valuesMap, notFound, err
 }
 
 // ExtractValuesFromBytes is a convenience wrapper for ExtractValuesFromReader
-func ExtractValuesFromBytes(jsonBytes []byte, selectors []common.Selector) (varsMap VarsMap, found []common.Selector, err error) {
+func ExtractValuesFromBytes(jsonBytes []byte, selectors []common.Selector) (valuesMap ValuesMap, found []common.Selector, err error) {
 	if len(jsonBytes) == 0 {
 		err = errors.Join(
 			ErrJSONPathTraversalFailed,
@@ -99,10 +99,10 @@ func ExtractValuesFromBytes(jsonBytes []byte, selectors []common.Selector) (vars
 		goto end
 	}
 
-	varsMap, found, err = ExtractValuesFromReader(bytes.NewReader(jsonBytes), selectors)
+	valuesMap, found, err = ExtractValuesFromReader(bytes.NewReader(jsonBytes), selectors)
 
 end:
-	return varsMap, found, err
+	return valuesMap, found, err
 }
 
 var (
@@ -115,11 +115,11 @@ var (
 
 // ExtractValueFromReader extracts a single value from JSON - convenience wrapper
 func ExtractValueFromReader(reader io.Reader, selector common.Selector) (value any, err error) {
-	var varsMap VarsMap
+	var valuesMap ValuesMap
 	var notFound []common.Selector
 	var ok bool
 
-	varsMap, notFound, err = ExtractValuesFromReader(reader, []common.Selector{selector})
+	valuesMap, notFound, err = ExtractValuesFromReader(reader, []common.Selector{selector})
 	if err != nil {
 		err = errors.Join(
 			ErrFailedToExtractValue,
@@ -138,7 +138,7 @@ func ExtractValueFromReader(reader io.Reader, selector common.Selector) (value a
 		goto end
 	}
 
-	value, ok = varsMap[selector]
+	value, ok = valuesMap[selector]
 	if !ok {
 		err = errors.Join(
 			ErrSelectorNotFound,
@@ -153,11 +153,11 @@ end:
 
 // ExtractValueFromBytes extracts a single value from JSON bytes - convenience wrapper
 func ExtractValueFromBytes(jsonBytes []byte, selector common.Selector) (value any, err error) {
-	var varsMap VarsMap
+	var valuesMap ValuesMap
 	var notFound []common.Selector
 	var ok bool
 
-	varsMap, notFound, err = ExtractValuesFromBytes(jsonBytes, []common.Selector{selector})
+	valuesMap, notFound, err = ExtractValuesFromBytes(jsonBytes, []common.Selector{selector})
 	if err != nil {
 		err = errors.Join(
 			ErrFailedToExtractValue,
@@ -176,7 +176,7 @@ func ExtractValueFromBytes(jsonBytes []byte, selector common.Selector) (value an
 		goto end
 	}
 
-	value, ok = varsMap[selector]
+	value, ok = valuesMap[selector]
 	if !ok {
 		err = errors.Join(
 			ErrSelectorNotFound,

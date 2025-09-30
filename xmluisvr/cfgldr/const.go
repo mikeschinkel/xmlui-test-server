@@ -15,7 +15,6 @@ const (
 	DefaultWebroot                    = "webroot"
 	DefaultDBRoot                     = "dbroot"
 	DefaultSQLite3DBFile              = "data.db"
-	DefaultDBBootstrapFile            = "bootstrap.sql"
 )
 
 var (

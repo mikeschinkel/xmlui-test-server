@@ -10,10 +10,24 @@ import (
 	"strings"
 )
 
+const (
+	DefaultTimeout               = 3
+	DefaultHTTPPort              = 8080
+	DefaultAPIFile               = ""
+	DefaultDBPort                = 0
+	DefaultDBBootstrapFile       = "bootstrap.sql"
+	DefaultQuiet                 = false
+	DefaultAllowUntrustedQueries = false
+	DefaultVerbosity             = 1
+)
+
+const (
+	DefaultConnectString = DefaultSQLite3DBFile
+)
+
 type Options struct {
 	Timeout               int
 	HTTPPort              int
-	DBExtensionFiles      []string
 	APIFile               string
 	ConnectString         string
 	DBPort                int
@@ -21,6 +35,56 @@ type Options struct {
 	Quiet                 bool
 	Verbosity             int
 	AllowUntrustedQueries bool
+	DBExtensionFiles      []string
+}
+
+type OptionsArgs struct {
+	Timeout               *int
+	HTTPPort              *int
+	APIFile               *string
+	ConnectString         *string
+	DBPort                *int
+	DBBootstrapFile       *string
+	Quiet                 *bool
+	Verbosity             *int
+	AllowUntrustedQueries *bool
+	DBExtensionFiles      []string
+}
+
+func NewOptions(args OptionsArgs) *Options {
+	opts := &Options{}
+
+	if args.Timeout != nil {
+		opts.Timeout = *args.Timeout
+	}
+	if args.HTTPPort != nil {
+		opts.HTTPPort = *args.HTTPPort
+	}
+	if args.APIFile != nil {
+		opts.APIFile = *args.APIFile
+	}
+	if args.ConnectString != nil {
+		opts.ConnectString = *args.ConnectString
+	}
+	if args.DBPort != nil {
+		opts.DBPort = *args.DBPort
+	}
+	if args.DBBootstrapFile != nil {
+		opts.DBBootstrapFile = *args.DBBootstrapFile
+	}
+	if args.Quiet != nil {
+		opts.Quiet = *args.Quiet
+	}
+	if args.Verbosity != nil {
+		opts.Verbosity = *args.Verbosity
+	}
+	if args.Timeout != nil {
+		opts.Timeout = *args.Timeout
+	}
+	if args.DBExtensionFiles != nil {
+		opts.DBExtensionFiles = args.DBExtensionFiles
+	}
+	return opts
 }
 
 var options *Options
@@ -36,6 +100,7 @@ func GetOptions() (opts *Options, err error) {
 		// variable's lifetime is limited to the scope of the function.
 		// See: https://github.com/golang/go/issues/26058
 		flags := struct {
+			timeout               *int
 			port                  *int
 			apiFile               *string
 			connStr               *string
@@ -46,6 +111,7 @@ func GetOptions() (opts *Options, err error) {
 			verbosity             *int
 			allowUntrustedQueries *bool
 		}{
+			timeout:               new(int),
 			port:                  new(int),
 			apiFile:               new(string),
 			connStr:               new(string),
@@ -71,23 +137,25 @@ func GetOptions() (opts *Options, err error) {
 		}
 
 		// Set up command line flags with long and short versions
-		flag.IntVar(flags.port, "port", 8080, "dbPort to run the server on")
-		flag.IntVar(flags.port, "p", 8080, "dbPort to run the server on (shorthand)")
+		flag.IntVar(flags.port, "port", DefaultHTTPPort, "dbPort to run the server on")
+		flag.IntVar(flags.port, "p", DefaultHTTPPort, "dbPort to run the server on (shorthand)")
 
-		flag.StringVar(flags.apiFile, "api", "", "Path to APIConfig description file")
-		flag.StringVar(flags.connStr, "db", "data.db", "Path to SQLite connStr file or PostgreSQL connection string or DB description file")
+		flag.IntVar(flags.port, "timeout", DefaultTimeout, "Timeout(in seconds) (TODO explain what this controls)")
+
+		flag.StringVar(flags.apiFile, "api", DefaultAPIFile, "Path to APIConfig description file")
+		flag.StringVar(flags.connStr, "db", DefaultConnectString, "Path to SQLite connStr file or PostgreSQL connection string or DB description file")
 		flag.StringVar(flags.dbBootstrapFile, "db-bootstrap", DefaultDBBootstrapFilepath,
 			fmt.Sprintf("Path to database query file containing idempotent queries to run on start of server (default %s)", DefaultDBBootstrapFilepath),
 		)
 		flag.IntVar(flags.dbPort, "db-port", 0, "PostgreSQL port (optional, overrides port in --db if provided)")
 		flag.Var(&flags.dbExtensions, "db-ext", "One or more paths to connStr extensions to load (currently only SQLite3.)")
 
-		flag.BoolVar(flags.quiet, "quiet", false, "Disable display of most command line output")
-		flag.BoolVar(flags.quiet, "q", false, "Disable display of most command line output (shorthand)")
+		flag.BoolVar(flags.quiet, "quiet", DefaultQuiet, "Disable display of most command line output")
+		flag.BoolVar(flags.quiet, "q", DefaultQuiet, "Disable display of most command line output (shorthand)")
 		flag.BoolVar(flags.allowUntrustedQueries, "dangerously-allow-untrusted-db-queries", false, "Allow UNTRUSTED Database Queries to be submitted via the API")
 
-		flag.IntVar(flags.verbosity, "verbosity", 1, "Verbosity of most command line output (1 to 3, default 1)")
-		flag.IntVar(flags.verbosity, "v", 1, "Verbosity of most command line output (shorthand, 1 to 3, default 1)")
+		flag.IntVar(flags.verbosity, "verbosity", DefaultVerbosity, "Verbosity of most command line output (1 to 3, default 1)")
+		flag.IntVar(flags.verbosity, "v", DefaultVerbosity, "Verbosity of most command line output (shorthand, 1 to 3, default 1)")
 
 		flag.Parse()
 
@@ -96,16 +164,17 @@ func GetOptions() (opts *Options, err error) {
 			goto end
 		}
 
-		options = &Options{
-			HTTPPort:         *flags.port,
-			APIFile:          *flags.apiFile,
-			ConnectString:    *flags.connStr,
-			DBPort:           *flags.dbPort,
-			DBBootstrapFile:  *flags.dbBootstrapFile,
-			Quiet:            *flags.quiet,
-			Verbosity:        *flags.verbosity,
+		options = NewOptions(OptionsArgs{
+			HTTPPort:         flags.port,
+			APIFile:          flags.apiFile,
+			ConnectString:    flags.connStr,
+			DBPort:           flags.dbPort,
+			DBBootstrapFile:  flags.dbBootstrapFile,
+			Quiet:            flags.quiet,
+			Verbosity:        flags.verbosity,
 			DBExtensionFiles: flags.dbExtensions.values(),
-		}
+			Timeout:          flags.timeout,
+		})
 	}
 end:
 	return options, err

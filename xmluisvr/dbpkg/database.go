@@ -44,6 +44,7 @@ type Database interface {
 	Extensions() []DBExtension
 	LoadExtension(DBExtension) error
 	GetFormatParamFunc() FormatParamFunc
+	Options() common.Options
 	fmt.Stringer
 }
 

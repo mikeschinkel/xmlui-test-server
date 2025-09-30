@@ -34,7 +34,7 @@ func NewParameter(name common.Selector, index int) Parameter {
 // Identifiers extracts slice of common.Identifier from a Parameters value (a
 // slice of []Parameter)
 func (ps Parameters) Identifiers() (ids []common.Identifier) {
-	ids = make([]common.Identifier, 0, len(ps))
+	ids = make([]common.Identifier, len(ps))
 	for i, p := range ps {
 		if !p.IsIdentifier() {
 			continue

@@ -60,6 +60,11 @@ func (wl WriterLogger) ErrorError(msg string, args ...any) (err error) {
 		err = errors.New(msg)
 		goto end
 	}
+	if strings.HasSuffix(msg, err.Error()) {
+		err = errors.New(msg)
+		goto end
+	}
+	err = errors.Join(errors.New(msg), err)
 end:
 	return err
 }

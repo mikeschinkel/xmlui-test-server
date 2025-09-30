@@ -103,37 +103,40 @@ type Endpoint struct {
 	pathParsed    bool
 }
 
-func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []common.Selector) (varsMap jsonutil.VarsMap, notFound []common.Selector, err error) {
+func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []common.Selector) (valuesMap jsonutil.ValuesMap, notFound []common.Selector, err error) {
 	dbq := ep.ParsedQuery
 	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
-	varsMap, notFound, err = jsonutil.ExtractValuesFromReader(r, selectors)
+	valuesMap, notFound, err = jsonutil.ExtractValuesFromReader(r, selectors)
+	if errors.Is(err, jsonutil.ErrJSONValueSelectorCannotBeEmpty) {
+		err = nil
+		goto end
+	}
 	if err != nil {
 		err = errors.Join(ErrExtractingFromReader,
 			fmt.Errorf("endpoint=%v", ep.Endpoint()),
 			fmt.Errorf("sql_query=%v", dbq.QueryString()),
 			fmt.Errorf("sql_params=%v", dbq.Parameters()),
-			fmt.Errorf("body_matched=%v", varsMap),
+			fmt.Errorf("body_matched=%v", valuesMap),
 			fmt.Errorf("not_matched=%v", notFound),
 			err,
 		)
 		goto end
 	}
 end:
-	return varsMap, notFound, err
+	return valuesMap, notFound, err
 }
 
-func (ep *Endpoint) GetParameterValues(r io.Reader) (queryValues []any, notFound []common.Selector, err error) {
-	var result pathvars.MatchResult
-	var pathValuesMap pathvars.VarsMap
+func (ep *Endpoint) GetParameterValues(valuesMap pathvars.ValuesMap, r io.Reader) (queryValues []any, notFound []common.Selector, err error) {
+	var pathValuesMap pathvars.ValuesMap
 	var namesNotFound []common.Identifier
-	var jsonValuesMap jsonutil.VarsMap
+	var jsonValuesMap jsonutil.ValuesMap
 	var selectors []common.Selector
 
 	dbq := ep.ParsedQuery
 	parameters := dbq.Parameters()
 
 	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
-	pathValuesMap, namesNotFound = result.GetValues(parameters.Identifiers())
+	pathValuesMap, namesNotFound = valuesMap.GetValues(parameters.Identifiers())
 
 	// Note get the selectors to search JSON
 	selectors = parameters.DottedSelectors()

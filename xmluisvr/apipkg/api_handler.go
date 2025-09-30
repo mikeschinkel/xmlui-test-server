@@ -57,7 +57,7 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 		}
 		endpoint = api.Endpoints[result.Index]
 
-		queryValues, notFound, err = endpoint.GetParameterValues(r.Body)
+		queryValues, notFound, err = endpoint.GetParameterValues(result.ValuesMap(), r.Body)
 		if err != nil {
 			msg := "Database parameters not found"
 			status := http.StatusBadRequest
@@ -70,7 +70,8 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 			goto end
 		}
 
-		qs = endpoint.ParsedQuery.QueryString()
+		dbq = endpoint.ParsedQuery
+		qs = dbq.QueryString()
 		dbResult, err = dbpkg.ExecuteQuery(ctx, db, qs, queryValues)
 		if err != nil {
 			// TODO: Response should not return err
@@ -78,7 +79,7 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 				"endpoint", endpoint.Endpoint(),
 				"sql_query", dbq.QueryString(),
 				"sql_params", dbq.Parameters(),
-				"url_params", result.ParamsMap(),
+				"url_params", result.ValuesMap(),
 				"error", err,
 			)
 			common.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
@@ -90,7 +91,7 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 				"endpoint", endpoint.Endpoint(),
 				"sql_query", dbq.QueryString(),
 				"sql_params", dbq.Parameters(),
-				"url_params", result.ParamsMap(),
+				"url_params", result.ValuesMap(),
 			)
 			goto end
 		}

@@ -31,32 +31,35 @@ type Template struct {
 }
 
 // Match attempts to match a path and query string against this template.
-// Returns a VarsMap containing extracted parameter values and a boolean indicating
+// Returns a ValuesMap containing extracted parameter values and a boolean indicating
 // whether the match was successful. Both path parameters (from URL segments) and
 // query parameters are extracted and validated according to their type constraints.
-func (t *Template) Match(path, queryString string) (vars VarsMap, matched bool) {
-	vars = make(VarsMap)
+func (t *Template) Match(path, query string) (valuesMap ValuesMap, matched bool) {
+	valuesMap = make(ValuesMap)
 	matched = false
 
 	// First, match path parameters using regex
-	if !t.matchPathParameters(path, vars) {
+	if !t.matchPathParameters(path, valuesMap) {
 		goto end
 	}
-
+	//if query == "" {
+	//	matched = true
+	//	goto end
+	//}
 	// Then, match query parameters
-	if !t.matchQueryParameters(queryString, vars) {
+	if !t.matchQueryParameters(query, valuesMap) {
 		goto end
 	}
 
 	matched = true
 
 end:
-	return vars, matched
+	return valuesMap, matched
 }
 
 // matchPathParameters matches path parameters using regex and adds them to vars.
 // Returns false if the path doesn't match the template or if parameter validation fails.
-func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
+func (t *Template) matchPathParameters(path string, valuesMap ValuesMap) (matched bool) {
 	var matches []string
 	var i int
 	var name common.Identifier
@@ -66,12 +69,15 @@ func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 	var err error
 
 	if t.regex == nil {
-		return true // No path regex means no path parameters
+		// No path regex means no path parameters
+		matched = true
+		goto end
 	}
 
 	matches = t.regex.FindStringSubmatch(path)
 	if matches == nil {
-		return false // Path doesn't match
+		// Path doesn't match
+		goto end
 	}
 
 	// Extract parameters from regex groups
@@ -82,7 +88,7 @@ func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 		}
 
 		if i >= len(matches) {
-			return false
+			goto end
 		}
 
 		name = extractParamName(string(segment))
@@ -93,21 +99,22 @@ func (t *Template) matchPathParameters(path string, vars VarsMap) bool {
 		if exists && param.useType == PathUseType {
 			err = t.validateParameter(param, value, path)
 			if err != nil {
-				return false
+				goto end
 			}
 		}
 
-		vars[name] = value
+		valuesMap[name] = value
 		i++
 	}
-
-	return true
+	matched = true
+end:
+	return matched
 }
 
 // matchQueryParameters matches query parameters and adds them to vars.
 // Returns false if required parameters are missing or if validation fails.
 // Optional parameters are handled gracefully with default values when provided.
-func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
+func (t *Template) matchQueryParameters(queryString string, valuesMap ValuesMap) (matched bool) {
 	var queryValues url.Values
 	var param Parameter
 	var name common.Identifier
@@ -120,9 +127,11 @@ func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 	if queryString != "" {
 		queryValues, err = url.ParseQuery(queryString)
 		if err != nil {
-			return false
+			goto end
 		}
-	} else {
+	}
+
+	if queryValues == nil {
 		queryValues = make(url.Values)
 	}
 
@@ -134,31 +143,33 @@ func (t *Template) matchQueryParameters(queryString string, vars VarsMap) bool {
 
 		// Check if parameter is present in query string
 		values, found = queryValues[string(name)]
-		if found && len(values) > 0 {
+		switch {
+		case found && len(values) > 0:
 			// Use the first value if multiple are provided
 			value = values[0]
 
 			// Validate parameter
 			err = t.validateParameter(param, value, queryString)
 			if err != nil {
-				return false
+				goto end
 			}
 
-			vars[name] = value
-		} else if param.Optional {
+			valuesMap[name] = value
+		case param.Optional:
 			// Optional parameter not provided
 			if param.DefaultValue != nil {
 				// Use default value
-				vars[name] = *param.DefaultValue
+				valuesMap[name] = *param.DefaultValue
 			}
-			// If no default value, simply omit from vars (empty string behavior)
-		} else {
+			// If no default value, simply omit from valuesMap (empty string behavior)
+		default:
 			// Required parameter not provided
-			return false
+			goto end
 		}
 	}
-
-	return true
+	matched = true
+end:
+	return matched
 }
 
 // validateParameter validates a parameter value against its type and constraints.

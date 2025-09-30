@@ -26,6 +26,15 @@ type BaseDatabase struct {
 	Initialized      bool
 }
 
+func (db *BaseDatabase) Options() common.Options {
+	return *db.options
+}
+
+func (db *BaseDatabase) String() string {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewBaseDatabase(parent Database, args DatabaseArgs) *BaseDatabase {
 	if args.AccessMode == UnspecifiedMode {
 		args.AccessMode = ReadWriteMode

@@ -10,7 +10,13 @@ import (
 )
 
 // logger is the package-level logger instance.
-var logger = common.Logger()
+var logger *slog.Logger
+
+func init() {
+	common.RegisterSetLoggerFunc(func(l *slog.Logger) {
+		logger = l
+	})
+}
 
 // createFileLogger creates a new structured logger that writes to a file.
 // If the file cannot be opened, it falls back to writing to a buffer.

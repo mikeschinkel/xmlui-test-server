@@ -15,7 +15,7 @@ import (
 func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath common.URLPath) (epParams []EndpointParam, err error) {
 	var errs []error
 	var pathVars []pathvars.ParamVar
-	var pathVarsMap map[common.Identifier]pathvars.ParamVar
+	var pathValuesMap map[common.Identifier]pathvars.ParamVar
 	var paramsMap map[string]cfgldr.APIParamV1
 
 	apiParams, ok := cfgParams.(cfgldr.APIParamsV1)
@@ -38,14 +38,14 @@ func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath common.URLPath
 	// Loop through all the APIParamsV1 and see if there are any vars from the Path string
 	// that need to be have their UseType or Constraints updated. Also check to make sure that
 	// there are not conflicting types nor conflicting constraints
-	pathVarsMap = pathvars.ParamVars(pathVars).Map()
+	pathValuesMap = pathvars.ParamVars(pathVars).Map()
 	for i, p := range apiParams {
 		name, err := common.ParseLeadingIdentifier(p.NameSpec)
 		if err != nil {
 			// TODO Add regular error handling
 			panic("Invalid identifier")
 		}
-		pv, ok := pathVarsMap[name]
+		pv, ok := pathValuesMap[name]
 		if !ok {
 			apiParams[i].UseType = int(pathvars.QueryUseType)
 			continue

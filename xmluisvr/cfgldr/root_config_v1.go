@@ -5,6 +5,7 @@ import (
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
@@ -13,7 +14,7 @@ import (
 // TODO — Convince Gent that we should publish schemas on schemas.xmlui.org
 const (
 	RootConfigV1Version = 1
-	RootConfigFile      = "test-server.json"
+	RootConfigFile      = common.RootConfigFile
 	RootConfigV1Schema  = "https://schemas.xmlui.org/v1/test-server/root-schema.json"
 )
 
@@ -136,9 +137,23 @@ end:
 	return err
 }
 
+func readFile(file string, mustLoad bool) (data []byte, err error) {
+	data, err = os.ReadFile(file)
+	if err != nil && !mustLoad {
+		err = nil
+	}
+	return data, err
+}
+
 func LoadRootConfigV1(appName string) (rc *RootConfigV1, err error) {
-	typeMap := cfgutil.GetConfigStoreDirTypeMap(appName, RootConfigFile)
-	return LoadRootConfigV1FromConfigStoreMap(typeMap)
+	typeMap := cfgutil.GetConfigStoresMap(appName, RootConfigFile)
+	opts, err := GetOptions()
+	if err != nil {
+		goto end
+	}
+	rc, err = LoadRootConfigV1FromConfigStoreMap(typeMap, opts)
+end:
+	return rc, err
 }
 
 func ensureConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
@@ -294,12 +309,11 @@ end:
 }
 
 // LoadRootConfigV1FromConfigStoreMap also specifying the config stores in a map to enable unit testing
-func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (rc *RootConfigV1, err error) {
+func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoresMap, opts *Options) (rc *RootConfigV1, err error) {
 	var userConfig, localConfig *RootConfigV1
 	var cs cfgutil.ConfigStore
 	var schemaBytes []byte
 	var apiConfig *APIConfigV2
-	var opts *Options
 
 	cs = stores[cfgutil.DotConfigDir]
 	userConfig, err = ensureConfig(cs)
@@ -320,10 +334,6 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoreDirTypeMap) (r
 	rc = userConfig
 	rc = localConfig
 
-	opts, err = GetOptions()
-	if err != nil {
-		goto end
-	}
 	apiConfig, err = loadAPIFileIfExists(opts.APIFile)
 	if err != nil {
 		goto end

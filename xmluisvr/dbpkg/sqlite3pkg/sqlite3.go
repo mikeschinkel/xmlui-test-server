@@ -178,6 +178,7 @@ func (s *SQLite3) String() string {
 
 func (s *SQLite3) Open(ctx context.Context) (err error) {
 	var cancel context.CancelFunc
+	var timeout time.Duration
 
 	s.V2().InfoPrint("Opening SQLite database", "database_file", s.HomeRelativeFile())
 
@@ -201,8 +202,9 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 	s.DB.SetMaxIdleConns(1)
 
 	// Sanity ping with deadline
-	s.V3().Printf("Setting Timeout to 3 seconds\n")
-	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
+	timeout = s.Options().Timeout
+	s.V3().Printf("Setting Timeout to%d seconds\n", timeout/time.Second)
+	ctx, cancel = context.WithTimeout(ctx, timeout)
 	defer cancel()
 	s.V3().Printf("Pinging database to confirm connection\n")
 	err = s.DB.PingContext(ctx)

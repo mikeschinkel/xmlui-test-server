@@ -51,6 +51,7 @@ func RunCLI() {
 		writer.Errorf("Failed to load config file(s); %v\n", err)
 		os.Exit(1)
 	}
+	// TODO: Make 10 second timeout configurable
 	context.WithTimeout(context.Background(), 10*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

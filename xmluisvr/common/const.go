@@ -50,6 +50,8 @@ const (
 
 	// AppConfigPath is the default path for application configuration files.
 	AppConfigPath = "xmlui"
+
+	RootConfigFile = "test-server.json"
 )
 
 const (

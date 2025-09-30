@@ -21,6 +21,7 @@ package main
 
 import (
     "net/http"
+
     "xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -174,7 +175,7 @@ type Template struct {
 - `ParseTemplate(template string) (*Template, error)` - Parses template string into Template object
 
 **Methods:**
-- `(t *Template) Match(path, queryString string) (VarsMap, bool)` - Matches path and query against template
+- `(t *Template) Match(path, queryString string) (ValuesMap, bool)` - Matches path and query against template
 - `(t *Template) Parameters() []Parameter` - Returns all parameters (TODO: implementation needed)
 - `(t *Template) Validate(params map[string]string) error` - Validates parameter values (TODO: implementation needed)
 - `(t *Template) Substitute(values map[string]string) (string, error)` - Builds path from values (TODO: implementation needed)
@@ -189,14 +190,14 @@ type MatchResult struct {
     // Contains private fields
 }
 
-type VarsMap map[string]string
+type ValuesMap map[string]string
 ```
 
 **Creation:**
-- `NewMatchResult(index int, varsMap VarsMap) MatchResult` - Creates new match result
+- `NewMatchResult(index int, valuesMap ValuesMap) MatchResult` - Creates new match result
 
 **Methods:**
-- `(m MatchResult) ParamsMap() VarsMap` - Returns extracted parameter values
+- `(m MatchResult) ParamsMap() ValuesMap` - Returns extracted parameter values
 - `(m MatchResult) GetValue(name string) (value string, found bool)` - Gets specific parameter value
 - `(m MatchResult) VarCount() int` - Returns number of extracted parameters
 - `(m MatchResult) HasVars() bool` - Returns true if any parameters were extracted
@@ -390,17 +391,17 @@ The package defines several sentinel error values for different failure scenario
 
 ```go
 var (
-    ErrInvalidTemplate      = errors.New("invalid template syntax")
-    ErrUnmatchedBrace      = errors.New("unmatched brace in template")
-    ErrInvalidParameter    = errors.New("invalid parameter definition")
-    ErrInvalidType         = errors.New("unknown parameter type")
-    ErrInvalidConstraint   = errors.New("invalid constraint syntax")
-    ErrNoMatch            = errors.New("no matching route")
-    ErrAPIRouterNotCompiled = errors.New("API router not compiled; must be compiled before calling Match()")
-    ErrValidationFailed   = errors.New("parameter validation failed")
-    ErrUnknownConstraintType = errors.New("unknown constraint type")
-    ErrInvalidSyntax      = errors.New("invalid syntax")
-    ErrParseFailed        = errors.New("parse failed")
+    ErrInvalidTemplate        = errors.New("invalid template syntax")
+    ErrUnmatchedBrace         = errors.New("unmatched brace in template")
+    ErrInvalidParameter       = errors.New("invalid parameter definition")
+    ErrInvalidType            = errors.New("unknown parameter type")
+    ErrInvalidConstraint      = errors.New("invalid constraint syntax")
+    ErrNoMatch                = errors.New("no matching route")
+    ErrAPIRouterNotCompiled   = errors.New("API router not compiled; must be compiled before calling Match()")
+    ErrValidationFailed       = errors.New("parameter validation failed")
+    ErrUnknownConstraintType  = errors.New("unknown constraint type")
+    ErrInvalidSyntax          = errors.New("invalid syntax")
+    ErrParseFailed            = errors.New("parse failed")
 )
 ```
 

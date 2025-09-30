@@ -244,11 +244,11 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 	}`
 
 	tests := []struct {
-		name         string
-		selectors    []common.Selector
-		wantVarsMap  jsonutil.VarsMap
-		wantNotFound []common.Selector
-		wantErr      bool
+		name          string
+		selectors     []common.Selector
+		wantValuesMap jsonutil.ValuesMap
+		wantNotFound  []common.Selector
+		wantErr       bool
 	}{
 		{
 			name: "multiple valid selectors",
@@ -258,7 +258,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"scores.1",
 				"settings.theme",
 			},
-			wantVarsMap: jsonutil.VarsMap{
+			wantValuesMap: jsonutil.ValuesMap{
 				"user.name":      "Alice",
 				"user.age":       float64(30),
 				"scores.1":       float64(85),
@@ -275,7 +275,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"scores.0",     // valid
 				"scores.10",    // invalid - out of range
 			},
-			wantVarsMap: jsonutil.VarsMap{
+			wantValuesMap: jsonutil.ValuesMap{
 				"user.name": "Alice",
 				"scores.0":  float64(100),
 			},
@@ -289,15 +289,15 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"user.nonexistent",
 				"scores.999",
 			},
-			wantVarsMap:  jsonutil.VarsMap{},
-			wantNotFound: []common.Selector{"missing.key", "user.nonexistent", "scores.999"},
-			wantErr:      true,
+			wantValuesMap: jsonutil.ValuesMap{},
+			wantNotFound:  []common.Selector{"missing.key", "user.nonexistent", "scores.999"},
+			wantErr:       true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			varsMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), tt.selectors)
+			valuesMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), tt.selectors)
 
 			// Check error expectation
 			if tt.wantErr && err == nil {
@@ -312,9 +312,9 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				t.Errorf("NotFound selectors mismatch:\n  got:  %v\n  want: %v", notFound, tt.wantNotFound)
 			}
 
-			// Check varsMap
-			if !reflect.DeepEqual(varsMap, tt.wantVarsMap) {
-				t.Errorf("VarsMap mismatch:\n  got:  %#v\n  want: %#v", varsMap, tt.wantVarsMap)
+			// Check valuesMap
+			if !reflect.DeepEqual(valuesMap, tt.wantValuesMap) {
+				t.Errorf("ValuesMap mismatch:\n  got:  %#v\n  want: %#v", valuesMap, tt.wantValuesMap)
 			}
 		})
 	}
@@ -326,13 +326,13 @@ func TestExtractValuesFromReader_MultipleSelectors(t *testing.T) {
 	selectors := []common.Selector{"a", "b.c", "d.2"}
 
 	reader := strings.NewReader(jsonData)
-	varsMap, notFound, err := jsonutil.ExtractValuesFromReader(reader, selectors)
+	valuesMap, notFound, err := jsonutil.ExtractValuesFromReader(reader, selectors)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	expectedVarsMap := jsonutil.VarsMap{
+	expectedValuesMap := jsonutil.ValuesMap{
 		"a":   float64(1),
 		"b.c": float64(2),
 		"d.2": float64(5),
@@ -343,8 +343,8 @@ func TestExtractValuesFromReader_MultipleSelectors(t *testing.T) {
 		t.Errorf("NotFound selectors mismatch:\n  got:  %v\n  want: %v", notFound, expectedNotFound)
 	}
 
-	if !reflect.DeepEqual(varsMap, expectedVarsMap) {
-		t.Errorf("VarsMap mismatch:\n  got:  %#v\n  want: %#v", varsMap, expectedVarsMap)
+	if !reflect.DeepEqual(valuesMap, expectedValuesMap) {
+		t.Errorf("ValuesMap mismatch:\n  got:  %#v\n  want: %#v", valuesMap, expectedValuesMap)
 	}
 }
 
@@ -359,7 +359,7 @@ func TestExtractValuesFromBytes_ErrorCollection(t *testing.T) {
 		"missing3",
 	}
 
-	varsMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), selectors)
+	valuesMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), selectors)
 
 	// Should have error for the missing selectors
 	if err == nil {
@@ -373,8 +373,8 @@ func TestExtractValuesFromBytes_ErrorCollection(t *testing.T) {
 	}
 
 	// Should have the valid value in the map
-	if varsMap["valid"] != "value" {
-		t.Errorf("Expected valid value 'value', got %v", varsMap["valid"])
+	if valuesMap["valid"] != "value" {
+		t.Errorf("Expected valid value 'value', got %v", valuesMap["valid"])
 	}
 
 	// Error should contain information about all missing selectors

@@ -63,7 +63,7 @@ func ParseParamsInURLPath(path common.URLPath) (vars []ParamVar, err error) {
 			continue
 		}
 		if matches[i][0] > qPos {
-			ut = QueryUseType
+			ut = PathUseType
 		}
 		if len(parts) > 2 {
 			cs, err = ParseConstraints(parts[2], dt)

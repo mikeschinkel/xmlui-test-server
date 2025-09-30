@@ -1,6 +1,8 @@
 package cfgldr_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/mikeschinkel/go-jsontest"
@@ -8,6 +10,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/fsutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
 
 	_ "github.com/mikeschinkel/go-jsontest/pipefuncs"
 )
@@ -97,9 +100,14 @@ func TestLoadRootConfigV1(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rootFix, csMap := setupFixtures(t)
+			wd, _ := os.Getwd()
+			rootFix, csMap := testutil.SetupConfigDirFixtures(t, testDataDir,
+				filepath.Join(wd, "./test-data/user-config.test-server.json"),
+				filepath.Join(wd, "./test-data/project-config.test-server.json"),
+			)
 			defer rootFix.Cleanup()
-			gotRc, err := cfgldr.LoadRootConfigV1FromConfigStoreMap(csMap)
+			opts := cfgldr.NewOptions(cfgldr.OptionsArgs{})
+			gotRc, err := cfgldr.LoadRootConfigV1FromConfigStoreMap(csMap, opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadRootConfigV1() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -110,4 +118,8 @@ func TestLoadRootConfigV1(t *testing.T) {
 			require.NoError(t, err, "Config did not match expected values")
 		})
 	}
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }
