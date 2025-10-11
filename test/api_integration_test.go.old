@@ -1,0 +1,1495 @@
+package test
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/mikeschinkel/go-fsfix"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
+
+	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
+	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+)
+
+// testRequest represents a single HTTP request test case
+type testRequest struct {
+	name            string
+	method          string
+	path            string
+	body            string
+	expectedStatus  int
+	expectedFields  []string                // Fields that should exist in response (for success cases)
+	shouldContain   []string                // Content that should be in response (legacy, prefer expectedRFC9457)
+	shouldNotHave   []string                // Content that should NOT be in response
+	expectedRFC9457 *common.RFC9457Response // Expected RFC 9457 error response (for error cases)
+}
+
+// TestAPIEndpoints_FullIntegration tests API endpoint permutations using xmluisvr.Run()
+// This is a comprehensive integration test covering PathVars parameter types and constraints
+//
+// NOTE: Many tests are commented out due to unimplemented features. See test/UNIMPLEMENTED.md
+// for a complete list of features that need implementation.
+func TestAPIEndpoints_FullIntegration(t *testing.T) {
+	// Test cases covering ALL PathVars permutations
+	tests := []struct {
+		name          string
+		configContent string          // JSON config content for this test case
+		options       *cfgldr.Options // Options to pass to xmluisvr.Run()
+		testRequests  []testRequest   // HTTP requests to test
+	}{
+		// ===================================================================================
+		// CATEGORY 1: Basic Data Types (Working baseline)
+		// ===================================================================================
+		//{
+		//	name: "01_basic_int_parameter",
+		//	configContent: getRootConfig(`{
+		//		"method": "GET",
+		//		"path": "users/{id:int}",
+		//		"description": "Basic integer path parameter",
+		//		"query": "SELECT id, email, name, slug FROM users WHERE id = {id};",
+		//		"cardinality": "one",
+		//		"row_type": "columns",
+		//		"column_types": ["integer", "string", "string", "string"]
+		//	}`),
+		//	testRequests: []testRequest{
+		//		{
+		//			name:           "get_user_by_int_id_valid",
+		//			method:         "GET",
+		//			path:           "/api/users/1",
+		//			expectedStatus: 200,
+		//			expectedFields: []string{"id", "email", "name", "slug"},
+		//			shouldContain:  []string{"alice@example.com", "Alice Carter"},
+		//		},
+		//		{
+		//			name:           "get_user_by_int_id_invalid_string",
+		//			method:         "GET",
+		//			path:           "/api/users/abc",
+		//			expectedStatus: 422,
+		//			expectedRFC9457: &common.RFC9457Response{
+		//				Type:          common.InvalidParameterErrorType,
+		//				Title:         "Invalid Parameter Type",
+		//				Status:        422,
+		//				Detail:        "Parameter 'id' expected an integer type but got 'abc'",
+		//				Instance:      "/api/users/abc",
+		//				Parameter:     "id",
+		//				ExpectedType:  "integer",
+		//				ReceivedValue: "abc",
+		//				Location:      common.PathLocation,
+		//				Constraint:    nil,
+		//				Suggestion:    "Use an integer for 'id' like 123, for example: /api/users/123",
+		//			},
+		//		},
+		//		{
+		//			name:           "get_user_by_int_id_invalid_float",
+		//			method:         "GET",
+		//			path:           "/api/users/12.34",
+		//			expectedStatus: 422,
+		//			expectedRFC9457: &common.RFC9457Response{
+		//				Type:          common.InvalidParameterErrorType,
+		//				Title:         "Invalid Parameter Type",
+		//				Status:        422,
+		//				Detail:        "Parameter 'id' expected an integer type but got '12.34'",
+		//				Instance:      "/api/users/12.34",
+		//				Parameter:     "id",
+		//				ExpectedType:  "integer",
+		//				ReceivedValue: "12.34",
+		//				Location:      common.PathLocation,
+		//				Suggestion:    "Use an integer for 'id' like 123, for example: /api/users/123",
+		//			},
+		//		},
+		//	},
+		//},
+
+		// ===================================================================================
+		// CATEGORY 2: All Data Types - String
+		// ===================================================================================
+		{
+			name: "02_string_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-email/{email:string}",
+				"description": "String parameter",
+				"query": "SELECT id, email, name FROM users WHERE email = {email};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_user_by_email_string",
+					method:         "GET",
+					path:           "/api/users/by-email/alice@example.com",
+					expectedStatus: 200,
+					expectedFields: []string{"id", "email", "name"},
+					shouldContain:  []string{"alice@example.com", "Alice Carter"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY: Error Detection - Invalid Template Variable Syntax
+		// ===================================================================================
+		{
+			name: "error_invalid_template_syntax_colon",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/{id:int}",
+				"description": "Error detection - colon-prefixed template var instead of braces",
+				"query": "SELECT id, email, name FROM users WHERE id = :id;",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "detect_invalid_colon_syntax",
+					method:         "GET",
+					path:           "/api/users/1",
+					expectedStatus: 500,
+					shouldContain:  []string{"Database error"},
+					// TODO: Improve error message to be more helpful about template syntax
+					// Should say something like: "Parameter not found in query: :id. Did you mean {id}?"
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 3: UUID Type
+		// ===================================================================================
+		{
+			name: "03_uuid_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-uuid/{uuid:uuid}",
+				"description": "UUID parameter",
+				"query": "SELECT id, email, name FROM users WHERE uuid = {uuid};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_user_by_uuid_valid",
+					method:         "GET",
+					path:           "/api/users/by-uuid/550e8400-e29b-41d4-a716-446655440001",
+					expectedStatus: 200,
+					expectedFields: []string{"id", "email", "name"},
+					shouldContain:  []string{"alice@example.com"},
+				},
+				{
+					name:           "get_user_by_uuid_invalid_format",
+					method:         "GET",
+					path:           "/api/users/by-uuid/not-a-valid-uuid",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "uuid"},
+				},
+				{
+					name:           "get_user_by_uuid_invalid_missing_hyphens",
+					method:         "GET",
+					path:           "/api/users/by-uuid/550e8400e29b41d4a716446655440001",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "uuid"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 4: Slug Type
+		// ===================================================================================
+		{
+			name: "04_slug_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-slug/{slug:slug}",
+				"description": "Slug parameter",
+				"query": "SELECT id, email, name FROM users WHERE slug = {slug};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_user_by_slug_valid",
+					method:         "GET",
+					path:           "/api/users/by-slug/alice-carter",
+					expectedStatus: 200,
+					expectedFields: []string{"id", "email", "name"},
+					shouldContain:  []string{"alice@example.com"},
+				},
+				{
+					name:           "get_user_by_slug_invalid_spaces",
+					method:         "GET",
+					path:           "/api/users/by-slug/alice carter",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "slug"},
+				},
+				{
+					name:           "get_user_by_slug_invalid_special_chars",
+					method:         "GET",
+					path:           "/api/users/by-slug/alice@carter",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "slug"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 5: Boolean Type
+		// ===================================================================================
+		{
+			name: "05_boolean_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-status/{active:boolean}",
+				"description": "Boolean parameter",
+				"query": "SELECT id, email, name, active FROM users WHERE active = {active};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "integer"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_active_users",
+					method:         "GET",
+					path:           "/api/users/by-status/true",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com", "bob@example.com"},
+				},
+				{
+					name:           "get_inactive_users",
+					method:         "GET",
+					path:           "/api/users/by-status/false",
+					expectedStatus: 200,
+					shouldContain:  []string{"carol@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 6: Real/Decimal Type
+		// ===================================================================================
+		{
+			name: "06_real_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-rating/{rating:real}",
+				"description": "Real number parameter",
+				"query": "SELECT id, email, name, rating FROM users WHERE rating >= {rating};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "real"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_users_by_min_rating_valid",
+					method:         "GET",
+					path:           "/api/users/by-rating/4.0",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com", "bob@example.com"},
+				},
+				{
+					name:           "get_users_by_min_rating_invalid_string",
+					method:         "GET",
+					path:           "/api/users/by-rating/abc",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "real"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 7: Date Type
+		// ===================================================================================
+		{
+			name: "07_date_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-birth-date/{birth_date:date}",
+				"description": "Date parameter",
+				"query": "SELECT id, email, name, birth_date FROM users WHERE birth_date = {birth_date};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_users_by_birth_date_valid",
+					method:         "GET",
+					path:           "/api/users/by-birth-date/1990-05-15",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+				{
+					name:           "get_users_by_birth_date_invalid_format",
+					method:         "GET",
+					path:           "/api/users/by-birth-date/05-15-1990",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "date"},
+				},
+				{
+					name:           "get_users_by_birth_date_invalid_text",
+					method:         "GET",
+					path:           "/api/users/by-birth-date/not-a-date",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "date"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 8: Alphanumeric Type
+		// ===================================================================================
+		{
+			name: "08_alphanumeric_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "measurements/by-sensor/{sensor_id:alphanumeric}",
+				"description": "Alphanumeric parameter",
+				"query": "SELECT sensor_id, value, unit FROM measurements WHERE sensor_id = {sensor_id};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["string", "real", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_measurement_by_sensor_valid",
+					method:         "GET",
+					path:           "/api/measurements/by-sensor/TEMP001",
+					expectedStatus: 200,
+					shouldContain:  []string{"TEMP001", "23.5"},
+				},
+				{
+					name:           "get_measurement_by_sensor_invalid_special_chars",
+					method:         "GET",
+					path:           "/api/measurements/by-sensor/TEMP-001",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "alphanumeric"},
+				},
+				{
+					name:           "get_measurement_by_sensor_invalid_spaces",
+					method:         "GET",
+					path:           "/api/measurements/by-sensor/TEMP 001",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "alphanumeric"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 9: Range Constraints - Integer
+		// ===================================================================================
+		{
+			name: "09_int_range_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-score/{score:int:range[0..100]}",
+				"description": "Integer with range constraint",
+				"query": "SELECT id, email, name, score FROM users WHERE score = {score};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "integer"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_users_by_score_valid_85",
+					method:         "GET",
+					path:           "/api/users/by-score/85",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+				{
+					name:           "get_users_by_score_valid_50",
+					method:         "GET",
+					path:           "/api/users/by-score/50",
+					expectedStatus: 200,
+					shouldContain:  []string{}, // No users with score=50, but valid request
+				},
+				{
+					name:           "get_users_by_score_invalid_too_high",
+					method:         "GET",
+					path:           "/api/users/by-score/150",
+					expectedStatus: 400,
+					shouldContain:  []string{"range", "constraint"},
+				},
+				{
+					name:           "get_users_by_score_invalid_negative",
+					method:         "GET",
+					path:           "/api/users/by-score/-10",
+					expectedStatus: 400,
+					shouldContain:  []string{"range", "constraint"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 10: Range Constraints - Real/Decimal
+		// ===================================================================================
+		{
+			name: "10_real_range_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-rating-range/{rating:real:range[0.0..5.0]}",
+				"description": "Real with range constraint",
+				"query": "SELECT id, email, name, rating FROM users WHERE rating >= {rating};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "real"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_users_by_rating_valid",
+					method:         "GET",
+					path:           "/api/users/by-rating-range/4.5",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com", "bob@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 11: Length Constraints - String
+		// ===================================================================================
+		{
+			name: "11_string_length_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-slug-length/{slug:slug:length[5..50]}",
+				"description": "Slug with length constraint",
+				"query": "SELECT id, email, name FROM users WHERE slug = {slug};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_user_by_slug_valid_length",
+					method:         "GET",
+					path:           "/api/users/by-slug-length/alice-carter",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 12: Enum Constraints
+		// ===================================================================================
+		{
+			name: "12_string_enum_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "projects/by-status/{status:string:enum[active,archived,draft]}",
+				"description": "String with enum constraint",
+				"query": "SELECT id, name, status, priority FROM projects WHERE status = {status};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "integer"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_projects_by_status_active",
+					method:         "GET",
+					path:           "/api/projects/by-status/active",
+					expectedStatus: 200,
+					shouldContain:  []string{"Website Redesign", "Mobile App MVP"},
+				},
+				{
+					name:           "get_projects_by_status_draft",
+					method:         "GET",
+					path:           "/api/projects/by-status/draft",
+					expectedStatus: 200,
+					shouldContain:  []string{"Data Migration"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 13: Regex Constraints
+		// ===================================================================================
+		{
+			name: "13_string_regex_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-email-pattern/{email:string:regex[^[^@]+@[^@]+\\.[^@]+$]}",
+				"description": "String with regex constraint",
+				"query": "SELECT id, email, name FROM users WHERE email LIKE {email} || '%';",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_users_by_email_pattern_valid",
+					method:         "GET",
+					path:           "/api/users/by-email-pattern/alice@example.com",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 14: Format Constraints - Date
+		// ===================================================================================
+		{
+			name: "14_date_format_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-date/{birth_date:date:format[yyyy-mm-dd]}",
+				"description": "Date with format constraint",
+				"query": "SELECT id, email, name, birth_date FROM users WHERE birth_date = {birth_date};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_users_by_date_format",
+					method:         "GET",
+					path:           "/api/users/by-date/1990-05-15",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 15: Format Constraints - UUID
+		// ===================================================================================
+		{
+			name: "15_uuid_format_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-uuid-v4/{uuid:uuid:format[v4]}",
+				"description": "UUID with v4 format constraint",
+				"query": "SELECT id, email, name FROM users WHERE uuid = {uuid};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_user_by_uuid_v4",
+					method:         "GET",
+					path:           "/api/users/by-uuid-v4/550e8400-e29b-41d4-a716-446655440001",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 16: notempty Constraint
+		// ===================================================================================
+		{
+			name: "16_not_empty_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/search-email?{email:string:notempty}",
+				"description": "Query parameter with notempty constraint",
+				"query": "SELECT id, email, name FROM users WHERE email LIKE '%' || {email} || '%';",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "search_users_by_email_not_empty",
+					method:         "GET",
+					path:           "/api/users/search-email?email=alice",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 17: Multiple Constraints
+		// ===================================================================================
+		{
+			name: "17_multiple_constraints",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-name/{name:string:notempty,length[3..50]}",
+				"description": "String with multiple constraints",
+				"query": "SELECT id, email, name FROM users WHERE name LIKE {name} || '%';",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_users_by_name_multiple_constraints",
+					method:         "GET",
+					path:           "/api/users/by-name/Alice",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 18: Implicit Type Inference
+		// ===================================================================================
+		{
+			name: "18_implicit_type_int",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "implicit/{int}",
+				"description": "Implicit type inference for int",
+				"query": "SELECT id, email, name FROM users WHERE id = {int};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_user_implicit_int",
+					method:         "GET",
+					path:           "/api/implicit/1",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 19: Implicit Type with Constraints (Double Colon)
+		// ===================================================================================
+		{
+			name: "19_implicit_type_with_constraint",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "implicit-decimal/{decimal::range[0.0..1000.0]}",
+				"description": "Implicit decimal type with double colon constraint",
+				"query": "SELECT sensor_id, value, unit FROM measurements WHERE precision_val = {decimal};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["string", "real", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_measurement_implicit_decimal",
+					method:         "GET",
+					path:           "/api/implicit-decimal/0.1",
+					expectedStatus: 200,
+					shouldContain:  []string{"TEMP001"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 20: Query Parameters - Basic
+		// ===================================================================================
+		{
+			name: "20_query_parameter_basic",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/search?{q:string}",
+				"description": "Basic query parameter",
+				"query": "SELECT id, email, name FROM users WHERE email LIKE '%' || {q} || '%' OR name LIKE '%' || {q} || '%';",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "search_users_query_param",
+					method:         "GET",
+					path:           "/api/users/search?q=alice",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 21: Query Parameters - Optional with Defaults
+		// ===================================================================================
+		{
+			name: "21_query_parameter_optional_default",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/paginate?{limit?10:int}&{offset?0:int}",
+				"description": "Optional query parameters with defaults",
+				"query": "SELECT id, email, name FROM users ORDER BY id LIMIT {limit} OFFSET {offset};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "paginate_users_with_defaults",
+					method:         "GET",
+					path:           "/api/users/paginate",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+				},
+				{
+					name:           "paginate_users_custom_limit",
+					method:         "GET",
+					path:           "/api/users/paginate?limit=2",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com", "bob@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 22: Path + Query Parameters Combined
+		// ===================================================================================
+		{
+			name: "22_path_and_query_combined",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "projects/{project_id:int}/tasks?{status:string}",
+				"description": "Path and query parameters combined",
+				"query": "SELECT id, title, status, priority FROM tasks WHERE project_id = {project_id} AND status = {status};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "integer"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_tasks_path_query_combo",
+					method:         "GET",
+					path:           "/api/projects/1/tasks?status=todo",
+					expectedStatus: 200,
+					shouldContain:  []string{"Design homepage", "Implement responsive layout"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 23: Multi-Segment Parameters
+		// ===================================================================================
+		{
+			name: "23_multi_segment_parameter",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "logs/by-path/{file_path*}",
+				"description": "Multi-segment path parameter",
+				"query": "SELECT id, level, message, file_path FROM logs WHERE file_path LIKE {file_path} || '%';",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "get_logs_multi_segment",
+					method:         "GET",
+					path:           "/api/logs/by-path/src/db",
+					expectedStatus: 200,
+					shouldContain:  []string{"src/db/connection.go"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 24: POST with JSON Body Parameters
+		// ===================================================================================
+		{
+			name: "24_post_json_body",
+			configContent: getRootConfig(`{
+				"method": "POST",
+				"path": "users/{id:int}/update",
+				"description": "POST with path parameter and JSON body",
+				"query": "UPDATE users SET name = {name}, email = {email} WHERE id = {id}; SELECT id, name, email FROM users WHERE id = {id};",
+				"params": [
+					{"name": "name", "type": "string", "constraints": "length[1..100]"},
+					{"name": "email", "type": "string"}
+				],
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "update_user_post_json",
+					method:         "POST",
+					path:           "/api/users/1/update",
+					body:           `{"name": "Alice Updated", "email": "alice.updated@example.com"}`,
+					expectedStatus: 200,
+					shouldContain:  []string{"Alice Updated", "alice.updated@example.com"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 25: PUT with Nested JSON Body Parameters
+		// ===================================================================================
+		{
+			name: "25_put_nested_json_body",
+			configContent: getRootConfig(`{
+				"method": "PUT",
+				"path": "projects/{project_id:int}/tasks",
+				"description": "PUT with nested JSON body parameters",
+				"query": "INSERT INTO tasks (project_id, title, details, status, priority, estimate) VALUES ({project_id}, {task.title}, {task.details}, {task.status}, {task.priority}, {task.estimate}); SELECT last_insert_rowid() as id;",
+				"params": [
+					{"name": "task.title", "type": "string", "constraints": "length[1..200]"},
+					{"name": "task.details", "type": "string"},
+					{"name": "task.status", "type": "string", "constraints": "enum[todo,doing,done]"},
+					{"name": "task.priority", "type": "int", "constraints": "range[1..5]"},
+					{"name": "task.estimate", "type": "real"}
+				],
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "create_task_put_nested_json",
+					method:         "PUT",
+					path:           "/api/projects/1/tasks",
+					body:           `{"task": {"title": "New Task", "details": "Test details", "status": "todo", "priority": 3, "estimate": 8.5}}`,
+					expectedStatus: 200,
+					shouldContain:  []string{"id"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 26: Cardinality - One vs Many
+		// ===================================================================================
+		{
+			name: "26_cardinality_one",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/{id:int}",
+				"description": "Cardinality one - single row",
+				"query": "SELECT id, email, name FROM users WHERE id = {id};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "cardinality_one_test",
+					method:         "GET",
+					path:           "/api/users/1",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com"},
+					// TODO: Verify response is an object, not an array
+				},
+			},
+		},
+		{
+			name: "27_cardinality_many",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/active",
+				"description": "Cardinality many - multiple rows",
+				"query": "SELECT id, email, name FROM users WHERE active = 1;",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "cardinality_many_test",
+					method:         "GET",
+					path:           "/api/users/active",
+					expectedStatus: 200,
+					shouldContain:  []string{"alice@example.com", "bob@example.com"},
+					// TODO: Verify response is an array
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 27: Row Type - Different Response Formats
+		// ===================================================================================
+		{
+			name: "28_row_type_string",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "hello",
+				"description": "Row type string - plain text response",
+				"query": "SELECT 'Hello World';",
+				"cardinality": "one",
+				"row_type": "string",
+				"column_types": []
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "row_type_string_test",
+					method:         "GET",
+					path:           "/api/hello",
+					expectedStatus: 200,
+					shouldContain:  []string{"Hello World"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 28: Error Handling - Invalid Parameter Type
+		// ===================================================================================
+		{
+			name: "29_error_invalid_int",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/{id:int}",
+				"description": "Error handling - invalid int",
+				"query": "SELECT id, email, name FROM users WHERE id = {id};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "error_invalid_int_type",
+					method:         "GET",
+					path:           "/api/users/abc",
+					expectedStatus: 400,
+					shouldContain:  []string{"invalid", "int"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 29: Error Handling - Constraint Violation
+		// ===================================================================================
+		{
+			name: "30_error_range_violation",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/by-score/{score:int:range[0..100]}",
+				"description": "Error handling - range violation",
+				"query": "SELECT id, email, name, score FROM users WHERE score = {score};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string", "integer"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "error_range_violation_high",
+					method:         "GET",
+					path:           "/api/users/by-score/150",
+					expectedStatus: 400,
+					shouldContain:  []string{"range", "validation"},
+				},
+				{
+					name:           "error_range_violation_low",
+					method:         "GET",
+					path:           "/api/users/by-score/-10",
+					expectedStatus: 400,
+					shouldContain:  []string{"range", "validation"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 30: Error Handling - Missing Required Parameter
+		// ===================================================================================
+		{
+			name: "31_error_missing_required_param",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/search?{email:string:notempty}",
+				"description": "Error handling - missing required parameter",
+				"query": "SELECT id, email, name FROM users WHERE email LIKE '%' || :email || '%';",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "error_missing_required_query_param",
+					method:         "GET",
+					path:           "/api/users/search",
+					expectedStatus: 400,
+					shouldContain:  []string{"required", "email"},
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 31: Error Handling - 404 Not Found
+		// ===================================================================================
+		{
+			name: "32_error_404_not_found",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/{id:int}",
+				"description": "Error handling - 404 not found",
+				"query": "SELECT id, email, name FROM users WHERE id = {id};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "error_404_unknown_endpoint",
+					method:         "GET",
+					path:           "/api/nonexistent",
+					expectedStatus: 404,
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 32: Error Handling - 405 Method Not Allowed
+		// ===================================================================================
+		{
+			name: "33_error_405_method_not_allowed",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "users/{id:int}",
+				"description": "Error handling - 405 method not allowed",
+				"query": "SELECT id, email, name FROM users WHERE id = {id};",
+				"cardinality": "one",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "error_405_wrong_method",
+					method:         "POST",
+					path:           "/api/users/1",
+					expectedStatus: 405,
+				},
+			},
+		},
+
+		// ===================================================================================
+		// CATEGORY 33: Complex Scenario - Multiple Constraints + Query Params
+		// ===================================================================================
+		{
+			name: "34_complex_multiple_features",
+			configContent: getRootConfig(`{
+				"method": "GET",
+				"path": "tasks/search/{project_id:int:range[1..100]}?{q:string:notempty}&{limit?10:int:range[1..100]}&{offset?0:int}",
+				"description": "Complex scenario with multiple features",
+				"query": "SELECT t.id, t.title, t.status FROM tasks t WHERE t.project_id = {project_id} AND (LOWER(t.title) LIKE LOWER('%' || {q} || '%') OR LOWER(t.details) LIKE LOWER('%' || {q} || '%')) LIMIT {limit} OFFSET {offset};",
+				"cardinality": "many",
+				"row_type": "columns",
+				"column_types": ["integer", "string", "string"]
+			}`),
+			testRequests: []testRequest{
+				{
+					name:           "complex_search_all_features",
+					method:         "GET",
+					path:           "/api/tasks/search/1?q=design&limit=5",
+					expectedStatus: 200,
+					shouldContain:  []string{"Design homepage"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup test environment using helper function
+			env := setupTestEnvironment(t, tc.name, tc.configContent)
+			defer env.cleanup(t)
+
+			// Find an available port for testing
+			availablePort, err := findAvailablePort()
+			if err != nil {
+				t.Fatalf("Failed to find available port: %v", err)
+			}
+
+			// Configure options for xmluisvr.Run() - override with our test values
+			options := &cfgldr.Options{
+				HTTPPort:        availablePort, // Dynamic port for testing
+				ConnectString:   env.dbPath,
+				DBBootstrapFile: env.bootstrapFile.Filepath,
+				// No APIFile - the API is embedded in the main config
+				Timeout:   300,
+				Verbosity: 3, // Max verbosity for debugging
+			}
+
+			// Load root config using proper config store map (this triggers bootstrap SQL loading)
+			rootConfig, err := cfgldr.LoadRootConfigV1FromConfigStoreMap(env.configStoreMap, options)
+			if err != nil {
+				t.Fatalf("Failed to load config: %v", err)
+			}
+
+			// Setup run arguments with proper cfgldr objects
+			runArgs := &xmluisvr.RunArgs{
+				CLIArgs:   []string{},
+				Options:   options,
+				Config:    rootConfig,
+				CLIWriter: env.bufferedWriter,
+				Logger:    env.logger,
+			}
+
+			// Start the server in a goroutine using xmluisvr.Run()
+			serverCtx, serverCancel := context.WithCancel(context.Background())
+
+			var serverError error
+			var wg sync.WaitGroup
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				//t.Logf("Starting xmluisvr.Run() in goroutine...")
+				// THIS IS THE ACTUAL xmluisvr.Run() CALL!
+				serverError = xmluisvr.Run(serverCtx, runArgs)
+				common.Noop()
+				//t.Logf("xmluisvr.Run() finished with error: %v", serverError)
+			}()
+
+			// Wait for server to start up
+			//t.Logf("Waiting for server to start...")
+			time.Sleep(2 * time.Second) // Give it more time to start
+
+			// Test the actual HTTP endpoints
+			baseURL := fmt.Sprintf("http://127.0.0.1:%d", options.HTTPPort)
+
+			for _, req := range tc.testRequests {
+				t.Run(req.name, func(t *testing.T) {
+					onErr := func() {
+						logEntries, _ := env.bufferedLogHandler.GetLogEntries()
+						t.Logf("%v", logEntries)
+						t.Log(env.bufferedWriter.GetAllOutput())
+					}
+					// Create HTTP request URL
+					url := baseURL + req.path
+					//t.Logf("Making %s request to: %s", req.method, url)
+
+					// Create HTTP request
+					var reqBody io.Reader
+					if req.body != "" {
+						reqBody = strings.NewReader(req.body)
+					}
+
+					httpReq, err := http.NewRequest(req.method, url, reqBody)
+					if err != nil {
+						onErr()
+						t.Fatalf("Failed to create request: %v", err)
+					}
+
+					if req.body != "" {
+						httpReq.Header.Set("Content-Type", "application/json")
+					}
+
+					// Execute request
+					client := &http.Client{Timeout: 300 * time.Second}
+					resp, err := client.Do(httpReq)
+					if err != nil {
+						onErr()
+						t.Fatalf("Failed to execute request: %v", err)
+					}
+					defer closeOrError(t, resp.Body)
+
+					// Read response body
+					respBody, err := io.ReadAll(resp.Body)
+					if err != nil {
+						onErr()
+						t.Fatalf("Failed to read response body: %v", err)
+					}
+
+					// Verify status code
+					if resp.StatusCode != req.expectedStatus {
+						// Output buffered logs for debugging
+						logEntries, err := env.bufferedLogHandler.GetLogEntries()
+						if err != nil {
+							t.Logf("Error getting log entries: %v", err)
+						} else if len(logEntries) > 0 {
+							t.Logf("Buffered log entries (%d total):", len(logEntries))
+							for i, entry := range logEntries {
+								t.Logf("  [%d] %v", i+1, entry)
+							}
+						}
+						t.Errorf("Expected status %d, got %d. Response: %s",
+							req.expectedStatus, resp.StatusCode, string(respBody))
+						return
+					}
+
+					responseBody := string(respBody)
+
+					// Verify RFC 9457 error response if expected
+					if req.expectedRFC9457 != nil {
+						var got9457 common.RFC9457Response
+						if err := json.Unmarshal(respBody, &got9457); err != nil {
+							t.Errorf("Response is not valid RFC 9457 JSON: %v. Body: %s", err, responseBody)
+							return
+						}
+
+						want9457 := req.expectedRFC9457
+
+						// Verify all RFC 9457 fields exhaustively
+						if got9457.Type != want9457.Type {
+							t.Errorf("Type: got '%s', want '%s'", got9457.Type, want9457.Type)
+						}
+						if got9457.Title != want9457.Title {
+							t.Errorf("Title: got '%s', want '%s'", got9457.Title, want9457.Title)
+						}
+						if got9457.Status != want9457.Status {
+							t.Errorf("Status: got %d, want %d", got9457.Status, want9457.Status)
+						}
+						if got9457.Detail != want9457.Detail {
+							t.Errorf("Detail: got '%s', want '%s'", got9457.Detail, want9457.Detail)
+						}
+						if got9457.Instance != want9457.Instance {
+							t.Errorf("Instance: got '%s', want '%s'", got9457.Instance, want9457.Instance)
+						}
+						if got9457.Parameter != want9457.Parameter {
+							t.Errorf("Parameter: got '%s', want '%s'", got9457.Parameter, want9457.Parameter)
+						}
+						if got9457.ExpectedType != want9457.ExpectedType {
+							t.Errorf("ExpectedType: got '%s', want '%s'", got9457.ExpectedType, want9457.ExpectedType)
+						}
+						if got9457.ReceivedValue != want9457.ReceivedValue {
+							t.Errorf("ReceivedValue: got '%s', want '%s'", got9457.ReceivedValue, want9457.ReceivedValue)
+						}
+						if got9457.Location != want9457.Location {
+							t.Errorf("Location: got '%s', want '%s'", got9457.Location, want9457.Location)
+						}
+						if got9457.Suggestion != want9457.Suggestion {
+							t.Errorf("Suggestion: got '%s', want '%s'", got9457.Suggestion, want9457.Suggestion)
+						}
+
+						// Compare Constraint (handles nil and any type)
+						if want9457.Constraint != nil {
+							if got9457.Constraint != want9457.Constraint {
+								t.Errorf("Constraint: got '%v', want '%v'", got9457.Constraint, want9457.Constraint)
+							}
+						} else if got9457.Constraint != nil {
+							t.Errorf("Constraint: got '%v', want nil", got9457.Constraint)
+						}
+
+						// Compare ValidationErrors slice
+						if len(got9457.ValidationErrors) != len(want9457.ValidationErrors) {
+							t.Errorf("ValidationErrors length: got %d, want %d", len(got9457.ValidationErrors), len(want9457.ValidationErrors))
+						} else {
+							for i := range want9457.ValidationErrors {
+								gotErr := got9457.ValidationErrors[i]
+								wantErr := want9457.ValidationErrors[i]
+								if gotErr.Parameter != wantErr.Parameter {
+									t.Errorf("ValidationErrors[%d].Parameter: got '%s', want '%s'", i, gotErr.Parameter, wantErr.Parameter)
+								}
+								if gotErr.Location != wantErr.Location {
+									t.Errorf("ValidationErrors[%d].Location: got '%s', want '%s'", i, gotErr.Location, wantErr.Location)
+								}
+								if gotErr.Expected != wantErr.Expected {
+									t.Errorf("ValidationErrors[%d].Expected: got '%s', want '%s'", i, gotErr.Expected, wantErr.Expected)
+								}
+								if gotErr.Received != wantErr.Received {
+									t.Errorf("ValidationErrors[%d].Received: got '%s', want '%s'", i, gotErr.Received, wantErr.Received)
+								}
+								if gotErr.Message != wantErr.Message {
+									t.Errorf("ValidationErrors[%d].Message: got '%s', want '%s'", i, gotErr.Message, wantErr.Message)
+								}
+							}
+						}
+					}
+
+					// For successful responses, verify JSON structure
+					if resp.StatusCode == 200 && len(req.expectedFields) > 0 {
+						var response interface{}
+						if err := json.Unmarshal(respBody, &response); err != nil {
+							t.Errorf("Response is not valid JSON: %v. Body: %s", err, responseBody)
+							return
+						}
+
+						// Verify expected fields exist in response
+						for _, field := range req.expectedFields {
+							if !strings.Contains(responseBody, fmt.Sprintf(`"%s"`, field)) {
+								t.Errorf("Expected field '%s' in response, got: %s", field, responseBody)
+							}
+						}
+					}
+
+					// Legacy validation (to be removed after migration to expectedRFC9457)
+					for _, expected := range req.shouldContain {
+						if !strings.Contains(responseBody, expected) {
+							t.Errorf("Expected response to contain '%s', got: %s", expected, responseBody)
+						}
+					}
+
+					// Verify content that should NOT be present
+					for _, notExpected := range req.shouldNotHave {
+						if strings.Contains(responseBody, notExpected) {
+							t.Errorf("Expected response to NOT contain '%s', got: %s", notExpected, responseBody)
+						}
+					}
+
+					//t.Logf("✓ HTTP %s %s returned %d as expected", req.method, req.path, resp.StatusCode)
+				})
+			}
+
+			// Stop the server and wait for it to finish5
+			serverCancel()
+
+			// Give the server a moment to shut down gracefully
+			done := make(chan struct{})
+			go func() {
+				wg.Wait()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+				// Server shut down gracefully
+			case <-time.After(5 * time.Second):
+				// Server didn't shut down in time
+				//t.Logf("Server did not shut down gracefully within 5 seconds")
+			}
+
+			// Check if server had any errors (ignore context cancellation)
+			if serverError != nil && !strings.Contains(serverError.Error(), "context canceled") {
+				t.Errorf("Server error: %v", serverError)
+			}
+
+			//t.Logf("✓ Successfully tested xmluisvr.Run() with %d HTTP requests for test case: %s", len(tc.testRequests), tc.name)
+		})
+	}
+}
+
+func closeOrError(t *testing.T, closer io.Closer) {
+	err := closer.Close()
+	if err != nil {
+		t.Fatalf("Failed to close: %v", err)
+	}
+}
+
+// testEnvironment holds the test environment setup for a single test case
+type testEnvironment struct {
+	rootFixture        *fsfix.RootFixture
+	dbPath             string
+	bootstrapFile      *fsfix.FileFixture
+	configFile         *fsfix.FileFixture
+	configStoreMap     cfgstore.ConfigStoresMap
+	bufferedLogHandler *testutil.BufferedLogHandler
+	bufferedWriter     *testutil.BufferedWriter
+	logger             *slog.Logger
+}
+
+// setupTestEnvironment creates an isolated test environment for a single test case
+func setupTestEnvironment(t *testing.T, testName string, configContent string) *testEnvironment {
+	// Create temporary directories for config files
+	tempDir := t.TempDir()
+	userConfigFile := filepath.Join(tempDir, "user-config.test-server.json")
+	projectConfigFile := filepath.Join(tempDir, "project-config.test-server.json")
+
+	// Write the config content to both user and project config files
+	// (using the same content for simplicity - could be split if needed)
+	err := os.WriteFile(userConfigFile, []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write user config file: %v", err)
+	}
+	err = os.WriteFile(projectConfigFile, []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write project config file: %v", err)
+	}
+
+	// Setup config directory fixtures using testutil (this enables proper bootstrap SQL loading)
+	rootFix, configStoreMap := testutil.SetupConfigDirFixtures(t, DataDir(), userConfigFile, projectConfigFile)
+
+	// Create bootstrap file in the test data directory
+	bootstrapFile := &fsfix.FileFixture{
+		Name:     "bootstrap.sql",
+		Content:  BootstrapSQL(),
+		Filepath: filepath.Join(DataDir(), "bootstrap.sql"),
+	}
+
+	// Generate unique database path in the fixtures directory with test name for isolation
+	dbPath := filepath.Join(rootFix.Dir(), "test.db")
+
+	// Setup buffered logger and CLI writer for testing
+	logger, handler := testutil.GetBufferedLogger()
+	bufferedWriter := testutil.NewBufferedWriter()
+
+	// Set the logger as the global common logger (like xmluisvr/logger.go does)
+	common.SetLogger(logger)
+
+	return &testEnvironment{
+		rootFixture:        rootFix,
+		dbPath:             dbPath,
+		bootstrapFile:      bootstrapFile,
+		configFile:         &fsfix.FileFixture{Filepath: userConfigFile},
+		configStoreMap:     configStoreMap,
+		bufferedLogHandler: handler,
+		bufferedWriter:     bufferedWriter,
+		logger:             logger,
+	}
+}
+
+// cleanup cleans up the test environment
+func (env *testEnvironment) cleanup(t *testing.T) {
+	env.rootFixture.Cleanup()
+	// Remove database file if it exists
+	if _, err := os.Stat(env.dbPath); err == nil {
+		reportOnError(t, os.Remove(env.dbPath))
+	}
+}
+
+func reportOnError(t *testing.T, err error) {
+	if err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+}
+
+// findAvailablePort finds an available port for testing
+func findAvailablePort() (port int, err error) {
+	var addr *net.TCPAddr
+	var listen *net.TCPListener
+
+	addr, err = net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		goto end
+	}
+
+	listen, err = net.ListenTCP("tcp", addr)
+	if err != nil {
+		goto end
+	}
+	defer common.LogOnError(listen.Close())
+	port = listen.Addr().(*net.TCPAddr).Port
+end:
+	return port, err
+}
+
+// getRootConfig wraps an API endpoint definition in a full root config structure
+// This allows tests to specify just the endpoint they care about as inline JSON
+func getRootConfig(endpointJSON string) string {
+	return fmt.Sprintf(`{
+		"$schema": "https://schemas.xmlui.org/v1/test-server/root-schema.json",
+		"version": 1,
+		"server": {
+			"$schema": "https://schemas.xmlui.org/v1/test-server/server-schema.json",
+			"version": 1,
+			"host": "127.0.0.1",
+			"port": 8080,
+			"api": {
+				"$schema": "https://schemas.xmlui.org/v2/test-server/api-schema.json",
+				"version": 2,
+				"name": "Test XMLUI Local Server API",
+				"base_path": "/api",
+				"webroot": ".",
+				"endpoints": [
+					%s
+				]
+			}
+		},
+		"database": {
+			"$schema": "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json",
+			"version": 1,
+			"type": "sqlite3",
+			"filepath": "test.db",
+			"on_open_sql": [],
+			"busy_timeout": 0,
+			"journal_mode": "",
+			"synchronous": "",
+			"foreign_keys": "",
+			"wal_autocheckpoint": 0
+		}
+	}`, endpointJSON)
+}

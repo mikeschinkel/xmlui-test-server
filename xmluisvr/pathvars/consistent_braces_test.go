@@ -4,15 +4,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 func TestConsistentBraceHandling(t *testing.T) {
 	tests := []struct {
 		name    string
-		method  common.HTTPMethod
-		path    common.URLPath
+		method  pathvars.HTTPMethod
+		path    pathvars.Template
 		wantErr bool
 		reason  string
 	}{

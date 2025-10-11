@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -52,7 +51,7 @@ func TestTemplateParsing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute("GET", common.URLPath(tt.template), nil)
+			err := router.AddRoute("GET", pathvars.Template(tt.template), nil)
 
 			if tt.expectError {
 				if err == nil {
@@ -72,7 +71,7 @@ func TestParameterExtraction(t *testing.T) {
 		name       string
 		template   string
 		testPath   string
-		expected   map[common.Identifier]string
+		expected   map[pathvars.Identifier]string
 		params     []pathvars.Parameter
 		query      string
 		shouldFail bool
@@ -81,37 +80,37 @@ func TestParameterExtraction(t *testing.T) {
 			name:     "single-param",
 			template: "/users/{id}",
 			testPath: "/users/123",
-			expected: map[common.Identifier]string{"id": "123"},
+			expected: map[pathvars.Identifier]string{"id": "123"},
 		},
 		{
 			name:     "multiple-params",
 			template: "/users/{user_id}/posts/{post_id}",
 			testPath: "/users/42/posts/789",
-			expected: map[common.Identifier]string{"user_id": "42", "post_id": "789"},
+			expected: map[pathvars.Identifier]string{"user_id": "42", "post_id": "789"},
 		},
 		{
 			name:     "param-with-special-chars",
 			template: "/files/{filename}",
 			testPath: "/files/my-file.txt",
-			expected: map[common.Identifier]string{"filename": "my-file.txt"},
+			expected: map[pathvars.Identifier]string{"filename": "my-file.txt"},
 		},
 		{
 			name:     "param-with-numbers",
 			template: "/api/{version}/users/{id}",
 			testPath: "/api/v2/users/123",
-			expected: map[common.Identifier]string{"version": "v2", "id": "123"},
+			expected: map[pathvars.Identifier]string{"version": "v2", "id": "123"},
 		},
 		{
 			name:     "param-with-underscores",
 			template: "/users/{user_id}/settings/{setting_name}",
 			testPath: "/users/123/settings/email_notifications",
-			expected: map[common.Identifier]string{"user_id": "123", "setting_name": "email_notifications"},
+			expected: map[pathvars.Identifier]string{"user_id": "123", "setting_name": "email_notifications"},
 		},
 		{
 			name:     "complex-path",
 			template: "/organizations/{org_id}/projects/{project_id}/issues/{issue_number}/comments/{comment_id}",
 			testPath: "/organizations/acme/projects/webapp/issues/42/comments/1",
-			expected: map[common.Identifier]string{
+			expected: map[pathvars.Identifier]string{
 				"org_id":       "acme",
 				"project_id":   "webapp",
 				"issue_number": "42",
@@ -143,7 +142,7 @@ func TestParameterExtraction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute("GET", common.URLPath(tt.template), &pathvars.RouteArgs{
+			err := router.AddRoute("GET", pathvars.Template(tt.template), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -232,7 +231,7 @@ func TestRegexGeneration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
-			err := router.AddRoute("GET", common.URLPath(tt.template), &pathvars.RouteArgs{
+			err := router.AddRoute("GET", pathvars.Template(tt.template), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -310,7 +309,7 @@ func TestParameterTypes(t *testing.T) {
 		t.Run("type-"+name, func(t *testing.T) {
 			template := "/test/{value:" + name + "}"
 			router := pathvars.NewRouter()
-			err := router.AddRoute("GET", common.URLPath(template), &pathvars.RouteArgs{
+			err := router.AddRoute("GET", pathvars.Template(template), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 

@@ -7,32 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-)
-
-// ParamUseType indicates how a parameter is used in the template.
-type ParamUseType int
-
-// Parameter usage types.
-const (
-	// UnspecifiedParamUseType indicates the parameter usage type is not specified.
-	UnspecifiedParamUseType ParamUseType = iota
-
-	// PathUseType indicates the parameter is extracted from the URL path.
-	PathUseType
-
-	// QueryUseType indicates the parameter is extracted from the query string.
-	QueryUseType
-
-	IrrelevantParamUseType
 )
 
 // Parameter represents a path or query parameter with its type, constraints, and configuration.
 // Parameters can be required or optional, have default values, and span multiple path segments.
 type Parameter struct {
-	// useType indicates whether this is a path or query parameter.
-	useType ParamUseType
+	// location indicates whether this is a path, query, body, or header parameter.
+	location LocationType
 
 	// dataType specifies the expected data type for validation.
 	dataType PVDataType
@@ -53,7 +34,7 @@ type nameProps = NameSpecProps
 // NewParameter creates a new Parameter instance with the specified configuration.
 func NewParameter(args ParameterArgs) Parameter {
 	return Parameter{
-		useType:     args.UseType,
+		location:    args.Location,
 		dataType:    args.DataType,
 		constraints: args.Constraints,
 		position:    args.Position,
@@ -68,8 +49,8 @@ type ParameterArgs struct {
 	// NameProps contains properties defined in the name
 	NameProps NameSpecProps
 
-	// UseType indicates if this is a path or query parameter.
-	UseType ParamUseType
+	// Location indicates if this is a path, query, body, or header parameter.
+	Location LocationType
 
 	// DataType specifies the expected data type.
 	DataType PVDataType
@@ -120,7 +101,7 @@ end:
 // ParseParameter parses a parameter specification like {id:int:range[1..100]} or {date*:date:yyyy/mm/dd}.
 // Also supports optional parameters: {name?:type} or {name?default:type:constraints}.
 // The position parameter indicates the parameter's position for regex capture group ordering.
-func ParseParameter(spec string, useType ParamUseType, position int) (p Parameter, err error) {
+func ParseParameter(spec string, location LocationType) (p Parameter, err error) {
 	var content string
 	var parts []string
 	var dataType PVDataType
@@ -131,11 +112,10 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 	// ParseBytes the {name:type:constraints} or {name*:type:constraints} format
 	// Return Parameter object with parsed components
 
-	if useType == UnspecifiedParamUseType {
+	if location == "" {
 		err = errors.Join(
 			ErrInvalidParameter,
-			fmt.Errorf("parameter_spec=%q", spec),
-			fmt.Errorf("reason=%s", "parameter use type not specified"),
+			ErrParameterLocationNotSpecified,
 		)
 		goto end
 	}
@@ -144,8 +124,8 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 	if err != nil {
 		err = errors.Join(
 			ErrInvalidParameter,
-			fmt.Errorf("parameter_spec=%s", spec),
-			fmt.Errorf("position=%d", position),
+			ErrInvalidParameterSyntax,
+			err,
 		)
 		goto end
 	}
@@ -167,9 +147,7 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 	if err != nil {
 		err = errors.Join(
 			err,
-			fmt.Errorf("parameter_spec=%q", spec),
-			fmt.Errorf("content=%q", content),
-			fmt.Errorf("position=%d", position),
+			fmt.Errorf("content=%s", content),
 		)
 		goto end
 	}
@@ -186,13 +164,9 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 		// Pattern: {name} -> name not a data type
 		dataType = DefaultPVDataType
 	case len(parts) > 1:
-		dataType, err = ParseParameterDataType(name, parts[1])
+		dataType, err = ParseParameterDataType(string(props.Name), parts[1])
 		if err != nil {
-			err = errors.Join(
-				err,
-				fmt.Errorf("parameter_spec=%s", spec),
-				fmt.Errorf("position=%d", position),
-			)
+			// parameter name and data type already added by ParseParameterDataType()
 			goto end
 		}
 	}
@@ -203,10 +177,8 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 		if err != nil {
 			err = errors.Join(
 				err,
-				fmt.Errorf("parameter_spec=%q", spec),
 				fmt.Errorf("data_type=%v", dataType),
-				fmt.Errorf("constraint_spec=%q", parts[2]),
-				fmt.Errorf("position=%d", position),
+				fmt.Errorf("constraint_spec=%s", parts[2]),
 			)
 			goto end
 		}
@@ -217,12 +189,11 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 		err = validateDataType(*props.DefaultValue, dataType)
 		if err != nil {
 			err = errors.Join(
-				err,
-				fmt.Errorf("parameter_spec=%q", spec),
-				fmt.Errorf("parameter_name=%q", name),
-				fmt.Errorf("default_value=%q", *props.DefaultValue),
+				ErrDefaultValueValidationFailed,
+				fmt.Errorf("parameter_name=%s", name),
+				fmt.Errorf("default_value=%s", *props.DefaultValue),
 				fmt.Errorf("data_type=%v", dataType),
-				fmt.Errorf("reason=%s", "default value validation failed"),
+				err,
 			)
 			goto end
 		}
@@ -232,13 +203,12 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 			err = constraint.Validate(*props.DefaultValue)
 			if err != nil {
 				err = errors.Join(
-					err,
-					fmt.Errorf("parameter_spec=%q", spec),
-					fmt.Errorf("parameter_name=%q", name),
-					fmt.Errorf("default_value=%q", *props.DefaultValue),
+					ErrDefaultValueConstraintValidationFailed,
+					fmt.Errorf("parameter_name=%s", name),
+					fmt.Errorf("default_value=%s", *props.DefaultValue),
 					fmt.Errorf("data_type=%v", dataType),
 					fmt.Errorf("constraint=%s", constraint.String()),
-					fmt.Errorf("reason=%s", "default value constraint validation failed"),
+					err,
 				)
 				goto end
 			}
@@ -246,20 +216,27 @@ func ParseParameter(spec string, useType ParamUseType, position int) (p Paramete
 	}
 	p = Parameter{
 		nameProps:   *props,
-		useType:     useType,
+		location:    location,
 		dataType:    dataType,
 		constraints: constraints,
-		position:    position,
 		original:    spec,
 	}
 
 end:
+	if err != nil {
+		err = errors.Join(
+			err,
+			fmt.Errorf("parameter_spec=%s", spec),
+			fmt.Errorf("parameter_location=%s", location),
+		)
+	}
 	return p, err
 }
 
 type NameSpecProps struct {
 	// Name is the parameter name used in the template and for value extraction.
-	Name common.Identifier
+	// TODO Should this be a Selector vs. an Identifier?
+	Name Identifier
 
 	// MultiSegment indicates if this parameter can span multiple path segments.
 	MultiSegment bool
@@ -302,13 +279,13 @@ func ParseParameterDataType(name, typ string) (dt PVDataType, err error) {
 			err = errors.Join(
 				err,
 				fmt.Errorf("parameter_name=%s", name),
-				fmt.Errorf("data_type=%s", typ),
+				//fmt.Errorf("data_type=%s", typ),  Already added by ParsePVDataType()
 			)
 			goto end
 		}
 	default:
 		// Pattern: {name:} or {name::} or {name::constraint} -> infer type from name
-		inferredType := InferDataTypeFromName(name)
+		inferredType := GetDataType(Identifier(name))
 		if inferredType != UnspecifiedDataType {
 			dt = inferredType
 			goto end

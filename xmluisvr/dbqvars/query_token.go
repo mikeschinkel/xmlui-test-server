@@ -2,16 +2,14 @@ package dbqvars
 
 import (
 	"sort"
-
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 type QueryToken struct {
-	Name  common.Selector // logical name: e.g., "path.accountId" or "body.items.0.id"
-	Index int             // assigned parameter index (1-based)
-	Start int             // byte offset start in original SQL
-	End   int             // byte offset end (exclusive)
-	Raw   string          // full token, e.g. "{user.id}"
+	Name  Selector // logical name: e.g., "path.accountId" or "body.items.0.id"
+	Index int      // assigned parameter index (1-based)
+	Start int      // byte offset start in original SQL
+	End   int      // byte offset end (exclusive)
+	Raw   string   // full token, e.g. "{user.id}"
 }
 
 type QueryTokens []QueryToken

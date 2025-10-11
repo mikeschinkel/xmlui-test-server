@@ -1,0 +1,26 @@
+{
+   "type": "https://schema.xmlui.org/errors/test-server/api/validation/invalid-parameter-type",
+   "title": "Invalid Parameter Type",
+   "status": 422,
+   "detail": "Parameter 'id' must be an integer, received '12.34'",
+   "instance": "/api/users/12.34",
+
+   "parameter": "id",
+   "expected_type": "int",
+   "received_value": "12.34",
+
+   "location": "path",
+   "constraint": null,
+   "suggestion": "Use an integer like /api/users/12",
+
+   "validation_errors": [
+      {
+         "parameter": "id",
+         "location": "path",
+         "expected": "int",
+         "received": "12.34",
+         "message": "Must be an integer"
+      }
+   ]
+}
+

@@ -1,6 +1,7 @@
 package pathvars
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -10,26 +11,27 @@ func TestSimplePathWithoutParameters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse template: %v", err)
 	}
-
-	// Test exact match - should succeed
-	vars, matched := template.Match("/users", "")
-	if !matched {
-		t.Errorf("Expected /users to match template '/users', but it didn't")
+	tests := []struct {
+		path        string
+		expectMatch bool
+		expectErr   bool
+	}{
+		{path: "/users", expectMatch: true},
+		{path: "/users/123", expectErr: true},
+		{path: "/posts", expectErr: true},
+		{path: "/users/", expectErr: true},
 	}
-	if len(vars) != 0 {
-		t.Errorf("Expected no variables for simple path, got %d: %v", len(vars), vars)
-	}
-
-	// Test non-matching path - should fail
-	_, matched2 := template.Match("/posts", "")
-	if matched2 {
-		t.Errorf("Expected /posts to NOT match template '/users', but it did")
-	}
-
-	// Test path with extra segments - should fail
-	_, matched3 := template.Match("/users/123", "")
-	if matched3 {
-		t.Errorf("Expected /users/123 to NOT match template '/users', but it did")
+	for _, tt := range tests {
+		t.Run(tt.path[1:], func(t *testing.T) {
+			// Test exact match - should succeed
+			vars, matched, _ := template.Match(tt.path, "")
+			if tt.expectMatch && !matched {
+				t.Errorf("Expected '%s' to match template '/users', but it didn't", tt.path)
+			}
+			if len(vars) != 0 {
+				t.Errorf("Expected no variables for simple path, got %d: %v", len(vars), vars)
+			}
+		})
 	}
 }
 
@@ -43,30 +45,41 @@ func TestSimplePathWithoutParametersVerbose(t *testing.T) {
 		t.Fatalf("TEMPLATE IS NIL (SHOULD NOT HAPPEN, but Goland flag as potential nil reference")
 	}
 
-	// Show what the regex looks like for debugging
-	t.Logf("Template regex: %v", template.regex)
-	if template.regex != nil {
-		t.Logf("Regex pattern: %s", template.regex.String())
-	}
+	//// Show what the regex looks like for debugging
+	//t.Logf("Template regex: %v", template.regex)
+	//if template.regex != nil {
+	//	t.Logf("Regex pattern: %s", template.regex.String())
+	//}
 
 	tests := []struct {
 		path     string
 		expected bool
 		name     string
+		vm       ValuesMap
 	}{
-		{"/users", true, "exact match"},
-		{"/posts", false, "different path"},
-		{"/users/123", false, "path with extra segments"},
-		{"/user", false, "similar but different path"},
-		{"/users/", false, "path with trailing slash"},
+		{"/users", true, "exact match", nil},
+		{"/posts", false, "different path", nil},
+		{"/users/123", false, "path with extra segments", nil},
+		{"/user", false, "similar but different path", nil},
+		{"/users/", false, "path with trailing slash", nil},
 	}
 
 	for _, test := range tests {
-		vars, matched := template.Match(test.path, "")
-		t.Logf("Path: %s, Matched: %v, Vars: %v (%s)", test.path, matched, vars, test.name)
+		var valuesMap ValuesMap
+		var matched bool
+		valuesMap, matched, err = template.Match(test.path, "")
+		//valuesMap, matched, err = template.Match(test.path, "")
+		//t.Logf("Path: %s, Matched: %v, Vars: %v (%s)", test.path, matched, valuesMap, test.name)
+		if err != nil {
+			t.Errorf("Path error: %v", err)
+		}
+
+		if !reflect.DeepEqual(valuesMap, test.vm) {
+			t.Errorf("Path expected: valuesMap=%v, got valuesMap=%v", test.vm, valuesMap)
+		}
 
 		if matched != test.expected {
-			t.Errorf("Path %s: expected matched=%v, got matched=%v", test.path, test.expected, matched)
+			t.Errorf("Path expected: match=%v, got match=%v", test.expected, matched)
 		}
 	}
 }

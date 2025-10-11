@@ -41,6 +41,11 @@ func (c *PostgresConfig) DatabaseType() DatabaseType {
 	return PostgresDatabase
 }
 
+func (c *PostgresConfig) SetConnectString(_ string) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (c *PostgresConfig) ConnectString() string {
 	//TODO implement me
 	panic("implement me")
@@ -56,7 +61,7 @@ func (c *PostgresConfig) DBExtensions() []DBExtensionConfig {
 	panic("implement me")
 }
 
-func (c *PostgresConfig) Normalize(sourceFile string) {
+func (c *PostgresConfig) Normalize(sourceFile string, opts *Options) {
 	//TODO implement me
 	panic("implement me")
 }

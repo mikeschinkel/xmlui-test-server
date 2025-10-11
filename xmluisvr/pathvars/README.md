@@ -70,7 +70,7 @@ type Router struct {
 
 **Functions:**
 - `NewRouter() *Router` - Creates a new router instance
-- `(r *Router) AddRoute(common.HTTPMethod, common.URLPath, pathvars.RouteArgs{...}) error` - Adds a route to the router
+- `(r *Router) AddRoute(HTTPMethod, URLPath, pathvars.RouteArgs{...}) error` - Adds a route to the router
 - `(r *Router) Compile() error` - Pre-compiles all routes for efficient matching
 - `(r *Router) Match(*http.Request) (pathvars.MatchResult, error)` - Matches HTTP request against compiled routes
 
@@ -289,7 +289,7 @@ const (
     FormatConstraintType    ConstraintType = "format"
     EnumConstraintType      ConstraintType = "enum"
     LengthConstraintType    ConstraintType = "length"
-    NotEmptyConstraintType  ConstraintType = "not-empty"
+    NotEmptyConstraintType  ConstraintType = "notempty"
     RangeConstraintType     ConstraintType = "range"
     RegexConstraintType     ConstraintType = "regex"
 )
@@ -393,7 +393,7 @@ The package defines several sentinel error values for different failure scenario
 var (
     ErrInvalidTemplate        = errors.New("invalid template syntax")
     ErrUnmatchedBrace         = errors.New("unmatched brace in template")
-    ErrInvalidParameter       = errors.New("invalid parameter definition")
+    ErrInvalidParameter       = errors.New("invalid parameter")
     ErrInvalidType            = errors.New("unknown parameter type")
     ErrInvalidConstraint      = errors.New("invalid constraint syntax")
     ErrNoMatch                = errors.New("no matching route")
@@ -430,7 +430,7 @@ Parameters use a flexible syntax in path templates:
 - `{email:string:regex[.+@.+]}` - String matching email pattern
 - `{status:string:enum[active,inactive]}` - String from allowed values
 - `{name:string:length[3..50]}` - String with length constraints
-- `{slug:string:not-empty}` - Non-empty string
+- `{slug:string:notempty}` - Non-empty string
 - `{date:date:format[yyyy-mm-dd]}` - Date with specific format
 
 ### Multiple Constraints

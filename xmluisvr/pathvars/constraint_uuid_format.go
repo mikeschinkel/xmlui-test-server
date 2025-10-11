@@ -13,6 +13,10 @@ import (
 
 var _ Constraint = (*UUIDFormatConstraint)(nil)
 
+func init() {
+	RegisterConstraint(&UUIDFormatConstraint{})
+}
+
 // UUIDFormatConstraint validates UUID formats
 type UUIDFormatConstraint struct {
 	baseConstraint
@@ -45,7 +49,7 @@ func (c *UUIDFormatConstraint) Validate(value string) error {
 	return c.validator(value)
 }
 
-func (c *UUIDFormatConstraint) String() string {
+func (c *UUIDFormatConstraint) Rule() string {
 	return c.format
 }
 
@@ -85,8 +89,8 @@ func ParseUUIDFormatConstraint(spec string) (constraint *UUIDFormatConstraint, e
 	default:
 		err = errors.Join(
 			ErrInvalidConstraint,
-			fmt.Errorf("spec=%q", spec),
-			fmt.Errorf("reason=%s", "unsupported UUID format"),
+			ErrUnsupportedUUIDFormat,
+			fmt.Errorf("spec=%s", spec),
 		)
 		goto end
 	}
@@ -106,9 +110,9 @@ func validateUUIDGeneric(value string) error {
 	if version < 1 || version > 8 {
 		return errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrUUIDVersionOutOfRange1to8,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("version=%d", version),
-			fmt.Errorf("reason=%s", "UUID version must be 1-8"),
 		)
 	}
 	return nil
@@ -123,9 +127,9 @@ func validateUUIDv1to5(value string) error {
 	if version < 1 || version > 5 {
 		return errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrUUIDVersionOutOfRange1to5,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("version=%d", version),
-			fmt.Errorf("reason=%s", "UUID version must be 1-5"),
 		)
 	}
 	return nil
@@ -140,9 +144,9 @@ func validateUUIDv6to8(value string) error {
 	if version < 6 || version > 8 {
 		return errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrUUIDVersionOutOfRange6to8,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("version=%d", version),
-			fmt.Errorf("reason=%s", "UUID version must be 6-8"),
 		)
 	}
 	return nil
@@ -197,10 +201,10 @@ func validateSpecificUUIDVersion(value string, expectedVersion int) error {
 	if version != expectedVersion {
 		return errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
-			fmt.Errorf("expectedVersion=%d", expectedVersion),
-			fmt.Errorf("actualVersion=%d", version),
-			fmt.Errorf("reason=%s", "UUID version mismatch"),
+			ErrUUIDVersionMismatch,
+			fmt.Errorf("value=%s", value),
+			fmt.Errorf("expected_version=%d", expectedVersion),
+			fmt.Errorf("actual_version=%d", version),
 		)
 	}
 	return nil
@@ -216,8 +220,8 @@ func parseStandardUUID(value string) (version int, err error) {
 	if len(value) != 36 || value[8] != '-' || value[13] != '-' || value[18] != '-' || value[23] != '-' {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
-			fmt.Errorf("reason=%s", "invalid UUID shape (expected 8-4-4-4-12 format)"),
+			ErrInvalidUUIDShape,
+			fmt.Errorf("value=%s", value),
 		)
 		goto end
 	}
@@ -228,8 +232,9 @@ func parseStandardUUID(value string) (version int, err error) {
 	if err != nil {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
-			fmt.Errorf("reason=%s", "invalid hex encoding in UUID"),
+			ErrInvalidUUIDHexEncoding,
+			fmt.Errorf("value=%s", value),
+			err,
 		)
 		goto end
 	}
@@ -239,9 +244,9 @@ func parseStandardUUID(value string) (version int, err error) {
 	if variant != 0b10 {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidUUIDVariant,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("variant=%08b", variant),
-			fmt.Errorf("reason=%s", "invalid UUID variant (must be RFC 4122/9562)"),
 		)
 		goto end
 	}
@@ -251,9 +256,9 @@ func parseStandardUUID(value string) (version int, err error) {
 	if version < 1 || version > 8 {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidUUIDVersion,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("version=%d", version),
-			fmt.Errorf("reason=%s", "invalid UUID version (must be 1-8)"),
 		)
 		goto end
 	}
@@ -269,9 +274,9 @@ func validateULID(value string) error {
 	if !ulidRegex.MatchString(value) {
 		return errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidULIDFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("pattern=%s", "26 chars of Crockford Base32"),
-			fmt.Errorf("reason=%s", "invalid ULID format"),
 		)
 	}
 	return nil
@@ -284,9 +289,9 @@ func validateKSUID(value string) error {
 	if !ksuidRegex.MatchString(value) {
 		return errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidKSUIDFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("pattern=%s", "27 chars of Base62"),
-			fmt.Errorf("reason=%s", "invalid KSUID format"),
 		)
 	}
 	return nil
@@ -299,9 +304,9 @@ func validateNanoID(value string) error {
 	if !nanoidRegex.MatchString(value) {
 		return errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidNanoIDFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("pattern=%s", "21 chars of URL-safe alphabet"),
-			fmt.Errorf("reason=%s", "invalid NanoID format"),
 		)
 	}
 	return nil

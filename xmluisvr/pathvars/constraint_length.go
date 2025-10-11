@@ -52,8 +52,8 @@ func (c *LengthConstraint) Validate(value string) (err error) {
 	return err
 }
 
-func (c *LengthConstraint) String() string {
-	return fmt.Sprintf("%s[%d..%d]", c.Type(), c.min, c.max)
+func (c *LengthConstraint) Rule() string {
+	return fmt.Sprintf("%d..%d", c.min, c.max)
 }
 
 // ParseLengthConstraint parses min..max format
@@ -65,31 +65,25 @@ func ParseLengthConstraint(rangeSpec string) (constraint *LengthConstraint, err 
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
 		err = errors.Join(
-			ErrInvalidConstraint,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("reason=%s", "expected format 'min..max'"),
+			ErrInvalidConstraint, ErrExpectedRangeFormat,
 		)
 		goto end
 	}
 
 	minimum, err = strconv.Atoi(parts[0])
 	if err != nil {
-		err = errors.Join(
+		err = errors.Join(ErrInvalidMinimumValue,
+			fmt.Errorf("minimum=%s", parts[0]),
 			err,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("minimum=%q", parts[0]),
-			fmt.Errorf("reason=%s", "invalid minimum length"),
 		)
 		goto end
 	}
 
 	maximum, err = strconv.Atoi(parts[1])
 	if err != nil {
-		err = errors.Join(
+		err = errors.Join(ErrInvalidMaximumValue,
+			fmt.Errorf("maximum=%s", parts[1]),
 			err,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("maximum=%q", parts[1]),
-			fmt.Errorf("reason=%s", "invalid maximum length"),
 		)
 		goto end
 	}
@@ -97,10 +91,9 @@ func ParseLengthConstraint(rangeSpec string) (constraint *LengthConstraint, err 
 	if minimum > maximum {
 		err = errors.Join(
 			ErrInvalidConstraint,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
+			ErrInvalidLengthRangeMinGreaterThanMax,
 			fmt.Errorf("minimum=%d", minimum),
 			fmt.Errorf("maximum=%d", maximum),
-			fmt.Errorf("reason=%s", "invalid length range (min > max)"),
 		)
 		goto end
 	}
@@ -108,9 +101,8 @@ func ParseLengthConstraint(rangeSpec string) (constraint *LengthConstraint, err 
 	if minimum < 0 {
 		err = errors.Join(
 			ErrInvalidConstraint,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
+			ErrInvalidLengthRangeNegativeMin,
 			fmt.Errorf("minimum=%d", minimum),
-			fmt.Errorf("reason=%s", "invalid length range (min < 0)"),
 		)
 		goto end
 	}
@@ -118,5 +110,11 @@ func ParseLengthConstraint(rangeSpec string) (constraint *LengthConstraint, err 
 	constraint = NewLengthConstraint(minimum, maximum)
 
 end:
+	if err != nil {
+		err = errors.Join(
+			fmt.Errorf("range=%s", rangeSpec),
+			err,
+		)
+	}
 	return constraint, err
 }

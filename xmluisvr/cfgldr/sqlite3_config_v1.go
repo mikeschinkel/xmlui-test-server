@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 const (
@@ -33,6 +34,7 @@ type SQLite3ConfigV1 struct {
 	Synchronous    string                      `json:"synchronous"`
 	ForeignKeys    string                      `json:"foreign_keys"`
 	AutoCheckpoint int                         `json:"wal_autocheckpoint"`
+	AccessMode     int                         `json:"access_mode"`
 	bootstrapSQL   []string
 	sourceFile     string
 }
@@ -81,6 +83,10 @@ func (c *SQLite3ConfigV1) ConnectString() string {
 	return c.Filepath
 }
 
+func (c *SQLite3ConfigV1) SetConnectString(cs string) {
+	c.Filepath = cs
+}
+
 func (c *SQLite3ConfigV1) Port() int {
 	return 0
 }
@@ -110,8 +116,8 @@ func (c *SQLite3ConfigV1) DatabaseType() DatabaseType {
 	return SQLite3Database
 }
 
-func (c *SQLite3ConfigV1) AddExtension(ext *SQLite3ExtensionConfigV1) (err error) {
-	ext.Normalize(common.AppConfigPath)
+func (c *SQLite3ConfigV1) AddExtension(ext *SQLite3ExtensionConfigV1, opts *Options) (err error) {
+	ext.Normalize(common.AppConfigPath, opts)
 	c.Extensions = append(c.Extensions, ext)
 	return err
 }
@@ -119,19 +125,19 @@ func (c *SQLite3ConfigV1) AddExtension(ext *SQLite3ExtensionConfigV1) (err error
 func (c *SQLite3ConfigV1) SetExtensions(exts []*SQLite3ExtensionConfigV1) {
 	c.Extensions = exts
 }
-func (c *SQLite3ConfigV1) normalizeExtensions(sourceFile string) {
+func (c *SQLite3ConfigV1) normalizeExtensions(sourceFile string, opts *Options) {
 	if len(c.Extensions) == 0 {
 		c.Extensions = make([]*SQLite3ExtensionConfigV1, 0)
 		goto end
 	}
 	for _, ext := range c.Extensions {
-		ext.Normalize(sourceFile)
+		ext.Normalize(sourceFile, opts)
 	}
 end:
 	return
 }
 
-func (c *SQLite3ConfigV1) Normalize(sourceFile string) {
+func (c *SQLite3ConfigV1) Normalize(sourceFile string, opts *Options) {
 	c.sourceFile = sourceFile
 	if c.Schema == "" {
 		c.Schema = SQLite3ConfigV1Schema
@@ -148,7 +154,16 @@ func (c *SQLite3ConfigV1) Normalize(sourceFile string) {
 	if len(c.OnOpenSQL) == 0 {
 		c.OnOpenSQL = make([]string, 0)
 	}
-	c.normalizeExtensions(sourceFile)
+	if opts.ConnectString != "" {
+		c.SetConnectString(opts.ConnectString)
+	}
+	if opts.DBAccessMode != int(dbqvars.UnspecifiedDBAccessMode) {
+		c.AccessMode = opts.DBAccessMode
+	}
+	if c.AccessMode == int(dbqvars.UnspecifiedDBAccessMode) {
+		c.AccessMode = int(DefaultDBAccessMode)
+	}
+	c.normalizeExtensions(sourceFile, opts)
 	return
 }
 
@@ -195,7 +210,7 @@ func (c *SQLite3ExtensionConfigV1) AddSHA256(name, value string) {
 func (c *SQLite3ExtensionConfigV1) AddEnvVar(name, value string) {
 	c.EnvVars[name] = value
 }
-func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile string) {
+func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile string, opts *Options) {
 	var filePath string
 	var err error
 	c.SourceFile = sourceFile
@@ -204,7 +219,7 @@ func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile string) {
 	case c.Filepath != "":
 		filePath = c.Filepath
 	case len(c.DownloadURLs) != 0:
-		cs := cfgutil.NewConfigStoreWithFilename(common.AppConfigPath, c.DownloadURLs[0], cfgutil.DefaultConfigDirType)
+		cs := cfgstore.NewConfigStoreWithFilename(common.AppConfigPath, c.DownloadURLs[0], cfgstore.DefaultConfigDirType)
 		filePath, err = cs.GetFilepath()
 		if err != nil {
 			cliutil.Errorf("Failed to get full filepath for SQLite3 extension '%s'; %v", c.Name, err)

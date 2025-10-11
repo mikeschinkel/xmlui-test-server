@@ -68,8 +68,9 @@ type API struct {
 	Endpoints            []*Endpoint      // List of configured API endpoints
 	Verbose              bool             // Enable verbose logging
 	Router               *pathvars.Router // URL routing and path parameter extraction
-	initialized          bool             // Whether Initialize() has been called
-	cliutil.WriterLogger                  // Embedded logging functionality
+	Options              *common.Options
+	initialized          bool // Whether Initialize() has been called
+	cliutil.WriterLogger      // Embedded logging functionality
 }
 
 // APIArgs contains the configuration needed to create a new API instance.
@@ -79,17 +80,18 @@ type APIArgs struct {
 	SourceFile common.Filepath // Configuration file path
 	BasePath   common.URLPath  // URL prefix for endpoints
 	Endpoints  []*Endpoint     // Parsed endpoint configurations
-	Verbose    bool            // Enable verbose output
-	CLIWriter  cliutil.Writer  // CLI output writer
-	Logger     *slog.Logger    // Structured logger
+	Options    *common.Options
+	CLIWriter  cliutil.Writer // CLI output writer
+	Logger     *slog.Logger   // Structured logger
 }
 
 // CreateAPIArgs contains dependencies needed to create an API from configuration.
 type CreateAPIArgs struct {
 	Database dbpkg.Database
 	Config   cfgldr.APIConfig // Loaded API configuration
-	Writer   cliutil.Writer   // CLI writer for output
-	Logger   *slog.Logger     // Logger instance
+	Options  *common.Options
+	Writer   cliutil.Writer // CLI writer for output
+	Logger   *slog.Logger   // Logger instance
 }
 
 // CreateAPI creates a new API instance from the provided configuration.
@@ -129,6 +131,7 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 		SourceFile: sourceFile,
 		BasePath:   basePath,
 		Endpoints:  endpoints,
+		Options:    args.Options,
 		CLIWriter:  args.Writer,
 		Logger:     args.Logger,
 	})
@@ -146,7 +149,7 @@ func NewAPI(args APIArgs) (api *API) {
 		SourceFile:   args.SourceFile,
 		BasePath:     args.BasePath,
 		Endpoints:    args.Endpoints,
-		Verbose:      args.Verbose,
+		Options:      args.Options,
 		Router:       pathvars.NewRouter(),
 		WriterLogger: cliutil.NewWriterLogger(args.CLIWriter, args.Logger),
 	}
@@ -175,13 +178,13 @@ func (api *API) initializeRouter() (err error) {
 		if err != nil {
 			errs = append(errs, err)
 		}
-		err = api.Router.AddRoute(ep.method, ep.path, &pathvars.RouteArgs{
+		err = api.Router.AddRoute(pathvars.HTTPMethod(ep.method), ep.path, &pathvars.RouteArgs{
 			Parameters:  pp,
 			Index:       i,
 			Description: ep.Description,
-			Cardinality: ep.Cardinality,
-			RowType:     ep.RowType,
-			ColumnTypes: ep.ColumnTypes,
+			Cardinality: pathvars.Cardinality(ep.Cardinality),
+			RowType:     pathvars.DBRowType(ep.RowType),
+			ColumnTypes: pathvars.DBDataTypes(ep.ColumnTypes),
 		})
 		if err != nil {
 			errs = append(errs, err)

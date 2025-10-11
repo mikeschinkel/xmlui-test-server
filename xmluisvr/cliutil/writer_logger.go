@@ -89,10 +89,12 @@ func (wl WriterLogger) concatMsgAndArgs(caller string, msg string, args ...any) 
 	last := len(args) - 1
 	sb.WriteString(msg)
 	for i := 0; i < len(args); i += 2 {
-		if i == last {
-			panic(fmt.Sprintf("cliutil.%s() requires an odd number of parameters, e.g.\n\t<writerLogger>.%s(<msg>[,<name1>,<value1>,[...<nameN>,<valueN>]])", caller, caller))
+		if i == last && i == len(args)-1 {
+			sb.WriteString(fmt.Sprintf(" %v", args[i]))
+			goto end
 		}
 		sb.WriteString(fmt.Sprintf(" %s=%v", args[i], args[i+1]))
 	}
+end:
 	return sb.String()
 }

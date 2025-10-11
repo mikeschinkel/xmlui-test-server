@@ -23,12 +23,11 @@ type RunArgs struct {
 	Logger    *slog.Logger         // Structured logger instance
 }
 
-// parseOptions converts raw command-line options into validated common.Options.
-// This method performs validation and type conversion for all server options.
-func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
+// ParseOptions converts raw options from cfgldr.Options into
+// validated common.Options. This method performs validation and type conversion
+// for all XMLUI Test Server options.
+func ParseOptions(rawOpts *cfgldr.Options) (opts *common.Options, err error) {
 	var errs []error
-	rawOpts := args.Options
-
 	opts = &common.Options{
 		AllowUntrustedQueries: rawOpts.AllowUntrustedQueries,
 	}
@@ -46,6 +45,10 @@ func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 	errs = append(errs, err)
 	opts.DBBootstrapFile, err = common.ParseFilepath(rawOpts.DBBootstrapFile)
 	errs = append(errs, err)
+	opts.Verbosity, err = common.ParseVerbosity(rawOpts.Verbosity)
+	errs = append(errs, err)
+	opts.ErrorStyle, err = common.ParseErrorStyle(rawOpts.ErrorStype)
+	errs = append(errs, err)
 
 	return opts, errors.Join(errs...)
 }
@@ -53,7 +56,7 @@ func (args *RunArgs) parseOptions() (opts *common.Options, err error) {
 // parseAPI loads and creates the API configuration from either a file or the root config.
 // If no API file is specified or found, it falls back to the API configuration
 // embedded in the root configuration.
-func (args *RunArgs) parseAPI(apiFile string, db dbpkg.Database) (api *apipkg.API, err error) {
+func (args *RunArgs) parseAPI(apiFile string, db dbpkg.Database, opts *common.Options) (api *apipkg.API, err error) {
 	var apiCfg cfgldr.APIConfig
 
 	apiCfg, err = cfgldr.LoadAPIFileIfExists(apiFile)
@@ -66,6 +69,7 @@ func (args *RunArgs) parseAPI(apiFile string, db dbpkg.Database) (api *apipkg.AP
 	api, err = apipkg.CreateAPI(apipkg.CreateAPIArgs{
 		Database: db,
 		Config:   apiCfg,
+		Options:  opts,
 		Writer:   args.CLIWriter,
 		Logger:   args.Logger,
 	})

@@ -7,6 +7,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 func init() {
@@ -41,9 +42,9 @@ func (d *DuckDB) Open(_ context.Context) error {
 	panic("implement me")
 }
 
-func (*DuckDB) ParseQueryString(query string) (_ common.QueryString, err error) {
+func (*DuckDB) ParseQueryString(query string) (_ dbqvars.QueryString, err error) {
 	// Add SQL Query validation
-	return common.QueryString(query), err
+	return dbqvars.QueryString(query), err
 }
 
 func (d *DuckDB) String() string {

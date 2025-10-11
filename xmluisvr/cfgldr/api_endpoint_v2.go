@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 // APIEndpointV2 is the main endpoint struct using JSONV2 inline to flatten the JSON
@@ -100,10 +101,10 @@ func (ep *APIEndpointV2) Normalize(sourceFile string) {
 		ep.Description = ep.Endpoint()
 	}
 	if ep.Cardinality == "" {
-		ep.Cardinality = string(common.DefaultCardinality)
+		ep.Cardinality = string(dbqvars.DefaultCardinality)
 	}
 	if ep.RowType == "" {
-		ep.RowType = string(common.DefaultRowType)
+		ep.RowType = string(dbqvars.DefaultRowType)
 	}
 	if ep.Params == nil {
 		ep.Params = APIParamsV1{}

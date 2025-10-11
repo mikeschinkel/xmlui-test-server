@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
@@ -14,13 +13,21 @@ import (
 func TestParseSQL(t *testing.T) {
 	tests := []struct {
 		name            string
-		sql             common.SQLQuery
+		sql             dbqvars.SQLQuery
 		formatParamFunc dbqvars.FormatParamFunc
 		expected        dbqvars.ParsedSQL
 		expectError     bool
 		expectedError   error
 	}{
 		// Basic cases
+		{
+			name: "LIKE '{file_path}'",
+			sql:  "SELECT id FROM logs WHERE file_path LIKE {file_path} || '%';",
+			formatParamFunc: func(i int) string {
+				return fmt.Sprintf("$%d", i)
+			},
+			expected: dbqvars.NewParsedSQL("SELECT id FROM logs WHERE file_path LIKE $1 || '%';", dbqvars.NewParameters("file_path")),
+		},
 		{
 			name: "no placeholders",
 			sql:  "SELECT * FROM users WHERE active = true",
@@ -241,7 +248,7 @@ ORDER BY u.created_at DESC`,
 func TestParseSQL_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name            string
-		sql             common.SQLQuery
+		sql             dbqvars.SQLQuery
 		formatParamFunc dbqvars.FormatParamFunc
 		expected        dbqvars.ParsedSQL
 	}{

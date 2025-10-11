@@ -6,20 +6,18 @@ package pathvars
 import (
 	"maps"
 	"slices"
-
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // ValuesMap is a map of parameter names to their extracted string values.
-type ValuesMap map[common.Identifier]any
+type ValuesMap map[Identifier]any
 
-func (vm ValuesMap) GetValues(names []common.Identifier) (values ValuesMap, notFound []common.Identifier) {
+func (vm ValuesMap) GetValues(names []Identifier) (values ValuesMap, notFound []Identifier) {
 	n := len(names)
 	values = make(ValuesMap, n)
-	notFound = make([]common.Identifier, n)
+	notFound = make([]Identifier, n)
 
 	i := 0
-	notFoundMap := make(map[common.Identifier]struct{}, len(names))
+	notFoundMap := make(map[Identifier]struct{}, len(names))
 	for _, name := range names {
 		notFoundMap[name] = struct{}{}
 	}
@@ -58,7 +56,7 @@ func NewMatchResult(r *Route, valuesMap ValuesMap) MatchResult {
 	}
 }
 
-func (m MatchResult) GetValues(names []common.Identifier) (ValuesMap, []common.Identifier) {
+func (m MatchResult) GetValues(names []Identifier) (ValuesMap, []Identifier) {
 	return m.valuesMap.GetValues(names)
 }
 
@@ -73,7 +71,7 @@ func (m MatchResult) ValuesMap() ValuesMap {
 
 // GetValue returns the value of a named parameter and whether it was found.
 // Returns the parameter value and true if the parameter exists, or empty string and false otherwise.
-func (m MatchResult) GetValue(name common.Identifier) (value any, found bool) {
+func (m MatchResult) GetValue(name Identifier) (value any, found bool) {
 	value, found = m.valuesMap[name]
 	return value, found
 }
@@ -91,7 +89,7 @@ func (m MatchResult) HasVars() bool {
 // ForEachVar iterates over all extracted parameters, calling the provided function
 // for each name-value pair. If the function returns true, iteration continues;
 // if it returns false, iteration stops early.
-func (m MatchResult) ForEachVar(fn func(name common.Identifier, value any) bool) {
+func (m MatchResult) ForEachVar(fn func(name Identifier, value any) bool) {
 	for name, value := range m.valuesMap {
 		if fn(name, value) {
 			continue

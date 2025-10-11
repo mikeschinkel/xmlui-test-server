@@ -3,7 +3,6 @@ package pathvars_test
 import (
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
@@ -58,7 +57,7 @@ func TestImplicitTypeInference(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
 			method, path := parsePathSpec(tt.template)
-			err := router.AddRoute(common.HTTPMethod(method), common.URLPath(path), nil)
+			err := router.AddRoute(pathvars.HTTPMethod(method), pathvars.Template(path), nil)
 
 			if tt.expectError {
 				if err == nil {
@@ -78,7 +77,7 @@ func TestImplicitTypeInference(t *testing.T) {
 	}
 }
 
-// Note: InferDataTypeFromName is not exported, so we test it indirectly through ParseParameter
+// Note: GetDataType is not exported, so we test it indirectly through ParseParameter
 // This keeps the API clean while still testing the functionality
 
 func TestParameterParsingWithImplicitTypes(t *testing.T) {
@@ -115,7 +114,7 @@ func TestParameterParsingWithImplicitTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			param, err := pathvars.ParseParameter(tt.paramSpec, pathvars.IrrelevantParamUseType, 0)
+			param, err := pathvars.ParseParameter(tt.paramSpec /* LocationType unimportant for this test */, "")
 
 			if tt.expectError {
 				if err == nil {

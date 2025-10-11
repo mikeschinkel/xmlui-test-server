@@ -15,6 +15,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 func init() {
@@ -25,6 +26,8 @@ var _ dbpkg.Database = (*SQLite3)(nil)
 
 type database = dbpkg.BaseDatabase
 
+var registerDriverOnce sync.Once
+
 type SQLite3 struct {
 	*database
 	JournalMode    JournalMode    // default true
@@ -32,7 +35,7 @@ type SQLite3 struct {
 	ForeignKeyMode ForeignKeyMode // default ignore foreign keys
 	BusyTimeout    time.Duration  // default 5s
 	AutoCheckpoint int            // default 1000 pages (WAL mode only)
-	//ScratchSchema  common.Identifier // e.g., "extension_mem" (empty = disabled)
+	AccessMode     dbpkg.AccessMode
 }
 
 func (s *SQLite3) allowVTable(extName string) (allow bool) {
@@ -55,9 +58,9 @@ end:
 	return false
 }
 
-func (*SQLite3) ParseQueryString(query string) (_ common.QueryString, err error) {
-	// Add SQL Query validation
-	return common.QueryString(query), err
+func (*SQLite3) ParseQueryString(query string) (_ dbqvars.QueryString, err error) {
+	// TODO: Add SQL Query validation
+	return dbqvars.QueryString(query), err
 }
 
 type SQLite3Args struct {
@@ -67,6 +70,7 @@ type SQLite3Args struct {
 	ForeignKeyMode ForeignKeyMode // default ignore foreign keys
 	BusyTimeout    time.Duration  // default 5s
 	AutoCheckpoint int            // default 1000 pages (WAL mode only)
+	AccessMode     dbpkg.AccessMode
 }
 
 func NewSQLite3(args SQLite3Args) *SQLite3 {
@@ -82,6 +86,7 @@ func NewSQLite3(args SQLite3Args) *SQLite3 {
 		ForeignKeyMode: args.ForeignKeyMode,
 		BusyTimeout:    args.BusyTimeout,
 		AutoCheckpoint: args.AutoCheckpoint,
+		AccessMode:     args.AccessMode,
 	}
 	db.database = dbpkg.NewBaseDatabase(db, dbArgs)
 	return db
@@ -108,6 +113,9 @@ func (*SQLite3) CreateNew(args dbpkg.DatabaseArgs) (ndb dbpkg.Database, err erro
 	errs = append(errs, err)
 	db.BusyTimeout, err = ParseBusyTimeout(slCfg.BusyTimeout)
 	errs = append(errs, err)
+	db.AccessMode, err = dbpkg.ParseAccessMode(slCfg.AccessMode)
+	errs = append(errs, err)
+
 	err = errors.Join(errs...)
 	if err != nil {
 		db = nil
@@ -119,6 +127,7 @@ func (*SQLite3) CreateNew(args dbpkg.DatabaseArgs) (ndb dbpkg.Database, err erro
 		Synchronous:    db.Synchronous,
 		ForeignKeyMode: db.ForeignKeyMode,
 		AutoCheckpoint: db.AutoCheckpoint,
+		AccessMode:     db.AccessMode,
 		BusyTimeout:    db.BusyTimeout,
 	})
 end:
@@ -179,15 +188,19 @@ func (s *SQLite3) String() string {
 func (s *SQLite3) Open(ctx context.Context) (err error) {
 	var cancel context.CancelFunc
 	var timeout time.Duration
+	denyUnlessAuthorized = false
 
 	s.V2().InfoPrint("Opening SQLite database", "database_file", s.HomeRelativeFile())
 
-	sql.Register("sqlite3_ext", &sqlite3.SQLiteDriver{
-		ConnectHook: s.ConnectHook(),
+	// Register the SQLite driver only once using sync.Once
+	registerDriverOnce.Do(func() {
+		sql.Register("sqlite3_ext", &sqlite3.SQLiteDriver{
+			ConnectHook: s.ConnectHook(),
+		})
 	})
 
 	// Simple connection string with extension loading enabled
-	s.DB, err = sql.Open("sqlite3", s.ConnectString()+"?_allow_load_extension=1")
+	s.DB, err = sql.Open("sqlite3_ext", s.ConnectString()+"?_allow_load_extension=1")
 	if err != nil {
 		err = errors.Join(dbpkg.ErrConnFailed, err)
 		goto end
@@ -203,7 +216,10 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 
 	// Sanity ping with deadline
 	timeout = s.Options().Timeout
-	s.V3().Printf("Setting Timeout to%d seconds\n", timeout/time.Second)
+	s.V3().Printf("Setting Timeout to %d seconds\n", timeout/time.Second)
+	if timeout == 0 {
+		timeout = time.Hour * 24 * 365 * 100 // 100 years
+	}
 	ctx, cancel = context.WithTimeout(ctx, timeout)
 	defer cancel()
 	s.V3().Printf("Pinging database to confirm connection\n")
@@ -226,20 +242,23 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 	s.V2().InfoPrint("Database opened")
 
 end:
+	denyUnlessAuthorized = true
 	return err
 }
 
 func (s *SQLite3) execQueriesIfExists(qt string, q *dbpkg.MultipartQuery) (err error) {
-	if q.HasQueries() {
-		s.V2().InfoPrint("Running queries", "query_type", qt)
-		// TODO Split out individual queries and run the separately to allow for more
-		//      targeted error messages.
-		_, err = s.DB.Exec(string(q.Source()))
+	if !q.HasQueries() {
+		goto end
 	}
+	s.V2().InfoPrint("Running queries", "query_type", qt)
+	// TODO Split out individual queries and run the separately to allow for more
+	//      targeted error messages.
+	_, err = s.DB.Exec(string(q.Source()))
 	if err != nil {
 		// TODO: Do we want to fail to run the server or allow failed initialization SQL?
-		s.WarnError("Failed to run query", "type", qt, "error", err, "query", q)
+		s.WarnError("Failed to run query", "type", qt, "error", err, "query", q.Source())
 	}
+end:
 	return err
 }
 
@@ -258,7 +277,7 @@ func (s *SQLite3) ConnectHook() func(*sqlite3.SQLiteConn) error {
 
 		// Create memory database for extensions
 		// Concatenation used to stop IDE from flagging this an an error
-		_, err = conn.Exec(`ATTACH `+`DATABASE ':memory:' AS mem"`, nil)
+		_, err = conn.Exec(`ATTACH `+`DATABASE ':memory:' AS mem`, nil)
 		if err != nil {
 			msg := "Failed to attach memory database 'mem'."
 			s.WarnError(msg, "error", err)
@@ -290,11 +309,17 @@ func (s *SQLite3) ConnectHook() func(*sqlite3.SQLiteConn) error {
 	}
 }
 
+var denyUnlessAuthorized bool
+
 type authorizerFunc = func(int, string, string, string) int
 
 // authorizer tests access modes to determine if user is authorized to run specified Sqlite3 operations
 func (s *SQLite3) authorizer() authorizerFunc {
 	return func(op int, funcName, extName, arg3 string) (decision int) {
+		if !denyUnlessAuthorized {
+			decision = sqlite3.SQLITE_OK
+			goto end
+		}
 		// Always deny these special cases
 		decision = sqlite3.SQLITE_DENY
 
@@ -304,7 +329,7 @@ func (s *SQLite3) authorizer() authorizerFunc {
 		}
 
 		// Test the cases where mode+ops are the only criteria
-		if s.AccessMode.IsRecognizedOp(op) {
+		if !s.AccessMode.IsRecognizedOp(op) {
 			s.WarnError("Unrecognized SQLite operation", "op", op)
 		}
 
@@ -313,7 +338,7 @@ func (s *SQLite3) authorizer() authorizerFunc {
 			decision = sqlite3.SQLITE_OK
 			goto end
 		}
-
+		print()
 	end:
 		return decision
 	}

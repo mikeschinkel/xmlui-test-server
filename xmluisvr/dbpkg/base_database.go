@@ -8,7 +8,6 @@ import (
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/fsutil"
 )
 
 type BaseDatabase struct {
@@ -36,7 +35,7 @@ func (db *BaseDatabase) String() string {
 }
 
 func NewBaseDatabase(parent Database, args DatabaseArgs) *BaseDatabase {
-	if args.AccessMode == UnspecifiedMode {
+	if args.AccessMode == UnspecifiedAccessMode {
 		args.AccessMode = ReadWriteMode
 	}
 	return &BaseDatabase{
@@ -51,6 +50,10 @@ func NewBaseDatabase(parent Database, args DatabaseArgs) *BaseDatabase {
 		sourceFile:       args.SourceFile,
 		WriterLogger:     cliutil.NewWriterLogger(args.CLIWriter, args.Logger),
 	}
+}
+
+func (db *BaseDatabase) Close() error {
+	return db.DB.Close()
 }
 
 func (db *BaseDatabase) SourceFile() common.Filepath {
@@ -112,6 +115,10 @@ end:
 
 func (db *BaseDatabase) ConnectString() string {
 	return db.conn
+}
+
+func (db *BaseDatabase) SetConnectString(cs string) {
+	db.conn = cs
 }
 
 func (db *BaseDatabase) Query(ctx Context, q string, params ...any) (*sql.Rows, error) {
@@ -178,7 +185,7 @@ func (db *BaseDatabase) HomeRelativeFile() string {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get absolute path of '%s': %v", db.conn, err))
 	}
-	return fsutil.HomeRelative(absPath)
+	return common.HomeRelative(absPath)
 }
 
 func (db *BaseDatabase) Extensions() []DBExtension {

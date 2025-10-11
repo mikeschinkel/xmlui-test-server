@@ -3,19 +3,20 @@ package apipkg
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 // ParseEndpointParams converts configuration parameters into EndpointParam structs.
 // It handles type conversion and validation for each parameter definition.
-func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath common.URLPath) (epParams []EndpointParam, err error) {
+func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath pathvars.Template) (epParams []EndpointParam, err error) {
 	var errs []error
 	var pathVars []pathvars.ParamVar
-	var pathValuesMap map[common.Identifier]pathvars.ParamVar
+	var pathValuesMap map[pathvars.Identifier]pathvars.ParamVar
 	var paramsMap map[string]cfgldr.APIParamV1
 
 	apiParams, ok := cfgParams.(cfgldr.APIParamsV1)
@@ -29,30 +30,33 @@ func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath common.URLPath
 	}
 	// Add any parameters that are defined ih the URL path but not lists in the array
 	// of params.
-	pathVars, err = pathvars.ParseParamsInURLPath(epPath)
+	pathVars, err = pathvars.ParseParamsInTemplate(epPath)
 	if err != nil {
-		// TODO Add regular error handling
-		panic(err.Error())
+		err = errors.Join(
+			err,
+			fmt.Errorf("url_template=%s", epPath),
+		)
+		goto end
 	}
 
 	// Loop through all the APIParamsV1 and see if there are any vars from the Path string
-	// that need to be have their UseType or Constraints updated. Also check to make sure that
+	// that need to be have their Location or Constraints updated. Also check to make sure that
 	// there are not conflicting types nor conflicting constraints
 	pathValuesMap = pathvars.ParamVars(pathVars).Map()
 	for i, p := range apiParams {
-		name, err := common.ParseLeadingIdentifier(p.NameSpec)
+		name, err := pathvars.ParseLeadingIdentifier(p.NameSpec)
 		if err != nil {
 			// TODO Add regular error handling
 			panic("Invalid identifier")
 		}
 		pv, ok := pathValuesMap[name]
 		if !ok {
-			apiParams[i].UseType = int(pathvars.QueryUseType)
+			apiParams[i].Location = string(apiutil.QueryLocation)
 			continue
 		}
 		// Path var use-type is authoritative so assign the use-type from the path var to
 		// the APIParamV1.
-		apiParams[i].UseType = int(pv.UseType)
+		apiParams[i].Location = string(pv.Location)
 		dt, err := pathvars.ParsePVDataType(p.Type)
 		if err != nil {
 			// TODO Add regular error handling
@@ -86,7 +90,7 @@ func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath common.URLPath
 		}
 		apiParam := cfgldr.NewAPIParamV1(cfgldr.APIParamV1Args{
 			NameSpec:    pv.String(),
-			Type:        string(pv.Type.TypeName()),
+			Type:        string(pv.Type.Slug()),
 			Constraints: pathvars.Constraints(pv.Constraints).String(),
 		})
 		apiParams = append(apiParams, apiParam)
@@ -96,7 +100,7 @@ func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath common.URLPath
 	// parse to convert to an Endpoint Param.
 	for _, apiParam := range apiParams {
 		var p EndpointParam
-		p, err = ParseEndpointParam(apiParam.NameSpec, apiParam.UseType, apiParam)
+		p, err = ParseEndpointParam(apiParam.NameSpec, apiParam.Location, apiParam)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -113,7 +117,7 @@ end:
 // ParseEndpointParam converts a configuration parameter into a validated
 // EndpointParam. It handles both APIParamV1 and APIParamsMapValue formats,
 // parsing the parameter specification and validating all constraints.
-func ParseEndpointParam(nameSpec string, useType int, cfg cfgldr.APIParam) (p EndpointParam, err error) {
+func ParseEndpointParam(nameSpec string, location string, cfg cfgldr.APIParam) (p EndpointParam, err error) {
 	var props *pathvars.NameSpecProps
 	var cc []pathvars.Constraint
 	var dt pathvars.PVDataType
@@ -158,7 +162,7 @@ func ParseEndpointParam(nameSpec string, useType int, cfg cfgldr.APIParam) (p En
 			Props: *props,
 
 			Type:        dt,
-			UseType:     pathvars.ParamUseType(useType),
+			Location:    pathvars.LocationType(location),
 			Constraints: cc,
 			RawValue:    param.String(),
 		})
@@ -169,13 +173,32 @@ end:
 
 type Props = pathvars.NameSpecProps
 
+type EndpointParams []EndpointParam
+
+func (eps EndpointParams) FilterByNames(names []string) (out []EndpointParam) {
+	var namesRegexp *regexp.Regexp
+	if len(names) == 0 {
+		goto end
+	}
+	out = make([]EndpointParam, len(eps))
+	namesRegexp = regexp.MustCompile(fmt.Sprintf("^(%s)$", strings.Join(names, "|")))
+	for i, ep := range eps {
+		if !namesRegexp.MatchString(string(ep.Name)) {
+			continue
+		}
+		out[i] = ep
+	}
+end:
+	return out
+}
+
 // EndpointParam represents a parameter that can be extracted from HTTP requests
 // and used in SQL query execution. Parameters can come from URL path segments,
 // query strings, or JSON request bodies.
 type EndpointParam struct {
 	Props
 	Type        pathvars.PVDataType   // Data type for validation and conversion
-	UseType     pathvars.ParamUseType // How the parameter is used (path, query, body)
+	Location    pathvars.LocationType // How the parameter is used (path, query, body, header)
 	Constraints []pathvars.Constraint // Validation constraints (min/max, regex, etc.)
 	nameSpec    pathvars.PVNameSpec
 }
@@ -208,7 +231,7 @@ func (p EndpointParam) String() (s string) {
 		cs = cs[:len(cs)-1]
 	}
 	name := string(p.Props.Name)
-	typ := string(p.Type.TypeName())
+	typ := string(p.Type.Slug())
 	if cs == "" && name == typ {
 		s = fmt.Sprintf("{%s}", name)
 		goto end
@@ -222,7 +245,7 @@ end:
 type EndpointParamArgs struct {
 	Props
 	Type        pathvars.PVDataType   // Parameter data type
-	UseType     pathvars.ParamUseType // Parameter usage type
+	Location    pathvars.LocationType // Parameter usage type
 	Constraints []pathvars.Constraint // Validation constraints
 	RawValue    string
 }
@@ -236,7 +259,7 @@ func NewEndpointParam(args EndpointParamArgs) EndpointParam {
 	return EndpointParam{
 		Props:       args.Props,
 		Type:        args.Type,
-		UseType:     args.UseType,
+		Location:    args.Location,
 		Constraints: args.Constraints,
 	}
 }

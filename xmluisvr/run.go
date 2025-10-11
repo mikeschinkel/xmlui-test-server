@@ -2,17 +2,12 @@ package xmluisvr
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-)
-
-var (
-	// ErrServerError indicates that the server terminated with an error condition.
-	ErrServerError = fmt.Errorf("server terminated with an error")
 )
 
 // Run starts the xmlui-test-server with the provided configuration and context.
@@ -45,7 +40,7 @@ func Run(ctx Context, args *RunArgs) (err error) {
 		goto end
 	}
 
-	opts, err = args.parseOptions()
+	opts, err = ParseOptions(args.Options)
 	if err != nil {
 		goto end
 	}
@@ -54,8 +49,9 @@ func Run(ctx Context, args *RunArgs) (err error) {
 	if err != nil {
 		goto end
 	}
+	defer common.CloseOrLog(db)
 
-	api, err = args.parseAPI(rawOpts.APIFile, db)
+	api, err = args.parseAPI(rawOpts.APIFile, db, opts)
 	if err != nil {
 		goto end
 	}
@@ -99,6 +95,8 @@ func Initialize(_ Context, args *RunArgs) (err error) {
 	// Setting the logger sets the package level logger variable so it is accessible
 	// throughout the package.
 	common.SetLogger(args.Logger)
+
+	apiutil.SetGitHubRepoURL(common.GitHubRepoURL)
 
 	return err
 }

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
-
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 type FormatParamFunc = func(int) string
@@ -21,7 +19,7 @@ type parseState struct {
 	tokens  QueryTokens
 }
 
-func newParseState(sqlText common.SQLQuery) parseState {
+func newParseState(sqlText SQLQuery) parseState {
 	return parseState{
 		src:     string(sqlText),
 		n:       len(sqlText),
@@ -263,14 +261,14 @@ func (s *parseState) consumePlaceholder(formatFunc FormatParamFunc) (err error) 
 	if !isValidName(rawName) {
 		err = errors.Join(
 			ErrInvalidPlaceholderName,
-			fmt.Errorf("name=%q", rawName),
+			fmt.Errorf("name=%s", rawName),
 			fmt.Errorf("offset=%d", start),
 		)
 		goto end
 	}
 	idx = s.getIndex(rawName)
 	s.tokens = append(s.tokens, QueryToken{
-		Name:  common.Selector(rawName),
+		Name:  Selector(rawName),
 		Index: idx,
 		Start: start,
 		End:   j + 1,
@@ -286,7 +284,7 @@ end:
 	return err
 }
 
-func (s *parseState) buildSQL() common.SQLQuery {
+func (s *parseState) buildSQL() SQLQuery {
 	var b strings.Builder
 	var last int
 
@@ -301,7 +299,7 @@ func (s *parseState) buildSQL() common.SQLQuery {
 	if last < len(s.src) {
 		b.WriteString(s.src[last:])
 	}
-	return common.SQLQuery(b.String())
+	return SQLQuery(b.String())
 }
 
 func (s *parseState) orderedTokens() QueryTokens {

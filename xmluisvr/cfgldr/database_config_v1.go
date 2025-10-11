@@ -1,7 +1,7 @@
 package cfgldr
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 )
 
 type DatabaseConfig interface {
@@ -9,13 +9,14 @@ type DatabaseConfig interface {
 	Clone() DatabaseConfig // Marker
 	DatabaseType() DatabaseType
 	ConnectString() string
+	SetConnectString(string)
 	Port() int
 	BootstrapQueries() []string
 	SetBootstrapQueries([]string)
 	OnOpenQueries() []string
 	SourceFile() string
 	DBExtensions() []DBExtensionConfig
-	Normalize(sourceFile string) // TODO MAYBE Change to accept an any parameter
+	Normalize(string, *Options) // TODO MAYBE Change to accept an any parameter
 }
 
 type DBExtensionConfig interface {
@@ -30,7 +31,7 @@ type dbExtensionConfig struct {
 }
 
 func (d dbExtensionConfig) ErrorName() string {
-	return cfgutil.GetBaseFilename(d.filePath)
+	return cfgstore.GetBaseFilename(d.filePath)
 }
 
 func NewDBExtensionConfig(file string) DBExtensionConfig {

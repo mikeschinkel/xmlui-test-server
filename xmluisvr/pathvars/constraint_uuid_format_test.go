@@ -76,6 +76,7 @@ func TestUUIDFormatConstraintParsing(t *testing.T) {
 }
 
 func TestUUIDFormatValidation(t *testing.T) {
+	//goland:noinspection SpellCheckingInspection
 	tests := []struct {
 		name        string
 		format      string
@@ -180,7 +181,7 @@ func TestUUIDFormatConstraintInterface(t *testing.T) {
 	}
 
 	// Test String method
-	if constraint.String() != "v4" {
+	if constraint.String() != "format[v4]" {
 		t.Errorf("Expected String() to return 'v4', got %q", constraint.String())
 	}
 
@@ -188,8 +189,9 @@ func TestUUIDFormatConstraintInterface(t *testing.T) {
 	parsed, err := constraint.Parse("v7", UUIDType)
 	if err != nil {
 		t.Errorf("Expected ParseBytes() to succeed, got error: %v", err)
+		return
 	}
-	want := "v7"
+	want := "format[v7]"
 	if parsed.String() != want {
 		t.Errorf("Expected parsed constraint to have format %q, got %q", want, parsed.String())
 	}

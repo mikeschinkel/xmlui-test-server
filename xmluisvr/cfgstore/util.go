@@ -1,4 +1,4 @@
-package cfgutil
+package cfgstore
 
 import (
 	"errors"

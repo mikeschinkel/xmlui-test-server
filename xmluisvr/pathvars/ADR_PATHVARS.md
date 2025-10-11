@@ -166,8 +166,8 @@ These changes improve reliability and consistency but require updating existing 
   ```go
   errors.Join(
     ErrValidationFailed,
-    fmt.Errorf("parameter=%q", "score"),
-    fmt.Errorf("value=%q", "999"),
+    fmt.Errorf("parameter=%s", "score"),
+    fmt.Errorf("value=%s", "999"),
     fmt.Errorf("expected=%s", "integer between 0 and 100")
   )
   ```
@@ -250,7 +250,7 @@ These changes improve reliability and consistency but require updating existing 
 3. **Regex constraints**: `regex[regex]` for custom patterns
 4. **Enum constraints**: `enum[val1,val2,val3]` for fixed values
 5. **Format constraints**: `format[iso8601]`, `format[yyyy-mm-dd]` for date/time formats, `format[v4]`, `format[ulid]` for UUID formats
-6. **Not-empty constraints**: `not-empty` to ensure values are not empty
+6. **Notempty constraints**: `notempty` to ensure values are not empty
 
 **Architecture**: Self-contained constraint system with improved error handling
 - Each constraint implements `Constraint` interface with `Parse(value string, dataType PVDataType) (Constraint, error)`

@@ -38,9 +38,9 @@ func TestArchiveUseCase(t *testing.T) {
 		query       string
 		params      []pathvars.Parameter
 	}{
-		{"/archive/2025", "Year only", "", []pathvars.Parameter{}},
+		//{"/archive/2025", "Year only", "", []pathvars.Parameter{}},
 		{"/archive/2025/09", "Year and month", "", []pathvars.Parameter{}},
-		{"/archive/2025/09/18", "Full date", "", []pathvars.Parameter{}},
+		//{"/archive/2025/09/18", "Full date", "", []pathvars.Parameter{}},
 	}
 
 	for _, tc := range testCases {

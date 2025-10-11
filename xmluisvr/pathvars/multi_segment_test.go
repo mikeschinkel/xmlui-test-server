@@ -6,15 +6,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 func TestMultiSegmentParameters(t *testing.T) {
 	tests := []struct {
 		name         string
-		method       common.HTTPMethod
-		path         common.URLPath
+		method       pathvars.HTTPMethod
+		path         pathvars.Template
 		testPath     string
 		query        string
 		params       []pathvars.Parameter
@@ -92,8 +91,8 @@ func TestMultiSegmentParameters(t *testing.T) {
 func TestMultiSegmentParameterParsing(t *testing.T) {
 	tests := []struct {
 		name                 string
-		method               common.HTTPMethod
-		path                 common.URLPath
+		method               pathvars.HTTPMethod
+		path                 pathvars.Template
 		query                string
 		params               []pathvars.Parameter
 		expectError          bool
@@ -137,8 +136,8 @@ func TestMultiSegmentParameterParsing(t *testing.T) {
 func TestMultiSegmentRegexGeneration(t *testing.T) {
 	tests := []struct {
 		name     string
-		method   common.HTTPMethod
-		path     common.URLPath
+		method   pathvars.HTTPMethod
+		path     pathvars.Template
 		testPath string
 		query    string
 		params   []pathvars.Parameter

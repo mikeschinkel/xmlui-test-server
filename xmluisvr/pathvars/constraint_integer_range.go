@@ -54,55 +54,72 @@ end:
 	return err
 }
 
-func (c *IntegerRangeConstraint) String() string {
-	return fmt.Sprintf("%s[%d..%d]", c.Type(), c.min, c.max)
+func (c *IntegerRangeConstraint) Rule() string {
+	return fmt.Sprintf("%d..%d", c.min, c.max)
 }
 
 // ParseIntRangeConstraint parses min..max format for integers
 func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstraint, err error) {
 	var parts []string
 	var minimum, maximum int64
+	var errs []error
 
 	// Split by ".."
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
 		err = errors.Join(
-			ErrInvalidConstraint,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("reason=%s", "expected format 'range[min..max]'"),
+			ErrExpectedRangeFormat,
+			fmt.Errorf("range=%s", rangeSpec),
 		)
-		goto end
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	minimum, err = strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
 		err = errors.Join(
+			ErrInvalidMinimumValue,
+			fmt.Errorf("minimum=%s", parts[0]),
 			err,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("minimum=%q", parts[0]),
-			fmt.Errorf("reason=%s", "invalid minimum value"),
 		)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(parts) == 1 {
+		err = errors.Join(errs...)
 		goto end
 	}
 
 	maximum, err = strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
 		err = errors.Join(
+			ErrInvalidMaximumValue,
+			fmt.Errorf("maximum=%s", parts[1]),
 			err,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("maximum=%q", parts[1]),
-			fmt.Errorf("reason=%s", "invalid maximum value"),
 		)
-		goto end
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if minimum > maximum {
 		err = errors.Join(
-			ErrInvalidConstraint,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
+			ErrInvalidMinMaxValue,
 			fmt.Errorf("minimum=%d", minimum),
 			fmt.Errorf("maximum=%d", maximum),
-			fmt.Errorf("reason=%s", "minimum value cannot be greater than maximum value"),
+		)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) != 0 {
+		err = errors.Join(
+			ErrInvalidConstraint,
+			fmt.Errorf("range=%s", rangeSpec),
+			errors.Join(errs...),
 		)
 		goto end
 	}

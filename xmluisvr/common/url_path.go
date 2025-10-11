@@ -7,7 +7,6 @@ import (
 )
 
 type URLPath string
-type RelativeURL string
 
 // urlPathRegexp allows for matching (maybe) method prefixed URL paths
 //
@@ -29,7 +28,9 @@ type RelativeURL string
 //			= for inline parameters like /search=query
 //			+ for some REST conventions: /users/search+filter
 //			- : hyphen for kebab-case naming like /health-check, /api-docs, /user-settings
-var relativeURLPathRegexpString = `[a-zA-Z0-9/_.{}:?&\[\]@!$;=+-]*`
+//			, : for enum constraints like enum[active,archived,draft] and parameter lists
+//			* : for multi-segment path parameters like {file_path*}
+var relativeURLPathRegexpString = `[a-zA-Z0-9/_.{}:?&\[\]@!$;=+,*-]*`
 var urlPathRegexp = regexp.MustCompile(`^(/?` + relativeURLPathRegexpString + `)$`)
 var relativeURLPathRegexp = regexp.MustCompile(`^(` + relativeURLPathRegexpString + `)$`)
 
@@ -46,30 +47,6 @@ func ParseURLPath(p string) (up URLPath, err error) {
 		goto end
 	}
 	up = URLPath(p)
-end:
-	return up, err
-}
-
-// ParseRelativeURL currently parses a (potentially partial) relative URL
-// *TEMPLATE*, not just the path.
-// TODO Rename this to ParseRelativeURLPathTemplate, or similar?
-//
-//	Move to pathvars package
-func ParseRelativeURL(p string) (up RelativeURL, err error) {
-	if p == "" {
-		err = ErrURLPathMustNotBeEmpty
-	}
-	if p[0] == '/' {
-		err = errors.Join(ErrURLPathMustNotBeginWithSlash,
-			fmt.Errorf("url_path=%s", p),
-		)
-		goto end
-	}
-	if !relativeURLPathRegexp.MatchString(p) {
-		err = errors.Join(ErrInvalidURLPath, fmt.Errorf("relative_url=%s", p))
-		goto end
-	}
-	up = RelativeURL(p)
 end:
 	return up, err
 }

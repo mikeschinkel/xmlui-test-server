@@ -17,4 +17,12 @@ var (
 
 	// ErrInvalidPlaceholderName indicates that a placeholder name is invalid or malformed.
 	ErrInvalidPlaceholderName = errors.New("invalid placeholder name")
+
+	ErrInvalidCardinalityType = errors.New("invalid cardinality type")
+
+	ErrInvalidResultsColumnDataType = errors.New("invalid results column data type")
+
+	ErrInvalidRowType = errors.New("invalid row type")
+
+	ErrInvalidDataType = errors.New("invalid data type")
 )

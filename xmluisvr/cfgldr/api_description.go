@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 type Context = context.Context
@@ -57,7 +57,7 @@ func (d *EndpointDefinition) Migrate() (eps []*APIEndpointV2) {
 		for i, p := range m.Params {
 			params[i] = APIParamV1{
 				NameSpec: p,
-				Type:     string(common.AnyRowType),
+				Type:     string(dbqvars.AnyRowType),
 			}
 		}
 		name = strings.ToUpper(name)
@@ -66,8 +66,8 @@ func (d *EndpointDefinition) Migrate() (eps []*APIEndpointV2) {
 			Query:       m.SQL,
 			QueryFile:   m.SQLFile,
 			Params:      params,
-			Cardinality: string(common.ManyRowsOrNone),
-			RowType:     string(common.AnyRowType),
+			Cardinality: string(dbqvars.ManyRowsOrNone),
+			RowType:     string(dbqvars.AnyRowType),
 		}))
 	}
 	return eps

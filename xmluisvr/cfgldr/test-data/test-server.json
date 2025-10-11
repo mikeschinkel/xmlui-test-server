@@ -31,7 +31,7 @@
 		"$schema": "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json",
 		"version": 1,
 		"type": "sqlite3",
-		"filepath": "./data.db",
+		"filepath": "./dbroot/data.db",
 		"on_open_sql": [],
 		"busy_timeout": 0,
 		"journal_mode": "",

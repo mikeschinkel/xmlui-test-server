@@ -53,8 +53,8 @@ func (c *RegexConstraint) Validate(value string) (err error) {
 	return err
 }
 
-func (c *RegexConstraint) String() string {
-	return fmt.Sprintf("%s[%s]", c.Type(), c.raw)
+func (c *RegexConstraint) Rule() string {
+	return c.raw
 }
 
 // ParseRegexConstraint parses a regex pattern
@@ -64,8 +64,8 @@ func ParseRegexConstraint(pattern string) (constraint *RegexConstraint, err erro
 	if pattern == "" {
 		err = errors.Join(
 			ErrInvalidConstraint,
-			fmt.Errorf("pattern=%q", pattern),
-			fmt.Errorf("reason=%s", "empty regex pattern"),
+			ErrEmptyRegexPattern,
+			fmt.Errorf("pattern=%s", pattern),
 		)
 		goto end
 	}
@@ -73,9 +73,9 @@ func ParseRegexConstraint(pattern string) (constraint *RegexConstraint, err erro
 	regex, err = regexp.Compile(pattern)
 	if err != nil {
 		err = errors.Join(
+			ErrInvalidRegexPattern,
+			fmt.Errorf("pattern=%s", pattern),
 			err,
-			fmt.Errorf("pattern=%q", pattern),
-			fmt.Errorf("reason=%s", "invalid regular expression"),
 		)
 		goto end
 	}

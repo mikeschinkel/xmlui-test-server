@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 func TestConstraints(t *testing.T) {
+	//goland:noinspection SpellCheckingInspection
 	tests := []struct {
 		name       string
 		ps         pathvars.PathSpec
@@ -312,7 +312,7 @@ func TestConstraints(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
 			m, p := parsePathSpec(string(tt.ps))
-			err := router.AddRoute(common.HTTPMethod(m), common.URLPath(p), &pathvars.RouteArgs{
+			err := router.AddRoute(pathvars.HTTPMethod(m), pathvars.Template(p), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -428,7 +428,7 @@ func TestCreativeDateFormats(t *testing.T) {
 			pathSpec := pathvars.PathSpec(fmt.Sprintf("GET /test/{date:date:format[%s]}", tt.regex))
 
 			method, path := parsePathSpec(string(pathSpec))
-			err := router.AddRoute(common.HTTPMethod(method), common.URLPath(path), nil)
+			err := router.AddRoute(pathvars.HTTPMethod(method), pathvars.Template(path), nil)
 
 			if tt.wantErr {
 				if err == nil {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/mikeschinkel/go-fsfix"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
@@ -13,14 +13,14 @@ import (
 // emulate the user's ~/.config/xmlui config directory and the other to emulate
 // the project's ./.xmlui config directory. The userFile and projectFile should
 // be filenames containing hte respective config files for each.
-func SetupConfigDirFixtures(t *testing.T, testDataDir, userFile, projectFile string) (rootFix *fsfix.RootFixture, csMap cfgutil.ConfigStoresMap) {
+func SetupConfigDirFixtures(t *testing.T, testDataDir, userFile, projectFile string) (rootFix *fsfix.RootFixture, csMap cfgstore.ConfigStoresMap) {
 	const (
 		userDir    = ".config"
 		projectDir = "project"
 	)
-	csMap = cfgutil.GetConfigStoresMap(common.AppConfigPath, cfgldr.RootConfigFile)
-	dotCS := csMap[cfgutil.DefaultConfigDirType]
-	localCS := csMap[cfgutil.LocalConfigDir]
+	csMap = cfgstore.GetConfigStoresMap(common.AppConfigPath, cfgldr.RootConfigFile)
+	dotCS := csMap[cfgstore.DefaultConfigDirType]
+	localCS := csMap[cfgstore.LocalConfigDir]
 
 	rootFix = fsfix.NewRootFixture("config")
 

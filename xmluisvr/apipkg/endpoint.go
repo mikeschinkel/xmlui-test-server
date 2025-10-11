@@ -4,14 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
 // ParseEndpoints converts a slice of configuration endpoint definitions
@@ -21,7 +24,12 @@ func ParseEndpoints(cfgEPs []*cfgldr.APIEndpointV2, basePath common.URLPath, db 
 	eps = make([]*Endpoint, len(cfgEPs))
 	for i, cfgEP := range cfgEPs {
 		eps[i], err = ParseEndpoint(cfgEP, basePath, db)
-		errs = append(errs, err)
+		if err != nil {
+			errs = append(errs, errors.Join(
+				ErrInvalidAPIEndpointParameter,
+				err,
+			))
+		}
 	}
 	return eps, errors.Join(errs...)
 }
@@ -33,7 +41,7 @@ func ParseQuery(query common.QueryString, db dbpkg.Database) (pq dbqvars.ParsedQ
 	qt := strings.ToLower(db.QueryFileExt())
 	switch qt {
 	case ".sql":
-		pq, err = dbqvars.ParseSQL(common.SQLQuery(query), db.GetFormatParamFunc())
+		pq, err = dbqvars.ParseSQL(dbqvars.SQLQuery(query), db.GetFormatParamFunc())
 	default:
 		err = errors.Join(ErrQueryTypeParsingNotYetSupported, fmt.Errorf("query_type=%s", qt))
 	}
@@ -57,22 +65,21 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2, basePath common.URLPath, db dbpkg.
 	// TODO: Allow or disallow defining endpoints without explicitly specifying a method? Maybe we should require "ANY"?
 	ep.method, err = common.ParseHTTPMethod(cfg.Method, common.EmptyOk)
 	errs = append(errs, err)
-	var relPath common.RelativeURL
-	relPath, err = common.ParseRelativeURL(cfg.Path)
+	var relPath *pathvars.ParsedTemplate
+	relPath, err = pathvars.ParseTemplate(cfg.Path)
 	errs = append(errs, err)
 
 	// TODO Allow or disallow root-based URLs that ignore basepath; which to choose?
 	//      Need override setting to explicitly allow
-	ep.path = common.URLPath(fmt.Sprintf("%s/%s", basePath, relPath))
-	errs = append(errs, err)
+	ep.path = pathvars.Template(fmt.Sprintf("%s/%s", basePath, relPath))
 	ep.Params, err = ParseEndpointParams(cfg.Params, ep.path)
 	errs = append(errs, err)
 	ep.pathParsed = true
-	ep.Cardinality, err = common.ParseCardinality(cfg.Cardinality)
+	ep.Cardinality, err = dbqvars.ParseCardinality(cfg.Cardinality)
 	errs = append(errs, err)
-	ep.RowType, err = common.ParseDBRowType(cfg.RowType)
+	ep.RowType, err = dbqvars.ParseDBRowType(cfg.RowType)
 	errs = append(errs, err)
-	ep.ColumnTypes, err = common.ParseColumnTypes(cfg.ColumnTypes)
+	ep.ColumnTypes, err = dbqvars.ParseColumnTypes(cfg.ColumnTypes)
 	errs = append(errs, err)
 	err = errors.Join(errs...)
 	if err != nil {
@@ -91,19 +98,19 @@ type EndPointString string
 // Endpoint represents a parsed API endpoint configuration with all validation complete.
 // It contains the HTTP method, URL path, SQL query, parameters, and response formatting options.
 type Endpoint struct {
-	Description   string              // Human-readable description of the endpoint
-	ParsedQuery   dbqvars.ParsedQuery // Query to execute parsed by dbqvars.ParseBytes()
-	queryFilepath common.Filepath     // Resolved absolute path to SQL file
-	Params        []EndpointParam     // Parameters that can be extracted from requests
-	Cardinality   common.Cardinality  // Expected number of result rows (one, many, etc.)
-	RowType       common.DBRowType    // Format for returning results (json, columns, etc.)
-	ColumnTypes   []common.DBDataType // Expected data types for result columns
-	method        common.HTTPMethod   // HTTP method (GET, POST, etc.)
-	path          common.URLPath      // URL path pattern with parameter placeholders
+	Description   string               // Human-readable description of the endpoint
+	ParsedQuery   dbqvars.ParsedQuery  // Query to execute parsed by dbqvars.ParseBytes()
+	queryFilepath common.Filepath      // Resolved absolute path to SQL file
+	Params        []EndpointParam      // Parameters that can be extracted from requests
+	Cardinality   dbqvars.Cardinality  // Expected number of result rows (one, many, etc.)
+	RowType       dbqvars.DBRowType    // Format for returning results (json, columns, etc.)
+	ColumnTypes   []dbqvars.DBDataType // Expected data types for result columns
+	method        common.HTTPMethod    // HTTP method (GET, POST, etc.)
+	path          pathvars.Template    // URL path pattern with parameter placeholders
 	pathParsed    bool
 }
 
-func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []common.Selector) (valuesMap jsonutil.ValuesMap, notFound []common.Selector, err error) {
+func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []jsonutil.Selector) (valuesMap jsonutil.ValuesMap, notFound []jsonutil.Selector, err error) {
 	dbq := ep.ParsedQuery
 	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
 	valuesMap, notFound, err = jsonutil.ExtractValuesFromReader(r, selectors)
@@ -112,13 +119,14 @@ func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []common.Selector) (
 		goto end
 	}
 	if err != nil {
+		// TODO: Replace with an Response
 		err = errors.Join(ErrExtractingFromReader,
+			err,
 			fmt.Errorf("endpoint=%v", ep.Endpoint()),
 			fmt.Errorf("sql_query=%v", dbq.QueryString()),
 			fmt.Errorf("sql_params=%v", dbq.Parameters()),
 			fmt.Errorf("body_matched=%v", valuesMap),
 			fmt.Errorf("not_matched=%v", notFound),
-			err,
 		)
 		goto end
 	}
@@ -126,17 +134,26 @@ end:
 	return valuesMap, notFound, err
 }
 
-func (ep *Endpoint) GetParameterValues(valuesMap pathvars.ValuesMap, r io.Reader) (queryValues []any, notFound []common.Selector, err error) {
+type ParameterValuesSource struct {
+	ValuesMap  pathvars.ValuesMap
+	BodyReader io.Reader
+	Headers    http.Header // TODO: Not yet supported
+}
+
+func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues []any, missing []apiutil.MissingParameter, err error) {
 	var pathValuesMap pathvars.ValuesMap
-	var namesNotFound []common.Identifier
+	var namesNotFound []pathvars.Identifier
 	var jsonValuesMap jsonutil.ValuesMap
-	var selectors []common.Selector
+	var notFound []jsonutil.Selector
+	var selectors []dbqvars.Selector
+	var epParams []EndpointParam
 
 	dbq := ep.ParsedQuery
 	parameters := dbq.Parameters()
 
 	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
-	pathValuesMap, namesNotFound = valuesMap.GetValues(parameters.Identifiers())
+	ids := pathvars.Identifiers(parameters.Identifiers())
+	pathValuesMap, namesNotFound = pvs.ValuesMap.GetValues(ids)
 
 	// Note get the selectors to search JSON
 	selectors = parameters.DottedSelectors()
@@ -147,9 +164,9 @@ func (ep *Endpoint) GetParameterValues(valuesMap pathvars.ValuesMap, r io.Reader
 	}
 
 	switch {
-	case r != nil:
+	case pvs.BodyReader != nil:
 		// We got a reader for the JSON body
-		jsonValuesMap, notFound, err = ep.GetBodyValuesMap(r, selectors)
+		jsonValuesMap, notFound, err = ep.GetBodyValuesMap(pvs.BodyReader, jsonutil.ToSelectors(selectors))
 		if err != nil {
 			err = errors.Join(ErrExtractingJSONBodyValues, err)
 			goto end
@@ -157,28 +174,40 @@ func (ep *Endpoint) GetParameterValues(valuesMap pathvars.ValuesMap, r io.Reader
 	default:
 		// We did NOT get a reader for the JSON body
 		// Convert slice of []common.Identifier to slice of []common.Selector{}.
-		notFound = combineStringsAsY(namesNotFound, []common.Selector{})
+		notFound = combineStringsAsY(namesNotFound, []jsonutil.Selector{})
 	}
 
 	queryValues = make([]any, len(parameters))
 	for i, p := range parameters {
-		qv, ok := pathValuesMap[common.Identifier(p.Name)]
+		qv, ok := pathValuesMap[pathvars.Identifier(p.Name)]
 		if ok {
 			queryValues[i] = qv
 			continue
 		}
-		if r == nil {
+		if pvs.BodyReader == nil {
 			// We did not get a body ready so no jsonValuesMap to look at
 			continue
 		}
-		qv, ok = jsonValuesMap[p.Name]
+		qv, ok = jsonValuesMap[jsonutil.Selector(p.Name)]
 		if ok {
 			queryValues[i] = qv
 			continue
 		}
 	}
+	missing = make([]apiutil.MissingParameter, len(notFound))
+	epParams = EndpointParams(ep.Params).FilterByNames(jsonutil.Selectors(notFound).Strings())
+	for i, p := range epParams {
+		missing[i] = apiutil.MissingParameter{
+			// TODO: Converting an Identifier to a Selector. p.Name should probably be a Selector
+			Selector: rfc9457.Selector(p.Name),
+			Location: apiutil.LocationType(p.Location),
+			Expected: "", // TODO Can we populate this?
+			Received: "", // TODO Can we populate this?
+			Message:  "", // TODO Can we populate this?
+		}
+	}
 end:
-	return queryValues, notFound, err
+	return queryValues, missing, err
 }
 
 // ParsePathVarsParameters converts endpoint parameters into pathvars.Parameter instances
@@ -193,7 +222,7 @@ func (ep *Endpoint) ParsePathVarsParameters() (params []pathvars.Parameter, err 
 			dt = *props.DataType
 		}
 		if dt == pathvars.UnspecifiedDataType {
-			dt, err = pathvars.ParseParameterDataType(string(props.Name), string(p.Type.TypeName()))
+			dt, err = pathvars.ParseParameterDataType(string(props.Name), string(p.Type.Slug()))
 		}
 		if err != nil {
 			errs = append(errs, err)
@@ -206,7 +235,7 @@ func (ep *Endpoint) ParsePathVarsParameters() (params []pathvars.Parameter, err 
 		params = append(params, pathvars.NewParameter(pathvars.ParameterArgs{
 			Position:    i,
 			NameProps:   props,
-			UseType:     p.UseType,
+			Location:    pathvars.LocationType(p.Location),
 			DataType:    dt,
 			Constraints: p.Constraints,
 			Original:    p.RawValue(),
@@ -232,7 +261,7 @@ func (ep *Endpoint) Endpoint() EndPointString {
 }
 
 // Path returns the URL path pattern for this endpoint.
-func (ep *Endpoint) Path() common.URLPath {
+func (ep *Endpoint) Path() pathvars.Template {
 	return ep.path
 }
 
@@ -257,7 +286,7 @@ func (ep *Endpoint) RawMethod() common.HTTPMethod {
 func splitEndPoint(ep string) (method, path string) {
 	method, path, found := strings.Cut(ep, " ")
 	if !found {
-		path = string(ep)
+		path = ep
 		goto end
 	}
 end:

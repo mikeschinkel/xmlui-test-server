@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // PVNameSpec is an identifier [a-z0-9_] with an option asterisk (*) for
@@ -37,7 +35,7 @@ const (
 // - name*?default -> multi-segment optional parameter with default
 func ParseNameSpecProps(ns string) (props *NameSpecProps, err error) {
 	var dt PVDataType
-	var name common.Identifier
+	var name Identifier
 	var chars string
 	var matches []string
 
@@ -51,7 +49,7 @@ func ParseNameSpecProps(ns string) (props *NameSpecProps, err error) {
 		goto end
 	}
 
-	name, err = common.ParseLeadingIdentifier(strings.ToLower(ns))
+	name, err = ParseLeadingIdentifier(strings.ToLower(ns))
 	if err != nil {
 		err = errors.Join(err,
 			ErrInvalidNameSpec,
@@ -66,7 +64,7 @@ func ParseNameSpecProps(ns string) (props *NameSpecProps, err error) {
 		Name:     name,
 		RawValue: ns,
 	}
-	dt = InferDataTypeFromName(string(name))
+	dt = GetDataType(name)
 	if dt != UnspecifiedDataType {
 		props.DataType = &dt
 	}

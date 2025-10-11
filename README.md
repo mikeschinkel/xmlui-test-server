@@ -151,10 +151,133 @@ You can use an API description file, show db responses, and capture output to a 
 ```bash
 ./xmlui-test-server --api api.json -show-responses | tee server_log.txt"
 ```
-
 You can use Postgres instead of SQLite
 
 ```bash
 ./xmlui-test-server --api api.json --pg-conn postgres://steampipe@127.0.0.1:9193/steampipe
 ```
+
+## Dependency Graph
+
+
+```mermaid
+graph LR
+%%{init: { "flowchart": { "rankSpacing": 120, "nodeSpacing": 40, "useMaxWidth": false } }}%%
+  subgraph L0["Level 0"]
+    xmluisvr/cliutil
+    xmluisvr/common
+    xmluisvr/dbpkg/mariadbpkg
+    xmluisvr/dbpkg/mysqlpkg
+    xmluisvr/dbqvars
+    xmluisvr/errutil
+    xmluisvr/jsonutil
+    xmluisvr/pathvars
+    xmluisvr/rfc9457
+  end
+  subgraph L1["Level 1"]
+    xmluisvr/cfgstore
+  end
+  subgraph L2["Level 2"]
+    xmluisvr/cfgldr
+  end
+  subgraph L3["Level 3"]
+    xmluisvr/dbpkg
+    xmluisvr/testutil
+  end
+  subgraph L4["Level 4"]
+    xmluisvr/apiutil
+    xmluisvr/dbpkg/duckdbpkg
+    xmluisvr/dbpkg/postgrespkg
+    xmluisvr/dbpkg/sqlite3pkg
+  end
+  subgraph L5["Level 5"]
+    xmluisvr/apipkg
+  end
+  subgraph L6["Level 6"]
+    xmluisvr
+  end
+  subgraph L7["Level 7"]
+    cmd
+  end
+  cmd --> xmluisvr
+  xmluisvr --> xmluisvr/apipkg
+  xmluisvr --> xmluisvr/apiutil
+  xmluisvr --> xmluisvr/cfgldr
+  xmluisvr --> xmluisvr/cliutil
+  xmluisvr --> xmluisvr/common
+  xmluisvr --> xmluisvr/dbpkg
+  xmluisvr --> xmluisvr/dbpkg/duckdbpkg
+  xmluisvr --> xmluisvr/dbpkg/mariadbpkg
+  xmluisvr --> xmluisvr/dbpkg/mysqlpkg
+  xmluisvr --> xmluisvr/dbpkg/postgrespkg
+  xmluisvr --> xmluisvr/dbpkg/sqlite3pkg
+  xmluisvr --> xmluisvr/dbqvars
+  xmluisvr/apipkg --> xmluisvr/apiutil
+  xmluisvr/apipkg --> xmluisvr/cfgldr
+  xmluisvr/apipkg --> xmluisvr/cliutil
+  xmluisvr/apipkg --> xmluisvr/common
+  xmluisvr/apipkg --> xmluisvr/dbpkg
+  xmluisvr/apipkg --> xmluisvr/dbqvars
+  xmluisvr/apipkg --> xmluisvr/errutil
+  xmluisvr/apipkg --> xmluisvr/jsonutil
+  xmluisvr/apipkg --> xmluisvr/pathvars
+  xmluisvr/apipkg --> xmluisvr/rfc9457
+  xmluisvr/apiutil --> xmluisvr/cliutil
+  xmluisvr/apiutil --> xmluisvr/common
+  xmluisvr/apiutil --> xmluisvr/dbpkg
+  xmluisvr/apiutil --> xmluisvr/dbqvars
+  xmluisvr/apiutil --> xmluisvr/errutil
+  xmluisvr/apiutil --> xmluisvr/rfc9457
+  xmluisvr/cfgldr --> xmluisvr/cfgstore
+  xmluisvr/cfgldr --> xmluisvr/cliutil
+  xmluisvr/cfgldr --> xmluisvr/common
+  xmluisvr/cfgldr --> xmluisvr/dbqvars
+  xmluisvr/cfgldr --> xmluisvr/pathvars
+  xmluisvr/cfgstore --> xmluisvr/common
+  xmluisvr/dbpkg --> xmluisvr/cfgldr
+  xmluisvr/dbpkg --> xmluisvr/cfgstore
+  xmluisvr/dbpkg --> xmluisvr/cliutil
+  xmluisvr/dbpkg --> xmluisvr/common
+  xmluisvr/dbpkg --> xmluisvr/dbqvars
+  xmluisvr/dbpkg/duckdbpkg --> xmluisvr/cfgldr
+  xmluisvr/dbpkg/duckdbpkg --> xmluisvr/common
+  xmluisvr/dbpkg/duckdbpkg --> xmluisvr/dbpkg
+  xmluisvr/dbpkg/duckdbpkg --> xmluisvr/dbqvars
+  xmluisvr/dbpkg/postgrespkg --> xmluisvr/cfgldr
+  xmluisvr/dbpkg/postgrespkg --> xmluisvr/cliutil
+  xmluisvr/dbpkg/postgrespkg --> xmluisvr/common
+  xmluisvr/dbpkg/postgrespkg --> xmluisvr/dbpkg
+  xmluisvr/dbpkg/postgrespkg --> xmluisvr/dbqvars
+  xmluisvr/dbpkg/sqlite3pkg --> xmluisvr/cfgldr
+  xmluisvr/dbpkg/sqlite3pkg --> xmluisvr/common
+  xmluisvr/dbpkg/sqlite3pkg --> xmluisvr/dbpkg
+  xmluisvr/dbpkg/sqlite3pkg --> xmluisvr/dbqvars
+  xmluisvr/testutil --> xmluisvr/cfgldr
+  xmluisvr/testutil --> xmluisvr/cfgstore
+  xmluisvr/testutil --> xmluisvr/cliutil
+  xmluisvr/testutil --> xmluisvr/common
+```
+
+| Package | Imported by | Direct imports | Indirect imports |
+|---|---|---|---|
+| cmd | — | github.com/xmlui-org/xmlui-test-server/xmluisvr | xmluisvr<br>xmluisvr/apipkg<br>xmluisvr/apiutil<br>xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbpkg<br>xmluisvr/dbpkg/duckdbpkg<br>xmluisvr/dbpkg/mariadbpkg<br>xmluisvr/dbpkg/mysqlpkg<br>xmluisvr/dbpkg/postgrespkg<br>xmluisvr/dbpkg/sqlite3pkg<br>xmluisvr/dbqvars<br>xmluisvr/errutil<br>xmluisvr/jsonutil<br>xmluisvr/pathvars<br>xmluisvr/rfc9457 |
+| xmluisvr | cmd | github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/duckdbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/mariadbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/mysqlpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/postgrespkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/sqlite3pkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars | xmluisvr/apipkg<br>xmluisvr/apiutil<br>xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbpkg<br>xmluisvr/dbpkg/duckdbpkg<br>xmluisvr/dbpkg/mariadbpkg<br>xmluisvr/dbpkg/mysqlpkg<br>xmluisvr/dbpkg/postgrespkg<br>xmluisvr/dbpkg/sqlite3pkg<br>xmluisvr/dbqvars<br>xmluisvr/errutil<br>xmluisvr/jsonutil<br>xmluisvr/pathvars<br>xmluisvr/rfc9457 |
+| xmluisvr/apipkg | xmluisvr | github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/errutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457 | xmluisvr/apiutil<br>xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbpkg<br>xmluisvr/dbqvars<br>xmluisvr/errutil<br>xmluisvr/jsonutil<br>xmluisvr/pathvars<br>xmluisvr/rfc9457 |
+| xmluisvr/apiutil | xmluisvr<br>xmluisvr/apipkg | github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/errutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457 | xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbpkg<br>xmluisvr/dbqvars<br>xmluisvr/errutil<br>xmluisvr/pathvars<br>xmluisvr/rfc9457 |
+| xmluisvr/cfgldr | xmluisvr<br>xmluisvr/apipkg<br>xmluisvr/dbpkg<br>xmluisvr/dbpkg/duckdbpkg<br>xmluisvr/dbpkg/postgrespkg<br>xmluisvr/dbpkg/sqlite3pkg<br>xmluisvr/testutil | github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars | xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbqvars<br>xmluisvr/pathvars |
+| xmluisvr/cfgstore | xmluisvr/cfgldr<br>xmluisvr/dbpkg<br>xmluisvr/testutil | github.com/xmlui-org/xmlui-test-server/xmluisvr/common | xmluisvr/common |
+| xmluisvr/cliutil | xmluisvr<br>xmluisvr/apipkg<br>xmluisvr/apiutil<br>xmluisvr/cfgldr<br>xmluisvr/dbpkg<br>xmluisvr/dbpkg/postgrespkg<br>xmluisvr/testutil | — | — |
+| xmluisvr/common | xmluisvr<br>xmluisvr/apipkg<br>xmluisvr/apiutil<br>xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/dbpkg<br>xmluisvr/dbpkg/duckdbpkg<br>xmluisvr/dbpkg/postgrespkg<br>xmluisvr/dbpkg/sqlite3pkg<br>xmluisvr/testutil | — | — |
+| xmluisvr/dbpkg | xmluisvr<br>xmluisvr/apipkg<br>xmluisvr/apiutil<br>xmluisvr/dbpkg/duckdbpkg<br>xmluisvr/dbpkg/postgrespkg<br>xmluisvr/dbpkg/sqlite3pkg | github.com/mattn/go-sqlite3<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars | xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbqvars<br>xmluisvr/pathvars |
+| xmluisvr/dbpkg/duckdbpkg | xmluisvr | github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars | xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbpkg<br>xmluisvr/dbqvars<br>xmluisvr/pathvars |
+| xmluisvr/dbpkg/mariadbpkg | xmluisvr | — | — |
+| xmluisvr/dbpkg/mysqlpkg | xmluisvr | — | — |
+| xmluisvr/dbpkg/postgrespkg | xmluisvr | github.com/lib/pq<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars | xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbpkg<br>xmluisvr/dbqvars<br>xmluisvr/pathvars |
+| xmluisvr/dbpkg/sqlite3pkg | xmluisvr | github.com/mattn/go-sqlite3<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars | xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbpkg<br>xmluisvr/dbqvars<br>xmluisvr/pathvars |
+| xmluisvr/dbqvars | xmluisvr<br>xmluisvr/apipkg<br>xmluisvr/apiutil<br>xmluisvr/cfgldr<br>xmluisvr/dbpkg<br>xmluisvr/dbpkg/duckdbpkg<br>xmluisvr/dbpkg/postgrespkg<br>xmluisvr/dbpkg/sqlite3pkg | — | — |
+| xmluisvr/errutil | xmluisvr/apipkg<br>xmluisvr/apiutil | — | — |
+| xmluisvr/jsonutil | xmluisvr/apipkg | — | — |
+| xmluisvr/pathvars | xmluisvr/apipkg<br>xmluisvr/cfgldr | — | — |
+| xmluisvr/rfc9457 | xmluisvr/apipkg<br>xmluisvr/apiutil | — | — |
+| xmluisvr/testutil | — | github.com/mikeschinkel/go-fsfix<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil<br>github.com/xmlui-org/xmlui-test-server/xmluisvr/common | xmluisvr/cfgldr<br>xmluisvr/cfgstore<br>xmluisvr/cliutil<br>xmluisvr/common<br>xmluisvr/dbqvars<br>xmluisvr/pathvars |
 

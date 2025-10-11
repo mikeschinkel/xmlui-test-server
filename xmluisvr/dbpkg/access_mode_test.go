@@ -17,10 +17,10 @@ func TestAccessMode_Allowed(t *testing.T) {
 		funcName string
 	}{
 
-		// Ops denied for dbpkg.UnspecifiedMode
-		{op: sqlite3.SQLITE_READ, m: dbpkg.UnspecifiedMode, allowed: false},
-		{op: sqlite3.SQLITE_SELECT, m: dbpkg.UnspecifiedMode, allowed: false},
-		{op: sqlite3.SQLITE_ANALYZE, m: dbpkg.UnspecifiedMode, allowed: false},
+		// Ops denied for dbpkg.UnspecifiedAccessMode
+		{op: sqlite3.SQLITE_READ, m: dbpkg.UnspecifiedAccessMode, allowed: false},
+		{op: sqlite3.SQLITE_SELECT, m: dbpkg.UnspecifiedAccessMode, allowed: false},
+		{op: sqlite3.SQLITE_ANALYZE, m: dbpkg.UnspecifiedAccessMode, allowed: false},
 
 		// Ops denied for dbpkg.ReadOnlyMode
 		{op: sqlite3.SQLITE_INSERT, m: dbpkg.ReadOnlyMode, allowed: false},

@@ -72,11 +72,11 @@ func NewServer(args ServerArgs) *Server {
 // Initialize prepares the server for operation by initializing the API,
 // setting up HTTP routes, and opening the database connection.
 // This method must be called before ListenAndServe().
-func (s *Server) Initialize(ctx Context) (err error) {
-	s.V2().InfoPrint("Initializing server")
-	err = s.api.Initialize(ctx)
+func (svr *Server) Initialize(ctx Context) (err error) {
+	svr.V2().InfoPrint("Initializing server")
+	err = svr.api.Initialize(ctx)
 	if errors.Is(err, common.ErrNoAPIProvided) {
-		s.Printf("No APIConfig loaded")
+		svr.Printf("No APIConfig loaded")
 		err = nil
 	}
 	if err != nil {
@@ -85,15 +85,15 @@ func (s *Server) Initialize(ctx Context) (err error) {
 	}
 
 	// Add URL routes
-	s.addRoutes(ctx)
+	svr.addRoutes(ctx)
 
-	err = s.db.Open(ctx)
+	err = svr.db.Open(ctx)
 	if err != nil {
-		err = s.ErrorError("Failed to opened database", "database_type", s.db.Type(), "error", err)
+		err = svr.ErrorError("Failed to open database", "database_type", svr.db.Type(), "error", err)
 		goto end
 	}
 
-	s.V2().InfoPrint("Server initialized")
+	svr.V2().InfoPrint("Server initialized")
 end:
 	return err
 }
@@ -101,15 +101,15 @@ end:
 // ListenAndServe starts the HTTP server and begins listening for requests.
 // The server listens on the configured port and applies CORS middleware
 // to all requests. This method blocks until the server shuts down or an error occurs.
-func (s *Server) ListenAndServe(_ Context) (err error) {
-	s.InfoLoud("Server listening", "on", s.displayHost())
-	return http.ListenAndServe(s.Host(), s.corsMiddleware(s.mux))
+func (svr *Server) ListenAndServe(_ Context) (err error) {
+	svr.InfoLoud("Server listening", "on", svr.displayHost())
+	return http.ListenAndServe(svr.Host(), svr.corsMiddleware(svr.mux))
 }
 
 // corsMiddleware applies CORS headers to all HTTP responses to enable
 // cross-origin requests from web browsers. It handles preflight OPTIONS
 // requests and sets permissive CORS headers.
-func (s *Server) corsMiddleware(next http.Handler) http.Handler {
+func (svr *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Access-Control-Allow-Origin", "*")
@@ -126,13 +126,13 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 }
 
 // Host returns the full host:port string for the server.
-func (s *Server) Host() string {
-	return fmt.Sprintf("%s:%d", common.DefaultServerHost, s.port)
+func (svr *Server) Host() string {
+	return fmt.Sprintf("%s:%d", common.DefaultServerHost, svr.port)
 }
 
 // Port returns the server's configured port number.
-func (s *Server) Port() common.ServerPort {
-	return s.port
+func (svr *Server) Port() common.ServerPort {
+	return svr.port
 }
 
 // addRoutes configures all HTTP routes for the server including:
@@ -140,34 +140,34 @@ func (s *Server) Port() common.ServerPort {
 //   - Proxy endpoint (/proxy/)
 //   - Query endpoint (/query)
 //   - Static file serving (/)
-func (s *Server) addRoutes(ctx Context) {
-	s.V2().InfoPrint("Adding HTTP server routes")
+func (svr *Server) addRoutes(ctx Context) {
+	svr.V2().InfoPrint("Adding HTTP server routes")
 	// Handle APIConfig routes first (to match /apiFile/* before static files)
-	if s.api != nil {
-		apiBasePath := string(s.api.BasePath)
+	if svr.api != nil {
+		apiBasePath := string(svr.api.BasePath)
 		if !strings.HasSuffix(apiBasePath, "/") {
 			apiBasePath += "/"
 		}
 		route := fmt.Sprintf("GET  %s", apiBasePath)
-		s.V3().Printf("  — %s\n", route)
-		s.mux.HandleFunc(route, s.api.HandleAPIFunc(ctx, s.db))
+		svr.V3().Printf("  — %s\n", route)
+		svr.mux.HandleFunc(route, svr.api.HandleAPIFunc(ctx, svr.db))
 	}
 
 	// Handle proxy next
-	s.V3().Printf("  — ANY  /proxy/\n")
+	svr.V3().Printf("  — ANY  /proxy/\n")
 	for _, method := range common.HTTPMethods {
-		s.mux.HandleFunc(fmt.Sprintf("%s /proxy/", method), s.handleProxyFunc(method))
+		svr.mux.HandleFunc(fmt.Sprintf("%s /proxy/", method), svr.handleProxyFunc(method))
 	}
 
 	// Then handle query endpoint
 	route := "POST /query"
-	s.V3().Printf("  — %s\n", route)
-	s.mux.HandleFunc(route, s.handleQueryFunc(ctx, s.db))
+	svr.V3().Printf("  — %s\n", route)
+	svr.mux.HandleFunc(route, svr.handleQueryFunc(ctx, svr.db))
 
 	route = "GET  /"
-	s.V3().Printf("  — %s\n", route)
-	s.mux.HandleFunc(route, s.handleRootFunc())
+	svr.V3().Printf("  — %s\n", route)
+	svr.mux.HandleFunc(route, svr.handleRootFunc())
 
-	s.V3().InfoPrint("HTTP server routes added")
+	svr.V3().InfoPrint("HTTP server routes added")
 
 }

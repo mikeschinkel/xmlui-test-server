@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
 func TestStreamingExtractValue(t *testing.T) {
@@ -173,7 +173,7 @@ func TestStreamingExtractValue_TypeTransparence(t *testing.T) {
 	raw := `{"n": 1, "b": true, "s": "x", "o": {"k": "v"}, "a": [1,2]}`
 
 	check := func(path string, want any) {
-		got, err := jsonutil.ExtractValueFromBytes([]byte(raw), common.Selector(path))
+		got, err := jsonutil.ExtractValueFromBytes([]byte(raw), rfc9457.Selector(path))
 		if err != nil {
 			t.Fatalf("ExtractValueFromBytes(%q) unexpected error: %v", path, err)
 		}
@@ -205,7 +205,7 @@ func TestStreamingExtractValue_WithReader(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := strings.NewReader(jsonData)
-			got, err := jsonutil.ExtractValueFromReader(reader, common.Selector(tt.path))
+			got, err := jsonutil.ExtractValueFromReader(reader, rfc9457.Selector(tt.path))
 			if err != nil {
 				t.Fatalf("ExtractValueFromReader() unexpected error: %v", err)
 			}
@@ -245,14 +245,14 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		selectors     []common.Selector
+		selectors     []rfc9457.Selector
 		wantValuesMap jsonutil.ValuesMap
-		wantNotFound  []common.Selector
+		wantNotFound  []rfc9457.Selector
 		wantErr       bool
 	}{
 		{
 			name: "multiple valid selectors",
-			selectors: []common.Selector{
+			selectors: []rfc9457.Selector{
 				"user.name",
 				"user.age",
 				"scores.1",
@@ -264,12 +264,12 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"scores.1":       float64(85),
 				"settings.theme": "dark",
 			},
-			wantNotFound: []common.Selector{},
+			wantNotFound: []rfc9457.Selector{},
 			wantErr:      false,
 		},
 		{
 			name: "mixed valid and invalid selectors",
-			selectors: []common.Selector{
+			selectors: []rfc9457.Selector{
 				"user.name",    // valid
 				"user.missing", // invalid
 				"scores.0",     // valid
@@ -279,18 +279,18 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"user.name": "Alice",
 				"scores.0":  float64(100),
 			},
-			wantNotFound: []common.Selector{"user.missing", "scores.10"},
+			wantNotFound: []rfc9457.Selector{"user.missing", "scores.10"},
 			wantErr:      true,
 		},
 		{
 			name: "all invalid selectors",
-			selectors: []common.Selector{
+			selectors: []rfc9457.Selector{
 				"missing.key",
 				"user.nonexistent",
 				"scores.999",
 			},
 			wantValuesMap: jsonutil.ValuesMap{},
-			wantNotFound:  []common.Selector{"missing.key", "user.nonexistent", "scores.999"},
+			wantNotFound:  []rfc9457.Selector{"missing.key", "user.nonexistent", "scores.999"},
 			wantErr:       true,
 		},
 	}
@@ -323,7 +323,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 func TestExtractValuesFromReader_MultipleSelectors(t *testing.T) {
 	jsonData := `{"a": 1, "b": {"c": 2}, "d": [3, 4, 5]}`
 
-	selectors := []common.Selector{"a", "b.c", "d.2"}
+	selectors := []rfc9457.Selector{"a", "b.c", "d.2"}
 
 	reader := strings.NewReader(jsonData)
 	valuesMap, notFound, err := jsonutil.ExtractValuesFromReader(reader, selectors)
@@ -337,7 +337,7 @@ func TestExtractValuesFromReader_MultipleSelectors(t *testing.T) {
 		"b.c": float64(2),
 		"d.2": float64(5),
 	}
-	expectedNotFound := []common.Selector{}
+	expectedNotFound := []rfc9457.Selector{}
 
 	if !reflect.DeepEqual(notFound, expectedNotFound) {
 		t.Errorf("NotFound selectors mismatch:\n  got:  %v\n  want: %v", notFound, expectedNotFound)
@@ -352,7 +352,7 @@ func TestExtractValuesFromBytes_ErrorCollection(t *testing.T) {
 	jsonData := `{"valid": "value"}`
 
 	// Multiple invalid selectors to test error collection
-	selectors := []common.Selector{
+	selectors := []rfc9457.Selector{
 		"missing1",
 		"missing2",
 		"valid", // This one should succeed
@@ -367,7 +367,7 @@ func TestExtractValuesFromBytes_ErrorCollection(t *testing.T) {
 	}
 
 	// Should have the not found selectors
-	expectedNotFound := []common.Selector{"missing1", "missing2", "missing3"}
+	expectedNotFound := []rfc9457.Selector{"missing1", "missing2", "missing3"}
 	if !reflect.DeepEqual(notFound, expectedNotFound) {
 		t.Errorf("NotFound selectors mismatch:\n  got:  %v\n  want: %v", notFound, expectedNotFound)
 	}

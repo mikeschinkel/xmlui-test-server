@@ -34,33 +34,34 @@ func (c *DateFormatConstraint) Type() ConstraintType {
 	return FormatConstraintType
 }
 
-func (c *DateFormatConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *DateFormatConstraint) Parse(value string, dataType PVDataType) (ct Constraint, err error) {
 	// Handle different data types for format constraints
 	switch dataType {
 	case DateType:
-		return ParseDateFormatConstraint(value)
+		ct, err = ParseDateFormatConstraint(value)
 	case UUIDType:
-		return ParseUUIDFormatConstraint(value)
+		ct, err = ParseUUIDFormatConstraint(value)
 	case StringType:
 		// Check if this is a UUID-like format for strings
 		switch strings.ToLower(value) {
 		case "ulid", "ksuid", "nanoid":
-			return ParseUUIDFormatConstraint(value)
+			ct, err = ParseUUIDFormatConstraint(value)
 		default:
-			return nil, errors.Join(
+			err = errors.Join(
 				ErrInvalidConstraint,
-				fmt.Errorf("value=%q", value),
+				ErrStringFormatOnlySupportsIDFormats,
+				fmt.Errorf("value=%s", value),
 				fmt.Errorf("data_type=%v", dataType),
-				fmt.Errorf("reason=%s", "string format constraint only supports ulid, ksuid, nanoid"),
 			)
 		}
 	default:
-		return nil, errors.Join(
+		err = errors.Join(
 			ErrInvalidConstraint,
+			ErrFormatConstraintUnsupportedDataType,
 			fmt.Errorf("data_type=%v", dataType),
-			fmt.Errorf("reason=%s", "format constraint only supports date, uuid, and string data types"),
 		)
 	}
+	return ct, err
 }
 
 func (c *DateFormatConstraint) Validate(value string) (err error) {
@@ -108,11 +109,11 @@ func (c *DateFormatConstraint) buildPartialLayout(value string) (layout string, 
 	if len(segments) > len(formatSegments) {
 		err = errors.Join(
 			ErrInvalidConstraint,
-			fmt.Errorf("value=%q", value),
-			fmt.Errorf("format=%q", c.format),
-			fmt.Errorf("valueSegments=%d", len(segments)),
-			fmt.Errorf("formatSegments=%d", len(formatSegments)),
-			fmt.Errorf("reason=%s", "more segments in value than in format"),
+			ErrMoreSegmentsThanFormat,
+			fmt.Errorf("value=%s", value),
+			fmt.Errorf("format=%s", c.format),
+			fmt.Errorf("value_segments=%d", len(segments)),
+			fmt.Errorf("format_segments=%d", len(formatSegments)),
 		)
 		goto end
 	}
@@ -124,11 +125,11 @@ func (c *DateFormatConstraint) buildPartialLayout(value string) (layout string, 
 	layout, err = buildGoTimeLayout(partialFormat)
 	if err != nil {
 		err = errors.Join(
+			ErrFailedToBuildPartialLayout,
+			fmt.Errorf("value=%s", value),
+			fmt.Errorf("format=%s", c.format),
+			fmt.Errorf("partial_format=%s", partialFormat),
 			err,
-			fmt.Errorf("value=%q", value),
-			fmt.Errorf("format=%q", c.format),
-			fmt.Errorf("partialFormat=%q", partialFormat),
-			fmt.Errorf("reason=%s", "failed to build partial layout"),
 		)
 	}
 
@@ -136,8 +137,8 @@ end:
 	return layout, err
 }
 
-func (c *DateFormatConstraint) String() string {
-	return fmt.Sprintf("%s[%s]", c.Type(), c.format)
+func (c *DateFormatConstraint) Rule() string {
+	return c.format
 }
 
 // ParseDateFormatConstraint parses date format specifications
@@ -158,9 +159,9 @@ func ParseDateFormatConstraint(spec string) (constraint *DateFormatConstraint, e
 	goLayout, err = buildGoTimeLayout(spec)
 	if err != nil {
 		err = errors.Join(
+			ErrInvalidDateFormatSpec,
+			fmt.Errorf("spec=%s", spec),
 			err,
-			fmt.Errorf("spec=%q", spec),
-			fmt.Errorf("reason=%s", "invalid date format specification"),
 		)
 		goto end
 	}
@@ -207,8 +208,8 @@ func buildGoTimeLayout(spec string) (layout string, err error) {
 	if !hasAnyToken {
 		err = errors.Join(
 			ErrInvalidConstraint,
-			fmt.Errorf("spec=%q", spec),
-			fmt.Errorf("reason=%s", "no valid date/time tokens found in format"),
+			ErrNoValidDateTimeTokens,
+			fmt.Errorf("spec=%s", spec),
 		)
 		goto end
 	}
@@ -259,9 +260,9 @@ func matchToken(spec string, pos int, hasHour bool) (goToken string, newHasHour 
 			// Check if this is a standalone mm (ambiguous)
 			err = errors.Join(
 				ErrInvalidConstraint,
-				fmt.Errorf("spec=%q", spec),
+				ErrAmbiguousMMToken,
+				fmt.Errorf("spec=%s", spec),
 				fmt.Errorf("position=%d", pos),
-				fmt.Errorf("reason=%s", "ambiguous 'mm' token - use 'ii' for minutes or add other tokens for context"),
 			)
 			goto end
 		default:
@@ -403,11 +404,22 @@ func (c *DateRangeConstraint) Validate(value string) (err error) {
 
 	// Try common date formats
 	formats := []string{
-		"2006-01-02",
-		"2006-01-02T15:04:05Z",
-		"2006-01-02T15:04:05",
+		time.DateOnly, //  "2006-01-02"
 		"01/02/2006",
 		"02/01/2006",
+		time.DateTime,     //  "2006-01-02 15:04:05"
+		time.RFC3339[:20], //  "2006-01-02T15:04:05Z"
+		time.RFC3339[:19], //  "2006-01-02T15:04:05"
+		time.RFC3339,      //  "2006-01-02T15:04:05Z07:00"
+		time.ANSIC,        //  "Mon Jan _2 15:04:05 2006"
+		time.UnixDate,     //  "Mon Jan _2 15:04:05 MST 2006"
+		time.RubyDate,     //  "Mon Jan 02 15:04:05 -0700 2006"
+		time.RFC822,       //  "02 Jan 06 15:04 MST"
+		time.RFC822Z,      //  "02 Jan 06 15:04 -0700" // RFC822 with numeric zone
+		time.RFC850,       //  "Monday, 02-Jan-06 15:04:05 MST"
+		time.RFC1123,      //  "Mon, 02 Jan 2006 15:04:05 MST"
+		time.RFC1123Z,     //  "Mon, 02 Jan 2006 15:04:05 -0700" // RFC1123 with numeric zone
+		time.RFC3339Nano,  //  "2006-01-02T15:04:05.999999999Z07:00"
 	}
 
 	for _, format := range formats {
@@ -418,20 +430,38 @@ func (c *DateRangeConstraint) Validate(value string) (err error) {
 	}
 
 	if err != nil {
-		err = fmt.Errorf("invalid date format: %s", value)
+		err = ErrInvalidDateFormat
+		goto end
+	}
+	err = nil
+
+	if d.Before(c.min) {
+		err = errors.Join(ErrDateLessThanMinimum,
+			fmt.Errorf("minimum_date=%s", c.min.Format(time.DateOnly)),
+		)
 		goto end
 	}
 
-	if d.Before(c.min) || d.After(c.max) {
-		err = fmt.Errorf("date must be between %s and %s", c.min.Format("2006-01-02"), c.max.Format("2006-01-02"))
+	if d.After(c.max) {
+		err = errors.Join(ErrDateGreaterThanMaximum,
+			fmt.Errorf("maximum_date=%s", c.max.Format(time.DateOnly)),
+		)
+		goto end
 	}
 
 end:
+	if err != nil {
+		err = errors.Join(
+			ErrInvalidConstraint,
+			fmt.Errorf("date_value=%s", value),
+			err,
+		)
+	}
 	return err
 }
 
-func (c *DateRangeConstraint) String() string {
-	return fmt.Sprintf("%s[%s..%s]", RangeConstraintType, c.min.Format("2006-01-02"), c.max.Format("2006-01-02"))
+func (c *DateRangeConstraint) Rule() string {
+	return fmt.Sprintf("%s..%s", c.min.Format(time.DateOnly), c.max.Format(time.DateOnly))
 }
 
 // ParseDateRangeConstraint parses min..max format for dates
@@ -443,44 +473,36 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
 		err = errors.Join(
-			ErrInvalidConstraint,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("reason=%s", "expected format 'range[min..max]'"),
+			ErrInvalidConstraint, ErrExpectedRangeFormat,
 		)
 		goto end
 	}
 
 	// ParseBytes minimum date (try ISO format first)
-	minimum, err = time.Parse("2006-01-02", parts[0])
+	minimum, err = time.Parse(time.DateOnly, parts[0])
 	if err != nil {
-		err = errors.Join(
+		err = errors.Join(ErrInvalidMinimumValue, ErrExpectedISO8601DateFormat,
+			fmt.Errorf("minimum=%s", parts[0]),
 			err,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("minimum=%q", parts[0]),
-			fmt.Errorf("reason=%s", "invalid minimum date (expected YYYY-MM-DD format)"),
 		)
 		goto end
 	}
 
 	// ParseBytes maximum date (try ISO format first)
-	maximum, err = time.Parse("2006-01-02", parts[1])
+	maximum, err = time.Parse(time.DateOnly, parts[1])
 	if err != nil {
-		err = errors.Join(
+		err = errors.Join(ErrInvalidMaximumValue, ErrExpectedISO8601DateFormat,
+			fmt.Errorf("maximum=%s", parts[1]),
 			err,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("maximum=%q", parts[1]),
-			fmt.Errorf("reason=%s", "invalid maximum date (expected YYYY-MM-DD format)"),
 		)
 		goto end
 	}
 
 	if minimum.After(maximum) {
 		err = errors.Join(
-			ErrInvalidConstraint,
-			fmt.Errorf("rangeSpec=%q", rangeSpec),
-			fmt.Errorf("minimum=%s", minimum.Format("2006-01-02")),
-			fmt.Errorf("maximum=%s", maximum.Format("2006-01-02")),
-			fmt.Errorf("reason=%s", "minimum date cannot be after maximum date"),
+			ErrInvalidConstraint, ErrInvalidMinMaxDate,
+			fmt.Errorf("minimum=%s", minimum.Format(time.DateOnly)),
+			fmt.Errorf("maximum=%s", maximum.Format(time.DateOnly)),
 		)
 		goto end
 	}
@@ -488,5 +510,11 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 	constraint = NewDateRangeConstraint(minimum, maximum)
 
 end:
+	if err != nil {
+		err = errors.Join(
+			fmt.Errorf("range=%s", rangeSpec),
+			err,
+		)
+	}
 	return constraint, err
 }

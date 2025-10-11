@@ -24,7 +24,7 @@ const (
 	LengthConstraintType ConstraintType = "length"
 
 	// NotEmptyConstraintType validates that parameter values are not empty strings.
-	NotEmptyConstraintType ConstraintType = "not-empty"
+	NotEmptyConstraintType ConstraintType = "notempty"
 
 	// RangeConstraintType validates that numeric parameter values fall within specified numeric ranges.
 	RangeConstraintType ConstraintType = "range"
@@ -57,6 +57,9 @@ type Constraint interface {
 	// String returns a human-readable representation of this constraint.
 	String() string
 
+	// Rule returns the constraint's rule from within square brackets
+	Rule() string
+
 	// Type returns the type of this constraint.
 	Type() ConstraintType
 
@@ -67,7 +70,7 @@ type Constraint interface {
 	ValidDateTypes() []PVDataType
 
 	// MapKey generates a unique key for constraint registry lookup.
-	MapKey(dt PVDataTypeName) ConstraintMapKey
+	MapKey(dt PVDataTypeSlug) ConstraintMapKey
 
 	// EnsureBaseConstraint sets up the base constraint relationship for proper functioning.
 	EnsureBaseConstraint(Constraint)
@@ -87,20 +90,24 @@ func newBaseConstraint(owner Constraint) baseConstraint {
 	}
 }
 
+func (c *baseConstraint) String() string {
+	return fmt.Sprintf("%s[%s]", c.owner.Type(), c.owner.Rule())
+}
+
 // EnsureBaseConstraint sets the owner reference for proper constraint operation.
 func (c *baseConstraint) EnsureBaseConstraint(owner Constraint) {
 	c.owner = owner
 }
 
 // MapKey generates a constraint registry key using the owner's type and data type.
-func (c *baseConstraint) MapKey(dt PVDataTypeName) ConstraintMapKey {
+func (c *baseConstraint) MapKey(dt PVDataTypeSlug) ConstraintMapKey {
 	return GetConstraintMapKey(c.owner.Type(), dt)
 }
 
 // ParseConstraints parses constraint specifications from a string.
 //
 // ParseBytes constraint specs like:
-//   - not-empty
+//   - notempty
 //   - range[0..100]
 //   - length[5..50]
 //   - regex[^[0-9]+$]
@@ -116,8 +123,9 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 	var errs []error
 	var mode byte
 	var ok bool
+	var regexStart, regexEnd int
 
-	typeName := dataType.TypeName()
+	typeName := dataType.Slug()
 	const (
 		typeMode  = 't'
 		valueMode = 'v'
@@ -128,6 +136,9 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 	}
 
 	ctm = GetConstraintsMap()
+
+	// Pre-scan for regex constraint to find its true boundaries
+	regexStart, regexEnd = findRegexBoundaries(spec)
 
 	mode = typeMode
 	last = len(spec)
@@ -162,7 +173,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				continue
 			}
 			if ch == ',' || pos == last {
-				// Found end of constraint type without brackets (like "not-empty")
+				// Found end of constraint type without brackets (like "notempty")
 				var constraintEnd int
 				constraintEnd = pos
 				if ch == ',' {
@@ -210,18 +221,54 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 			if !isConstraintTypeChar(ch) {
 				errs = append(errs,
 					errors.Join(ErrInvalidSyntax,
+						ErrInvalidConstraintTypeCharacter,
 						fmt.Errorf("position=%d", pos),
 						fmt.Errorf("character=%s", string(ch)),
 						fmt.Errorf("constraint_type=%s", ct),
 						fmt.Errorf("constraint_spec=%s", spec),
 						fmt.Errorf("data_type=%s", typeName),
-						errors.New("reason=invalid constraint type character"),
 					),
 				)
 				continue
 			}
 
 		case valueMode:
+			// Special handling for regex constraint - use pre-scanned boundaries
+			if ct == RegexConstraintType && regexStart != -1 && constraintStart == regexStart {
+				// Jump to the pre-scanned end position
+				pos = regexEnd + 1
+				value = spec[valueStart:regexEnd]
+				constraint, err = constraint.Parse(value, dataType)
+				if err != nil {
+					errs = append(errs,
+						errors.Join(ErrParseFailed,
+							fmt.Errorf("constraint_value=%s", value),
+							fmt.Errorf("constraint_type=%s", ct),
+							fmt.Errorf("constraint_spec=%s", spec),
+							fmt.Errorf("data_type=%s", dataType.Slug()),
+							fmt.Errorf("start_pos=%d", valueStart),
+							fmt.Errorf("end_pos=%d", regexEnd),
+							err,
+						),
+					)
+				} else {
+					constraints = append(constraints, constraint)
+				}
+				mode = typeMode
+				// Skip past any whitespace and comma to next constraint
+				for pos < last && isWhitespace(spec[pos]) {
+					pos++
+				}
+				if pos < last && spec[pos] == ',' {
+					pos++
+					for pos < last && isWhitespace(spec[pos]) {
+						pos++
+					}
+					constraintStart = pos
+				}
+				continue
+			}
+
 			if ch == ']' {
 				// Look ahead to see if this ends the constraint (comma or end of string)
 				isEndOfConstraint := false
@@ -249,7 +296,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 								fmt.Errorf("constraint_value=%s", value),
 								fmt.Errorf("constraint_type=%s", ct),
 								fmt.Errorf("constraint_spec=%s", spec),
-								fmt.Errorf("data_type=%s", dataType.TypeName()),
+								fmt.Errorf("data_type=%s", dataType.Slug()),
 								fmt.Errorf("start_pos=%d", valueStart),
 								fmt.Errorf("end_pos=%d", pos-1),
 								err,
@@ -280,7 +327,7 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 						fmt.Errorf("position=%d", pos),
 						fmt.Errorf("constraint_type=%s", ct),
 						fmt.Errorf("constraint_spec=%s", spec),
-						fmt.Errorf("data_type=%s", dataType.TypeName()),
+						fmt.Errorf("data_type=%s", dataType.Slug()),
 						errors.New("constraint value not properly closed"),
 					),
 				)
@@ -294,6 +341,44 @@ end:
 		err = errors.Join(errs...)
 	}
 	return constraints, err
+}
+
+// findRegexBoundaries uses bidirectional parsing to find the true boundaries of a regex constraint.
+// Returns (-1, -1) if no regex constraint is found.
+// This handles regex patterns that contain [ and ] characters by:
+// 1. Finding "regex[" from the start
+// 2. Finding the last "]" that could close the regex
+// 3. If other constraints follow, finding the ] before them
+func findRegexBoundaries(spec string) (start, end int) {
+	// Find "regex[" - the start of regex constraint
+	regexPrefix := "regex["
+	start = strings.Index(spec, regexPrefix)
+	if start == -1 {
+		return -1, -1 // No regex constraint
+	}
+
+	// Find the last "]" in the spec - this is our candidate end
+	end = strings.LastIndex(spec, "]")
+	if end == -1 || end <= start+len(regexPrefix) {
+		return -1, -1 // No closing bracket or it's before/at the opening
+	}
+
+	// Check if there are other constraints after regex
+	// Look for a comma after the potential regex end
+	afterEnd := end + 1
+	if afterEnd < len(spec) {
+		// Skip whitespace
+		for afterEnd < len(spec) && isWhitespace(spec[afterEnd]) {
+			afterEnd++
+		}
+		// If we find a comma, there might be another constraint
+		// The last ] we found is correct
+		if afterEnd < len(spec) && spec[afterEnd] == ',' {
+			// Keep the end position - it's the last ] before the comma
+		}
+	}
+
+	return start, end
 }
 
 // isConstraintTypeChar returns true if the character is valid in a constraint type name.

@@ -12,5 +12,7 @@ type Options struct {
 	ConnectString         ConnectString
 	DBPort                ServerPort
 	DBBootstrapFile       Filepath
+	Verbosity             Verbosity
+	ErrorStyle            ErrorStyle
 	AllowUntrustedQueries bool
 }

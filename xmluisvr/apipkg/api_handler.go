@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/errutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
 // HandleAPIFunc returns an HTTP handler function that processes API requests.
@@ -25,98 +26,244 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var result pathvars.MatchResult
 		var err error
-		var dbq dbqvars.ParsedQuery
-		var qs common.QueryString
-		var endpoint *Endpoint
-		var queryValues []any
-		var dbResult dbpkg.QueryResult
-		var notFound []common.Selector
+		var args HandlerHelperArgs
 
-		cliutil.Printf("API Request: %s %s\n", r.Method, r.URL.Path)
+		api.Writer.Printf("Handling API Request: %s %s\n", r.Method, r.URL.Path)
 
-		if api == nil {
-			// IS THIS EVEN NEEDED?
-			common.SendErrorResponse(w, "APIConfig route not found; no APIConfig was loaded", http.StatusNotFound)
-			goto end
+		args = HandlerHelperArgs{
+			HTTPRequest: r,
+			MatchResult: result,
+			Database:    db,
+			APIResponse: apiutil.NewResponse(apiutil.ResponseArgs{
+				HTTPWriter: w,
+				Request:    r,
+				CLIWriter:  api.Writer,
+				Logger:     api.Logger,
+			}),
 		}
 
 		// Find the matching endpoint
-		result, err = api.Router.Match(r)
-		if errors.Is(err, pathvars.ErrNoMatch) {
-			api.Errorf("%s %s not matched: %v\n", r.Method, r.URL.Path, err.Error())
-			http.NotFound(w, r)
-			goto end
-		}
+		args.Endpoint, args.MatchResult, err = api.getMatchingEndpoint(args)
 		if err != nil {
-			api.internalServerError(result, w, r, err, "Unexpected error while attempting to match")
-			goto end
-		}
-		if result.Index < 0 || len(api.Endpoints) <= result.Index {
-			api.internalServerError(result, w, r, err, "Unexpected match index out of bounds while attempting to match")
-			goto end
-		}
-		endpoint = api.Endpoints[result.Index]
-
-		queryValues, notFound, err = endpoint.GetParameterValues(result.ValuesMap(), r.Body)
-		if err != nil {
-			msg := "Database parameters not found"
-			status := http.StatusBadRequest
-			if len(notFound) == 0 {
-				msg = "Unexpected database parameter error"
-				status = http.StatusInternalServerError
-			}
-			_ = api.ErrorError(msg, "error", err)
-			common.SendErrorResponse(w, fmt.Sprintf("%s: check the logs for details", msg), status)
 			goto end
 		}
 
-		dbq = endpoint.ParsedQuery
-		qs = dbq.QueryString()
-		dbResult, err = dbpkg.ExecuteQuery(ctx, db, qs, queryValues)
+		// Now get the query values
+		args.QueryValues, err = api.getQueryValues(args)
 		if err != nil {
-			// TODO: Response should not return err
-			_ = api.ErrorError("Database error",
-				"endpoint", endpoint.Endpoint(),
-				"sql_query", dbq.QueryString(),
-				"sql_params", dbq.Parameters(),
-				"url_params", result.ValuesMap(),
-				"error", err,
-			)
-			common.SendErrorResponse(w, "Database error", http.StatusInternalServerError)
 			goto end
 		}
-		if len(dbResult) == 0 && !result.Route.Cardinality.EmptyOk() {
-			common.SendErrorResponse(w, "No results found", http.StatusNotFound)
-			api.InfoPrint("No results found",
-				"endpoint", endpoint.Endpoint(),
-				"sql_query", dbq.QueryString(),
-				"sql_params", dbq.Parameters(),
-				"url_params", result.ValuesMap(),
-			)
-			goto end
-		}
-		// TODO Validate result types and column types
 
-		// Return response
-		common.SendJSONResponse(w, r, dbResult, http.StatusOK)
+		// Now call the SQL query
+		args.QueryResult, err = api.GetQueryResult(ctx, args)
+		if err != nil {
+			goto end
+		}
+
+		// Now get the response content
+		args.Content, err = api.GetResponseContent(args)
+		if err != nil {
+			goto end
+		}
+
+		// Finally, send the success response. `args.Content` is expected to
+		// contain the value to return as JSON.
+		api.SendSuccessResponse(args.SendResponseArgs(nil))
 	end:
+		if err != nil {
+			// Or, send the error if it was an error This assumes that err will have been
+			// joined with a `ResponsePayload` — which by declaration is also an `error` —
+			// one example being rfc9457.Response.
+			api.SendErrorResponse(args.SendResponseArgs(err))
+		}
 		return
 	}
 }
 
-// internalServerError logs an error and sends a 500 response to the client.
-// It logs both to the CLI output and structured logger with context information.
-func (api *API) internalServerError(mr pathvars.MatchResult, w http.ResponseWriter, r *http.Request, err error, msg string) {
-	api.Errorf("%s %s %s: %v",
-		r.Method,
-		r.URL.Path,
-		err,
+func (api *API) getQueryValues(args HandlerHelperArgs) (queryValues []any, err error) {
+	var missing []apiutil.MissingParameter
+
+	r := args.HTTPRequest
+	result := args.MatchResult
+	endpoint := args.Endpoint
+
+	queryValues, missing, err = endpoint.GetParameterValues(ParameterValuesSource{
+		ValuesMap:  result.ValuesMap(),
+		BodyReader: r.Body,
+		Headers:    nil, // TODO: Not yet supported
+	})
+	if err != nil {
+		if len(missing) != 0 {
+			err = errors.Join(
+				ErrQueryValuesExtractionFailed,
+				apiutil.MissingParametersPayload(r, apiutil.PayloadArgs{
+					MissingParameters: missing,
+				}),
+				err,
+			)
+			goto end
+		}
+		err = errors.Join(
+			ErrQueryValuesExtractionFailed,
+			apiutil.CurrentlyUnhandledErrorPayload(r, apiutil.PayloadArgs{
+				Location: "CHANGE ME", // TODO: Determine appropriate value by breakpoint debugging during tests
+				Error:    err,
+			}),
+			err,
+		)
+	}
+end:
+	return queryValues, err
+}
+
+func (api *API) GetQueryResult(ctx Context, args HandlerHelperArgs) (dbResult apiutil.QueryResult, err error) {
+	var rows dbpkg.QueryResult
+	endpoint := args.Endpoint
+	dbq := endpoint.ParsedQuery
+	qs := dbq.QueryString()
+	rows, err = dbpkg.ExecuteQuery(ctx, args.Database, qs, args.QueryValues)
+	if err != nil {
+		err = errors.Join(
+			ErrQueryValuesExtractionFailed,
+			apiutil.QueryFailedPayload(args.HTTPRequest, apiutil.PayloadArgs{
+				ErrorStyle: api.Options.ErrorStyle,
+			}),
+			err,
+		)
+		goto end
+	}
+	dbResult = apiutil.NewQueryResult(rows)
+
+	api.V3().InfoPrint("Database query submitted.",
+		"requestor_ip", args.HTTPRequest.RemoteAddr,
+		"query", strings.Replace(string(args.DBQuery), "\n", " ", -1),
 	)
-	api.Error(msg,
-		"method", r.Method,
-		"url_path", r.URL.Path,
-		"match_result", mr,
-		"error", err,
-	)
-	common.SendErrorResponse(w, msg, http.StatusInternalServerError)
+
+end:
+	return dbResult, err
+}
+
+func (api *API) getMatchingEndpoint(args HandlerHelperArgs) (ep *Endpoint, mr pathvars.MatchResult, err error) {
+	// Find the matching endpoint
+	mr, err = api.tryMatchingRequest(args)
+	if err != nil {
+		goto end
+	}
+	// Assign the endpoint to the helper args
+	ep = api.Endpoints[mr.Index]
+end:
+	return ep, mr, err
+}
+
+func (api *API) handleFailedMatch(result pathvars.MatchResult, err error, args HandlerHelperArgs) error {
+	var httpStatus int
+	var resp *rfc9457.Response
+	var pe errutil.ParsedError
+	var hasErrors bool
+
+	r := args.HTTPRequest
+
+	pe, _ = errutil.ParseError(err)
+	err = pe.MaybeGetCustomError(rfc9457.ResponseArchetype)
+	if err != nil && errors.As(err, &resp) {
+		httpStatus = resp.Status
+	}
+	if httpStatus == 0 {
+		httpStatus = pe.MaybeGetIntDetail("http_status")
+	}
+	hasErrors = pe.HasErrors()
+
+	// TODO There are probably more cases we need to add
+	switch {
+	case httpStatus == 0 && !hasErrors:
+		goto end
+	case httpStatus == http.StatusUnprocessableEntity:
+		err = errors.Join(
+			ErrRouteMatchingFailed,
+			apiutil.UnprocessableEntityPayload(r, apiutil.PayloadArgs{
+				RFC9457: resp,
+			}),
+			err,
+		)
+		goto end
+	case hasErrors && httpStatus != 0:
+		err = errors.Join(
+			ErrRouteMatchingFailed,
+			// TODO Verify that "matching_request" is appropriate for "location"
+			apiutil.CurrentlyUnhandledErrorPayload(r, apiutil.PayloadArgs{
+				Location:   "CHANGE ME", // TODO: Use debugging to identify what values are useful here
+				HTTPStatus: httpStatus,
+				Error:      err,
+			}),
+			err,
+		)
+	default:
+		err = errors.Join(
+			ErrRouteMatchingFailed,
+			apiutil.InternalServerErrorPayload(r, apiutil.PayloadArgs{}),
+			err,
+		)
+		goto end
+	}
+end:
+	return err
+}
+
+func (api *API) tryMatchingRequest(args HandlerHelperArgs) (result pathvars.MatchResult, err error) {
+
+	r := args.HTTPRequest
+
+	result, err = api.Router.Match(r)
+
+	if errors.Is(err, pathvars.ErrNoMatch) {
+		err = errors.Join(
+			ErrRouteNotMatched,
+			apiutil.EndpointNotMatchedPayload(r, apiutil.PayloadArgs{}),
+			err,
+		)
+		goto end
+	}
+	if err != nil {
+		err = api.handleFailedMatch(result, err, args)
+	}
+end:
+	if err != nil {
+		err = errors.Join(
+			err,
+			fmt.Errorf("http_method=%s", r.Method),
+			fmt.Errorf("url_path=%s", r.URL.Path),
+		)
+	}
+	return result, err
+}
+
+type SendResponseArgs struct {
+	Content     any
+	HTTPRequest *http.Request
+	APIResponse *apiutil.Response
+	Error       error
+}
+
+func (api *API) SendSuccessResponse(args SendResponseArgs) {
+	// TODO Validate result types and column types
+	//      OR MAYBE THAT IS ALREADY BEING HANDLED UPSTREAM?
+	args.APIResponse.Send(apiutil.NewResponsePayload(apiutil.ResponsePayloadArgs{
+		Content:    args.Content,
+		HTTPStatus: http.StatusOK,
+		MIMEType:   rfc9457.ApplicationJSON,
+	}))
+}
+
+func (api *API) SendErrorResponse(args SendResponseArgs) {
+	// If an error occurred it would be encoded as a response payload so we parse the
+	// error, extract the payload, and return as the response.
+	pe, _ := errutil.ParseError(args.Error)
+	rp := apiutil.MaybeGetResponsePayload(pe)
+	if rp == nil {
+		rp = apiutil.CurrentlyUnhandledErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+			Error: errors.Join(ErrNoResponsePayloadFound, args.Error),
+		})
+	}
+	args.APIResponse.Send(rp)
+
 }

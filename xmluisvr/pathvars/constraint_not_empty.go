@@ -51,11 +51,15 @@ func (c *NotEmptyConstraint) Validate(value string) error {
 	return nil
 }
 
-func (c *NotEmptyConstraint) String() string {
-	return string(c.Type())
+func (c *NotEmptyConstraint) Rule() string {
+	return ""
 }
 
-// ParseNotEmptyConstraint parses a not-empty constraint (no arguments expected)
+func (c *NotEmptyConstraint) String() string {
+	return string(NotEmptyConstraintType)
+}
+
+// ParseNotEmptyConstraint parses a notempty constraint (no arguments expected)
 func ParseNotEmptyConstraint(value string) (constraint *NotEmptyConstraint, err error) {
 	if value != "" {
 		err = fmt.Errorf("non-empty constraint does not accept arguments, got: %q", value)

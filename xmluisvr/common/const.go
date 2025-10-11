@@ -39,6 +39,10 @@ const (
 	// AppName is the human-readable name of the application.
 	AppName = "XMLUI Local Server"
 
+	// GitHubRepoURL provides the GitHub repo for this project for use in error messages
+	// TODO: Be sure to update this when we change the repo name
+	GitHubRepoURL = "https://github.com/xmlui-org/xmlui-test-server"
+
 	// DefaultServerPort is the default HTTP port when none is specified.
 	DefaultServerPort = 8080
 
@@ -52,15 +56,4 @@ const (
 	AppConfigPath = "xmlui"
 
 	RootConfigFile = "test-server.json"
-)
-
-const (
-	// DefaultCardinality specifies the default expected row count for database queries.
-	DefaultCardinality = ManyRowsOrNone
-
-	// DefaultRowType specifies the default format for returning database query results.
-	DefaultRowType = ColumnsRowType
-
-	// DefaultDBDataType specifies the default data type for database columns when none is specified.
-	DefaultDBDataType = StringDBDataType
 )

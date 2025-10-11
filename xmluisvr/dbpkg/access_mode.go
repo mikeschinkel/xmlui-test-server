@@ -5,16 +5,17 @@ import (
 	"strings"
 
 	"github.com/mattn/go-sqlite3"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 // Constants for AccessMode values
 // IMPORTANT: Number values of the AccessModes are critical to the algorithm
 const (
-	UnspecifiedMode AccessMode = iota
-	ReadOnlyMode
-	ReadWriteMode
-	AdminMode
-	SuperAdminMode
+	UnspecifiedAccessMode = AccessMode(dbqvars.UnspecifiedDBAccessMode)
+	ReadOnlyMode          = AccessMode(dbqvars.DBReadOnlyMode)
+	ReadWriteMode         = AccessMode(dbqvars.DBReadWriteMode)
+	AdminMode             = AccessMode(dbqvars.DBAdminMode)
+	SuperAdminMode        = AccessMode(dbqvars.DBSuperAdminMode)
 )
 
 type AccessMode int
@@ -29,7 +30,7 @@ func (m AccessMode) Name() string {
 		return "Read-Write"
 	case ReadOnlyMode:
 		return "Read-Only"
-	case UnspecifiedMode:
+	case UnspecifiedAccessMode:
 		fallthrough
 	default:
 		return "Unspecified"
@@ -60,15 +61,19 @@ func (m AccessMode) AllowedOp(op int, funcName string) (allowed bool) {
 end:
 	return allowed
 }
+func ParseAccessMode(mode int) (am AccessMode, err error) {
+	// TODO Validate
+	return AccessMode(mode), err
+}
 
 // accessModeOpsDenied contains ops that are denied for its associated
 // AccessMode, and for anything mode that has a numeric value of less than the
 // access mode.
 // IMPORTANT: Number values of the AccessModes are critical to the algorithm
 var accessModeOpsDenied = map[int]AccessMode{
-	sqlite3.SQLITE_READ:                UnspecifiedMode,
-	sqlite3.SQLITE_SELECT:              UnspecifiedMode,
-	sqlite3.SQLITE_ANALYZE:             UnspecifiedMode,
+	sqlite3.SQLITE_READ:                UnspecifiedAccessMode,
+	sqlite3.SQLITE_SELECT:              UnspecifiedAccessMode,
+	sqlite3.SQLITE_ANALYZE:             UnspecifiedAccessMode,
 	sqlite3.SQLITE_INSERT:              ReadOnlyMode,
 	sqlite3.SQLITE_UPDATE:              ReadOnlyMode,
 	sqlite3.SQLITE_DELETE:              ReadOnlyMode,
@@ -77,6 +82,7 @@ var accessModeOpsDenied = map[int]AccessMode{
 	sqlite3.SQLITE_COPY:                ReadOnlyMode,
 	sqlite3.SQLITE_REINDEX:             ReadOnlyMode,
 	sqlite3.SQLITE_SAVEPOINT:           ReadOnlyMode,
+	sqlite3.SQLITE_PRAGMA:              ReadOnlyMode,
 	sqlite3.SQLITE_ALTER_TABLE:         ReadWriteMode,
 	sqlite3.SQLITE_CREATE_INDEX:        ReadWriteMode,
 	sqlite3.SQLITE_CREATE_TABLE:        ReadWriteMode,
@@ -96,7 +102,6 @@ var accessModeOpsDenied = map[int]AccessMode{
 	sqlite3.SQLITE_DROP_VIEW:           ReadWriteMode,
 	sqlite3.SQLITE_ATTACH:              AdminMode,
 	sqlite3.SQLITE_DETACH:              AdminMode,
-	sqlite3.SQLITE_PRAGMA:              AdminMode,
 	sqlite3.SQLITE_CREATE_VTABLE:       AdminMode,
 	sqlite3.SQLITE_DROP_VTABLE:         AdminMode,
 }

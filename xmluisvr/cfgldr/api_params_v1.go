@@ -22,7 +22,7 @@ func (ps APIParamsV1) APIParamsMap() (pm *APIParamsMap) {
 			typ := pathvars.DefaultPVDataTypeName
 			dt, err := pathvars.ParsePVDataType(p.NameSpec)
 			if err == nil {
-				typ = dt.TypeName()
+				typ = dt.Slug()
 			}
 			value = string(typ)
 		case p.Type != "" && p.Constraints == "":
@@ -33,7 +33,7 @@ func (ps APIParamsV1) APIParamsMap() (pm *APIParamsMap) {
 			typ := pathvars.DefaultPVDataTypeName
 			dt, err := pathvars.ParsePVDataType(p.NameSpec)
 			if err == nil {
-				typ = dt.TypeName()
+				typ = dt.Slug()
 			}
 			value = fmt.Sprintf("%s:%s", typ, p.Constraints)
 		case p.Type != "" && p.Constraints != "":

@@ -41,8 +41,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // PathSpec represents a path specification string like "GET /users/{id}" or "/users/{id}".
@@ -72,17 +70,17 @@ func NewRouter() *Router {
 type RouteArgs struct {
 	Parameters  []Parameter
 	Index       int
-	Description string              // Human-readable description of the endpoint
-	Cardinality common.Cardinality  // Expected number of result rows (one, many, etc.)
-	RowType     common.DBRowType    // Format for returning results (json, columns, etc.)
-	ColumnTypes []common.DBDataType // Expected data types for result columns
+	Description string       // Human-readable description of the endpoint
+	Cardinality Cardinality  // Expected number of result rows (one, many, etc.)
+	RowType     DBRowType    // Format for returning results (json, columns, etc.)
+	ColumnTypes []DBDataType // Expected data types for result columns
 }
 
 // AddRoute adds a route to the router with the specified path specification and parameters.
 // The pathSpec can be in format "METHOD /path" (e.g., "GET /users/{id}") or just "/path"
 // for any method. Parameters define the expected path and query parameters for this route.
-func (r *Router) AddRoute(method common.HTTPMethod, path common.URLPath, args *RouteArgs) (err error) {
-	var template *Template
+func (r *Router) AddRoute(method HTTPMethod, path Template, args *RouteArgs) (err error) {
+	var pt *ParsedTemplate
 	var route *Route
 	var paramCount int
 
@@ -99,47 +97,40 @@ func (r *Router) AddRoute(method common.HTTPMethod, path common.URLPath, args *R
 		path = "/" + path
 	}
 
-	template, err = ParseTemplate(path)
+	pt, err = ParseTemplate(string(path))
 	if err != nil {
 		err = errors.Join(
 			err,
-			fmt.Errorf("path_spec=%q", path),
-			fmt.Errorf("method=%q", method),
-			fmt.Errorf("path=%q", path),
+			fmt.Errorf("path_spec=%s", path),
+			fmt.Errorf("method=%s", method),
+			fmt.Errorf("path=%s", path),
 		)
 		goto end
 	}
 
-	if template == nil {
+	if pt == nil {
 		// This if statement if only here because without it Goland is reporting that
-		// `template` might be nil in the expressions below even though I traced through
+		// `pt` might be nil in the expressions below even though I traced through
 		// the logic and it cannot be nil if err==nil.
 		goto end
 	}
 
-	if len(args.Parameters) != 0 {
-		for _, param := range args.Parameters {
-			template.params[param.Name] = param
-		}
-
+	if len(pt.params) != 0 {
 		// Track max params for optimization
-		paramCount = len(template.params)
+		paramCount = len(pt.params)
 		if paramCount > r.maxParams {
 			r.maxParams = paramCount
 		}
 	}
 
-	if args.Index == 0 {
-		args.Index = len(r.routes) + 1
-	}
 	route = &Route{
-		Method:      method,
-		Template:    template,
-		Index:       args.Index,
-		Description: args.Description,
-		Cardinality: args.Cardinality,
-		RowType:     args.RowType,
-		ColumnTypes: args.ColumnTypes,
+		Method:         method,
+		ParsedTemplate: pt,
+		Index:          args.Index,
+		Description:    args.Description,
+		Cardinality:    args.Cardinality,
+		RowType:        args.RowType,
+		ColumnTypes:    args.ColumnTypes,
 	}
 
 	r.routes = append(r.routes, route)
@@ -171,22 +162,31 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 	if !r.compiled {
 		err = errors.Join(
 			ErrAPIRouterNotCompiled,
-			fmt.Errorf("method=%q", req.Method),
-			fmt.Errorf("path=%q", u.Path),
-			fmt.Errorf("query_string=%q", u.RawQuery),
+			ErrRouterNotCompiled,
+			fmt.Errorf("method=%s", req.Method),
+			fmt.Errorf("path=%s", u.Path),
+			fmt.Errorf("query_string=%s", u.RawQuery),
 			fmt.Errorf("route_count=%d", len(r.routes)),
-			fmt.Errorf("reason=%s", "router must be compiled before matching"),
+			fmt.Errorf("http_status=%d", http.StatusInternalServerError),
 		)
 		goto end
 	}
 
 	for _, route := range r.routes {
 		// Check method match (empty method means any)
-		if route.Method != "" && route.Method != common.HTTPMethod(req.Method) {
+		if route.Method != "" && route.Method != HTTPMethod(req.Method) {
 			continue
 		}
 
-		valuesMap, matched = route.Template.Match(u.Path, u.RawQuery)
+		valuesMap, matched, err = route.ParsedTemplate.Match(u.Path, u.RawQuery)
+		if errors.Is(err, ErrRequiredParameterNotProvided) {
+			continue
+		}
+		if err != nil {
+			// Error occurred during matching (validation, malformed input, etc.)
+			// regardless of whether path matched
+			goto end
+		}
 		if matched {
 			result = MatchResult{
 				Index:     route.Index,
@@ -199,11 +199,13 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 
 	err = errors.Join(
 		ErrNoMatch,
-		fmt.Errorf("method=%q", req.Method),
-		fmt.Errorf("path=%q", u.Path),
-		fmt.Errorf("query_string=%q", u.RawQuery),
+		ErrNoRouteMatched,
+		fmt.Errorf("method=%s", req.Method),
+		fmt.Errorf("path=%s", u.Path),
+		fmt.Errorf("query_string=%s", u.RawQuery),
+		fmt.Errorf("htto_status=%d", http.StatusNotFound),
 		fmt.Errorf("route_count=%d", len(r.routes)),
-		fmt.Errorf("reason=%s", "no route matched the request"),
+		err,
 	)
 
 end:

@@ -12,11 +12,7 @@ var (
 )
 
 var (
-	ErrNoAPIProvided                = errors.New("no api provided")
-	ErrInvalidCardinalityType       = errors.New("invalid cardinality type")
-	ErrInvalidResultsColumnDataType = errors.New("invalid results column data type")
-	ErrInvalidRowType               = errors.New("invalid row type")
-	ErrInvalidDataType              = errors.New("invalid data type")
+	ErrNoAPIProvided = errors.New("no api provided")
 )
 
 var (
@@ -28,10 +24,8 @@ var (
 	ErrPortMustBeZero               = errors.New("port must be zero")
 )
 var (
-	ErrIdentifierCannotBeEmpty                      = errors.New("identifier can not be empty")
-	ErrValueDoesNotBeginWithAnIdentifier            = errors.New("value can not be begin with an identifier")
-	ErrInvalidIdentifier                            = errors.New("invalid identifier")
-	ErrInvalidNameSpec                              = errors.New("invalid name spec")
-	ErrMustBeginWithLetterOrUnderscore              = errors.New("must begin with letter or underscore")
-	ErrMustOnlyContainLettersDigitsAndOrUnderscores = errors.New("must only contain letters, digits, and/or underscores")
+	ErrValueDoesNotBeginWithAnIdentifier = errors.New("value can not be begin with an identifier")
+	ErrInvalidIdentifier                 = errors.New("invalid identifier")
+	ErrInvalidNameSpec                   = errors.New("invalid name spec")
+	ErrMustBeginWithLetterOrUnderscore   = errors.New("must begin with letter or underscore")
 )

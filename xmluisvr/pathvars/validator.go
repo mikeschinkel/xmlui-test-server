@@ -20,30 +20,30 @@ func validateDataType(value string, dataType PVDataType) (err error) {
 		_, err = strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			err = errors.Join(
-				err,
-				fmt.Errorf("value=%q", value),
+				ErrInvalidIntegerFormat,
+				fmt.Errorf("value=%s", value),
 				fmt.Errorf("data_type=%v", dataType),
-				fmt.Errorf("reason=%s", "invalid integer format"),
+				err,
 			)
 		}
 	case DecimalType:
 		_, err = strconv.ParseFloat(value, 64)
 		if err != nil {
 			err = errors.Join(
-				err,
-				fmt.Errorf("value=%q", value),
+				ErrInvalidDecimalFormat,
+				fmt.Errorf("value=%s", value),
 				fmt.Errorf("data_type=%v", dataType),
-				fmt.Errorf("reason=%s", "invalid decimal format"),
+				err,
 			)
 		}
 	case RealType:
 		_, err = strconv.ParseFloat(value, 64)
 		if err != nil {
 			err = errors.Join(
-				err,
-				fmt.Errorf("value=%q", value),
+				ErrInvalidRealFormat,
+				fmt.Errorf("value=%s", value),
 				fmt.Errorf("data_type=%v", dataType),
-				fmt.Errorf("reason=%s", "invalid real number format"),
+				err,
 			)
 		}
 	case IdentifierType:
@@ -64,9 +64,9 @@ func validateDataType(value string, dataType PVDataType) (err error) {
 	default:
 		err = errors.Join(
 			ErrInvalidParameterType,
-			fmt.Errorf("value=%q", value),
+			ErrUnsupportedDataType,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", dataType),
-			fmt.Errorf("reason=%s", "unsupported data type"),
 		)
 	}
 
@@ -84,10 +84,10 @@ func validateIdentifier(value string) (err error) {
 	if !matched {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidIdentifierFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", IdentifierType),
 			fmt.Errorf("regex=%s", "^[a-z][a-z0-9_]*$"),
-			fmt.Errorf("reason=%s", "must start with lowercase letter, followed by lowercase letters, digits, or underscores"),
 		)
 	}
 
@@ -102,9 +102,9 @@ func validateDate(value string) (err error) {
 	if value == "" {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrDateValueEmpty,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", DateType),
-			fmt.Errorf("reason=%s", "date value cannot be empty"),
 		)
 	}
 	return err
@@ -122,10 +122,10 @@ func validateUUID(value string) (err error) {
 	if !matched {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidUUIDFormatBasic,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", UUIDType),
 			fmt.Errorf("pattern=%s", "8-4-4-4-12 hex digits"),
-			fmt.Errorf("reason=%s", "invalid UUID format (expected 8-4-4-4-12 hex digits)"),
 		)
 	}
 
@@ -143,10 +143,10 @@ func validateAlphanum(value string) (err error) {
 	if !matched {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidAlphanumericFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", AlphanumericType),
 			fmt.Errorf("regex=%s", "^[a-zA-Z0-9]+$"),
-			fmt.Errorf("reason=%s", "value must contain only letters and digits"),
 		)
 	}
 
@@ -165,10 +165,10 @@ func validateSlug(value string) (err error) {
 	if !matched {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidSlugFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", SlugType),
 			fmt.Errorf("regex=%s", "^[a-z0-9]+(?:-[a-z0-9]+)*$"),
-			fmt.Errorf("reason=%s", "must be lowercase letters/digits with optional hyphens between segments"),
 		)
 	}
 
@@ -180,10 +180,10 @@ func validateBoolean(value string) (err error) {
 	if value != "true" && value != "false" {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidBooleanFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", BooleanType),
 			fmt.Errorf("allowedValues=%s", "true,false"),
-			fmt.Errorf("reason=%s", "boolean value must be exactly 'true' or 'false'"),
 		)
 	}
 	return err
@@ -201,10 +201,10 @@ func validateEmail(value string) (err error) {
 	if !matched {
 		err = errors.Join(
 			ErrValidationFailed,
-			fmt.Errorf("value=%q", value),
+			ErrInvalidEmailFormat,
+			fmt.Errorf("value=%s", value),
 			fmt.Errorf("data_type=%v", EmailType),
 			fmt.Errorf("pattern=%s", "local@domain"),
-			fmt.Errorf("reason=%s", "invalid email format"),
 		)
 	}
 

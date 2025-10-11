@@ -103,7 +103,7 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 	if dec.PeekKind() != '{' {
 		err = errors.Join(
 			ErrAPIParamsMapExpectedObject,
-			fmt.Errorf("token_kind=%q", dec.PeekKind()),
+			fmt.Errorf("token_kind=%s", dec.PeekKind()),
 		)
 		goto end
 	}
@@ -134,7 +134,7 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			// Nested object is forbidden for real params; for comments we also forbid objects.
 			err = errors.Join(
 				ErrAPIParamsMapCannotBeNested,
-				fmt.Errorf("key=%q", name),
+				fmt.Errorf("key=%s", name),
 				fmt.Errorf("value=%s", previewNextValue(name, dec)),
 				fmt.Errorf("offset=%d", valOffset),
 			)
@@ -145,7 +145,7 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			if !isComment {
 				err = errors.Join(
 					ErrAPIParamsMapCannotContainArray,
-					fmt.Errorf("key=%q", name),
+					fmt.Errorf("key=%s", name),
 					fmt.Errorf("value=%s", previewNextValue(name, dec)),
 					fmt.Errorf("offset=%d", valOffset),
 				)
@@ -156,7 +156,7 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			if err != nil {
 				err = errors.Join(
 					ErrAPIParamsMapCannotContainArray,
-					fmt.Errorf("key=%q", name),
+					fmt.Errorf("key=%s", name),
 					fmt.Errorf("value=%s", previewBytesArray(ss)),
 					fmt.Errorf("offset=%d", valOffset),
 					err,
@@ -170,9 +170,9 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			if prev, dup := pm.Get(APIParamsMapKey(name)); dup {
 				err = errors.Join(
 					ErrAPIParamsMapDuplicateKey,
-					fmt.Errorf("key=%q", name),
-					fmt.Errorf("new_value=%q", joined),
-					fmt.Errorf("prev_value=%q", prev),
+					fmt.Errorf("key=%s", name),
+					fmt.Errorf("new_value=%s", joined),
+					fmt.Errorf("prev_value=%s", prev),
 					fmt.Errorf("offset=%d", valOffset),
 				)
 				goto end
@@ -191,9 +191,9 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			if dup {
 				err = errors.Join(
 					ErrAPIParamsMapDuplicateKey,
-					fmt.Errorf("key=%q", name),
-					fmt.Errorf("new_value=%q", s),
-					fmt.Errorf("prev_value=%q", prev),
+					fmt.Errorf("key=%s", name),
+					fmt.Errorf("new_value=%s", s),
+					fmt.Errorf("prev_value=%s", prev),
 					fmt.Errorf("offset=%d", valOffset),
 				)
 				goto end
@@ -204,7 +204,7 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			raw, _ := readRawValue(name, dec)
 			err = errors.Join(
 				ErrAPIParamsMapStringsOnly,
-				fmt.Errorf("key=%q", name),
+				fmt.Errorf("key=%s", name),
 				fmt.Errorf("value=%s", string(raw)),
 				fmt.Errorf("offset=%d", valOffset),
 			)
@@ -214,7 +214,7 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			raw, _ := readRawValue(name, dec)
 			err = errors.Join(
 				ErrAPIParamsMapStringsOnly,
-				fmt.Errorf("key=%q", name),
+				fmt.Errorf("key=%s", name),
 				fmt.Errorf("value=%s", string(raw)),
 				fmt.Errorf("offset=%d", valOffset),
 			)
@@ -235,7 +235,7 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 		err = errors.Join(
 			ErrAPIParamsMapTrailingData,
 			fmt.Errorf("offset=%d", offset+leadingSpaceCount(b[offset:])),
-			fmt.Errorf("trailing=%q", previewBytes(tr, 120)),
+			fmt.Errorf("trailing=%s", previewBytes(tr, 120)),
 		)
 		goto end
 	}

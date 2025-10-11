@@ -8,8 +8,9 @@ import (
 	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 //type ConnectStyle string
@@ -31,13 +32,15 @@ type Database interface {
 	Type() DatabaseType
 	TypeName() string
 	ConnectString() string
+	SetConnectString(string)
 	SourceFile() common.Filepath
 	SetBaseDatabase(db *BaseDatabase)
 	Open(Context) error
+	Close() error
 	Query(Context, string, ...any) (*sql.Rows, error)
 	CheckConnection(Context, DatabaseType, common.ConnectString) error
 	ParseConnectString(string) (common.ConnectString, error)
-	ParseQueryString(query string) (common.QueryString, error)
+	ParseQueryString(query string) (dbqvars.QueryString, error)
 	QueryFileExt() string
 	ParseExtension(DBExtensionConfig) (DBExtension, error)
 	CreateNew(DatabaseArgs) (Database, error)
@@ -84,12 +87,12 @@ func ParseQueries(queries []string, args ParseQueriesArgs) (mpq *MultipartQuery,
 	}
 
 	db := args.Database
-	cs := cfgutil.NewConfigStoreWithFilename(common.AppConfigPath,
+	cs := cfgstore.NewConfigStoreWithFilename(common.AppConfigPath,
 		fmt.Sprintf("%s/%s%s", db.Type(), args.BaseFilename, db.QueryFileExt()),
-		cfgutil.DefaultConfigDirType,
+		cfgstore.DefaultConfigDirType,
 	)
 	queryBytes, err = cs.Load()
-	if errors.Is(err, cfgutil.ErrFileDoesNotExist) {
+	if errors.Is(err, cfgstore.ErrFileDoesNotExist) {
 		err = nil
 	}
 	if err != nil {
@@ -174,7 +177,7 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 		Extensions:       exts,
 		BootstrapQueries: bootstrapQueries,
 		OnOpenQueries:    onOpenQueries,
-		AccessMode:       0,
+		AccessMode:       ReadOnlyMode, //TODO: Make this configurable somehow
 		SourceFile:       sourceFile,
 		Config:           cfg,
 		Options:          args.Options,

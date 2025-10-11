@@ -5,13 +5,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 type ep struct {
-	method common.HTTPMethod
-	path   common.URLPath
+	method pathvars.HTTPMethod
+	path   pathvars.Template
 }
 
 func TestPathVars(t *testing.T) {
@@ -30,7 +29,7 @@ func TestPathVars(t *testing.T) {
 		{
 			method: "GET",
 			path:   "/foos/myfoo/bars/1",
-			expected: pathvars.NewMatchResult(&pathvars.Route{Index: 1}, pathvars.ValuesMap{
+			expected: pathvars.NewMatchResult(&pathvars.Route{Index: 0}, pathvars.ValuesMap{
 				"foo":  "myfoo",
 				"bars": "1",
 			}),
@@ -112,7 +111,7 @@ func TestPathVars(t *testing.T) {
 			}
 
 			// Check for unexpected parameters
-			result.ForEachVar(func(name common.Identifier, value any) bool {
+			result.ForEachVar(func(name pathvars.Identifier, value any) bool {
 				_, expected := tt.expected.GetValue(name)
 				if !expected {
 					t.Errorf("Unexpected parameter %q = %q", name, value)

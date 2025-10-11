@@ -1,4 +1,4 @@
-package cfgutil_test
+package cfgstore_test
 
 import (
 	"os"

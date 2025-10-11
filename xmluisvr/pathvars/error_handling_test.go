@@ -7,15 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 func TestRouterErrorHandling(t *testing.T) {
 	tests := []struct {
 		name        string
-		method      common.HTTPMethod
-		path        common.URLPath
+		method      pathvars.HTTPMethod
+		path        pathvars.Template
 		expectError bool
 		errorType   error
 		query       string
@@ -128,8 +127,8 @@ func TestMultipleRoutes(t *testing.T) {
 	router := pathvars.NewRouter()
 
 	routes := []struct {
-		method common.HTTPMethod
-		path   common.URLPath
+		method pathvars.HTTPMethod
+		path   pathvars.Template
 		index  int
 		params []pathvars.Parameter
 	}{
@@ -235,7 +234,7 @@ func TestEdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			router := pathvars.NewRouter()
 			m, p := parsePathSpec(string(tt.pathSpec))
-			err := router.AddRoute(common.HTTPMethod(m), common.URLPath(p), &pathvars.RouteArgs{
+			err := router.AddRoute(pathvars.HTTPMethod(m), pathvars.Template(p), &pathvars.RouteArgs{
 				Parameters: tt.params,
 			})
 			if err != nil {
@@ -268,12 +267,12 @@ func TestEdgeCases(t *testing.T) {
 func TestParameterParsing(t *testing.T) {
 	tests := []struct {
 		name         string
-		method       common.HTTPMethod
-		path         common.URLPath
+		method       pathvars.HTTPMethod
+		path         pathvars.Template
 		testPath     string
 		query        string
 		params       []pathvars.Parameter
-		expectedName common.Identifier
+		expectedName pathvars.Identifier
 		expectedType string
 		wantErr      bool
 	}{

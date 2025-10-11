@@ -1,4 +1,4 @@
-package cfgutil_test
+package cfgstore_test
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
@@ -17,8 +17,8 @@ type testData struct {
 	Age  int
 }
 
-func getConfigStore(filename string, dirType cfgutil.ConfigDirType) cfgutil.ConfigStore {
-	return cfgutil.NewConfigStoreWithFilename("test-app", filename, dirType).(cfgutil.ConfigStore)
+func getConfigStore(filename string, dirType cfgstore.ConfigDirType) cfgstore.ConfigStore {
+	return cfgstore.NewConfigStoreWithFilename("test-app", filename, dirType).(cfgstore.ConfigStore)
 }
 
 func TestConfigStore_SaveLoadExists(t *testing.T) {
@@ -29,7 +29,7 @@ func TestConfigStore_SaveLoadExists(t *testing.T) {
 	})
 
 	filename := "config/testdata.json"
-	cs := getConfigStore(filename, cfgutil.DefaultConfigDirType)
+	cs := getConfigStore(filename, cfgstore.DefaultConfigDirType)
 	cs.SetConfigDir(dir)
 
 	data := testData{Name: "Alice", Age: 42}
@@ -49,7 +49,7 @@ func TestConfigStore_SaveLoadExists(t *testing.T) {
 func TestConfigStore_LoadNonexistent(t *testing.T) {
 	var err error
 
-	cs := getConfigStore("does-not-exist.json", cfgutil.DefaultConfigDirType)
+	cs := getConfigStore("does-not-exist.json", cfgstore.DefaultConfigDirType)
 	cs.SetConfigDir(t.TempDir())
 
 	err = cs.LoadJSON(&testData{}, nil)
@@ -59,7 +59,7 @@ func TestConfigStore_LoadNonexistent(t *testing.T) {
 func TestConfigStore_SaveInvalidJSON(t *testing.T) {
 	var err error
 
-	cs := getConfigStore("bad.json", cfgutil.DefaultConfigDirType)
+	cs := getConfigStore("bad.json", cfgstore.DefaultConfigDirType)
 	cs.SetConfigDir(t.TempDir())
 
 	ch := make(chan int) // non-serializable
@@ -68,7 +68,7 @@ func TestConfigStore_SaveInvalidJSON(t *testing.T) {
 }
 
 func TestConfigStore_ConfigDir(t *testing.T) {
-	cs := getConfigStore("", cfgutil.DefaultConfigDirType)
+	cs := getConfigStore("", cfgstore.DefaultConfigDirType)
 	dir := t.TempDir()
 
 	cs.SetConfigDir(dir)

@@ -40,8 +40,8 @@ func (c *EnumConstraint) Validate(value string) (err error) {
 	return err
 }
 
-func (c *EnumConstraint) String() string {
-	return fmt.Sprintf("%s[%s]", c.Type(), strings.Join(c.list, ","))
+func (c *EnumConstraint) Rule() string {
+	return strings.Join(c.list, ",")
 }
 
 func (c *EnumConstraint) ValidDateTypes() []PVDataType {
@@ -61,13 +61,17 @@ func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error
 	var values []string
 	var valueMap map[string]bool
 	var value string
+	var errs []error
+
+	enumError := func() error {
+		return errors.Join(
+			ErrInvalidConstraint, ErrEnumValueIsEmpty,
+			fmt.Errorf("enum=%s", enumSpec),
+		)
+	}
 
 	if enumSpec == "" {
-		err = errors.Join(
-			ErrInvalidConstraint,
-			fmt.Errorf("enumSpec=%q", enumSpec),
-			fmt.Errorf("reason=%s", "empty enum content"),
-		)
+		err = enumError()
 		goto end
 	}
 
@@ -78,12 +82,8 @@ func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error
 	for _, value = range values {
 		value = strings.TrimSpace(value)
 		if value == "" {
-			err = errors.Join(
-				ErrInvalidConstraint,
-				fmt.Errorf("enumSpec=%q", enumSpec),
-				fmt.Errorf("reason=%s", "empty value in enum list"),
-			)
-			goto end
+			errs = append(errs, enumError())
+			continue
 		}
 		valueMap[value] = true
 	}

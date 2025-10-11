@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 // TODO — Convince Gent that we should publish schemas on schemas.xmlui.org
@@ -63,7 +64,7 @@ end:
 
 func (c *RootConfigV1) Config() {}
 
-func (c *RootConfigV1) Normalize(sourceFile string) {
+func (c *RootConfigV1) Normalize(sourceFile string, opts *Options) {
 	c.Schema = RootConfigV1Schema
 	c.Version = RootConfigV1Version
 	if c.ServerConfig == nil {
@@ -76,7 +77,7 @@ func (c *RootConfigV1) Normalize(sourceFile string) {
 	if c.DBConfig == nil {
 		c.DBConfig = NewSQLite3ConfigV1(DefaultSQLite3Database)
 	}
-	c.DBConfig.Normalize(sourceFile)
+	c.DBConfig.Normalize(sourceFile, opts)
 	return
 }
 
@@ -146,7 +147,7 @@ func readFile(file string, mustLoad bool) (data []byte, err error) {
 }
 
 func LoadRootConfigV1(appName string) (rc *RootConfigV1, err error) {
-	typeMap := cfgutil.GetConfigStoresMap(appName, RootConfigFile)
+	typeMap := cfgstore.GetConfigStoresMap(appName, RootConfigFile)
 	opts, err := GetOptions()
 	if err != nil {
 		goto end
@@ -156,8 +157,8 @@ end:
 	return rc, err
 }
 
-func ensureConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
-	rc, err = loadConfigIfExists(cs)
+func ensureConfig(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV1, err error) {
+	rc, err = loadConfigIfExists(cs, opts)
 	if err != nil {
 		// A real error occurred, bail out
 		goto end
@@ -165,7 +166,7 @@ func ensureConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 
 	if rc == nil {
 		// Config not loaded, need to create config
-		rc, err = createConfig(cs)
+		rc, err = createConfig(cs, opts)
 		goto end
 	}
 
@@ -173,7 +174,7 @@ end:
 	return rc, err
 }
 
-func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
+func createConfig(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV1, err error) {
 	var api *APIConfigV2
 	var db *SQLite3ConfigV1
 	var server *ServerConfigV1
@@ -191,14 +192,14 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	api.AddEndpoint(NewAPIEndpointV2("GET", "/tasks/search/{project_id:int}", APIEndpointV2Args{
 		Description: "Search tasks within a given project (path param project_id + query-string param q)",
 		Query:       "SELECT t.id, t.title, t.status, t.priority, IFNULL(au.email,'') AS assignee_email FROM tasks t LEFT JOIN users au ON au.id = t.assignee_id WHERE t.project_id = :project_id AND (LOWER(t.title) LIKE LOWER('%' || :q || '%') OR LOWER(t.details) LIKE LOWER('%' || :q || '%')) ORDER BY t.priority DESC, t.id;",
-		Cardinality: string(common.ManyRows),
-		RowType:     string(common.ColumnsRowType),
+		Cardinality: string(dbqvars.ManyRows),
+		RowType:     string(dbqvars.ColumnsRowType),
 		ColumnTypes: []string{
-			string(common.IntegerDBDataType),
-			string(common.StringDBDataType),
-			string(common.StringDBDataType),
-			string(common.IntegerDBDataType),
-			string(common.StringDBDataType),
+			string(dbqvars.IntegerDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.IntegerDBDataType),
+			string(dbqvars.StringDBDataType),
 		},
 		Params: m,
 	}))
@@ -207,17 +208,17 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	api.AddEndpoint(NewAPIEndpointV2("GET", "/tasks/by-project/{project:string}", APIEndpointV2Args{
 		Description: "Tasks for a project using project in the path and owner email as a query-string parameter",
 		Query:       "SELECT t.id, t.title, t.status, t.priority, t.due_date, au.email AS assignee_email, au.name AS assignee_name, t.created_at FROM tasks t JOIN projects p ON p.id = t.project_id JOIN users ou ON ou.id = p.owner_id LEFT JOIN users au ON au.id = t.assignee_id WHERE ou.email = :email AND p.name = :project ORDER BY t.priority DESC, t.created_at;",
-		Cardinality: string(common.ManyRows),
-		RowType:     string(common.ColumnsRowType),
+		Cardinality: string(dbqvars.ManyRows),
+		RowType:     string(dbqvars.ColumnsRowType),
 		ColumnTypes: []string{
-			string(common.IntegerDBDataType),
-			string(common.StringDBDataType),
-			string(common.StringDBDataType),
-			string(common.IntegerDBDataType),
-			string(common.StringDBDataTypeOrNULL),
-			string(common.StringDBDataTypeOrNULL),
-			string(common.StringDBDataTypeOrNULL),
-			string(common.StringDBDataType),
+			string(dbqvars.IntegerDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.IntegerDBDataType),
+			string(dbqvars.StringDBDataTypeOrNULL),
+			string(dbqvars.StringDBDataTypeOrNULL),
+			string(dbqvars.StringDBDataTypeOrNULL),
+			string(dbqvars.StringDBDataType),
 		},
 		Params: APIParamsV1{
 			{NameSpec: "email", Type: "string"},
@@ -228,13 +229,13 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	api.AddEndpoint(NewAPIEndpointV2("GET", "/users/{id:int}", APIEndpointV2Args{
 		Description: "Get a single user by numeric id (path parameter only)",
 		Query:       "SELECT id, email, name, created_at FROM users WHERE id = :id;",
-		Cardinality: string(common.OneRow),
-		RowType:     string(common.ColumnsRowType),
+		Cardinality: string(dbqvars.OneRow),
+		RowType:     string(dbqvars.ColumnsRowType),
 		ColumnTypes: []string{
-			string(common.IntegerDBDataType),
-			string(common.StringDBDataType),
-			string(common.StringDBDataType),
-			string(common.StringDBDataType),
+			string(dbqvars.IntegerDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.StringDBDataType),
 		},
 	}))
 
@@ -242,8 +243,8 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	api.AddEndpoint(NewAPIEndpointV2("GET", "/hello", APIEndpointV2Args{
 		Description: "Hello World Endpoint",
 		Query:       "SELECT 'Hello World';",
-		Cardinality: string(common.OneRow),
-		RowType:     string(common.StringRowType),
+		Cardinality: string(dbqvars.OneRow),
+		RowType:     string(dbqvars.StringRowType),
 		Params:      APIParamsV1{},
 	}))
 
@@ -251,13 +252,13 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	api.AddEndpoint(NewAPIEndpointV2("GET", "/projects/by-owner/{email:string}", APIEndpointV2Args{
 		Description: "Projects owned by a given user (owner email as a path parameter)",
 		Query:       "SELECT p.id, p.name, p.status, p.created_at FROM projects p WHERE p.owner_id = (SELECT id FROM users WHERE email = :email) ORDER BY p.created_at DESC;",
-		Cardinality: string(common.ManyRows),
-		RowType:     string(common.ColumnsRowType),
+		Cardinality: string(dbqvars.ManyRows),
+		RowType:     string(dbqvars.ColumnsRowType),
 		ColumnTypes: []string{
-			string(common.IntegerDBDataType),
-			string(common.StringDBDataType),
-			string(common.StringDBDataType),
-			string(common.StringDBDataType),
+			string(dbqvars.IntegerDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.StringDBDataType),
+			string(dbqvars.StringDBDataType),
 		},
 	}))
 
@@ -277,7 +278,7 @@ func createConfig(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	if err != nil {
 		goto end
 	}
-	rc.Normalize(fp)
+	rc.Normalize(fp, opts)
 	err = cs.SaveJSON(rc)
 	if err != nil {
 		goto end
@@ -286,16 +287,14 @@ end:
 	return rc, err
 }
 
-func loadConfigIfExists(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
+func loadConfigIfExists(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV1, err error) {
 	var fp string
-	var opts *cfgutil.LoadJSONOpts
 	if !cs.Exists() {
 		goto end
 	}
 
 	rc = &RootConfigV1{}
-	opts = &cfgutil.LoadJSONOpts{}
-	err = cs.LoadJSON(&rc, opts)
+	err = cs.LoadJSON(rc, nil)
 	if err != nil {
 		goto end
 	}
@@ -303,34 +302,31 @@ func loadConfigIfExists(cs cfgutil.ConfigStore) (rc *RootConfigV1, err error) {
 	if err != nil {
 		goto end
 	}
-	rc.Normalize(fp)
+	rc.Normalize(fp, opts)
 end:
 	return rc, err
 }
 
 // LoadRootConfigV1FromConfigStoreMap also specifying the config stores in a map to enable unit testing
-func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoresMap, opts *Options) (rc *RootConfigV1, err error) {
+func LoadRootConfigV1FromConfigStoreMap(stores cfgstore.ConfigStoresMap, opts *Options) (rc *RootConfigV1, err error) {
 	var userConfig, localConfig *RootConfigV1
-	var cs cfgutil.ConfigStore
+	var cs cfgstore.ConfigStore
 	var schemaBytes []byte
 	var apiConfig *APIConfigV2
 
-	cs = stores[cfgutil.DotConfigDir]
-	userConfig, err = ensureConfig(cs)
+	cs = stores[cfgstore.DotConfigDir]
+	userConfig, err = ensureConfig(cs, opts)
 	if err != nil {
-		err = addFilepathToErr(cs)
 		goto end
 	}
 
-	cs = stores[cfgutil.LocalConfigDir]
-	localConfig, err = loadConfigIfExists(cs)
+	cs = stores[cfgstore.LocalConfigDir]
+	localConfig, err = loadConfigIfExists(cs, opts)
 	if err != nil {
-		err = addFilepathToErr(cs)
 		goto end
 	}
 
 	// TODO Merge them here instead of just returning userConfig
-	common.Noop(localConfig)
 	rc = userConfig
 	rc = localConfig
 
@@ -342,7 +338,7 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoresMap, opts *Op
 		rc.ServerConfig.APIConfig = apiConfig
 	}
 
-	schemaBytes, err = cfgutil.ReadFileIfExists(opts.DBBootstrapFile)
+	schemaBytes, err = cfgstore.ReadFileIfExists(opts.DBBootstrapFile)
 	if err != nil {
 		err = errors.Join(ErrFailedToLoadDBSchemaFile, fmt.Errorf("dbschema_file=%s", opts.DBBootstrapFile), err)
 		goto end
@@ -352,19 +348,11 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgutil.ConfigStoresMap, opts *Op
 	}
 
 end:
-	return rc, err
-}
-
-func addFilepathToErr(cs cfgutil.ConfigStore) (err error) {
-	var fp string
-	fp, err = cs.GetFilepath()
 	if err != nil {
-		err = errors.Join(err, err)
-	}
-	if fp != "" {
+		fp, _ := cs.GetFilepath()
 		err = errors.Join(err, fmt.Errorf("filepath=%s", fp))
 	}
-	return err
+	return rc, err
 }
 
 func loadAPIFileIfExists(apiFile string) (api *APIConfigV2, err error) {
@@ -373,7 +361,7 @@ func loadAPIFileIfExists(apiFile string) (api *APIConfigV2, err error) {
 	if apiFile == "" {
 		goto end
 	}
-	apiBytes, err = cfgutil.ReadFileIfExists(apiFile)
+	apiBytes, err = cfgstore.ReadFileIfExists(apiFile)
 	if err != nil {
 		errs = [2]error{ErrFailedToLoadAPIConfigFile, err}
 		goto end

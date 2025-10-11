@@ -15,139 +15,300 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
-func (s *Server) handleRootFunc() http.HandlerFunc {
+func (svr *Server) handleRootFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.Printf("Request: %s\n", r.URL.Path)
+		svr.Printf("Request: %s\n", r.URL.Path)
 		if r.URL.Path != "/" {
-			s.serveFile(w, r, common.Filepath("."+r.URL.Path))
+			svr.serveFile(w, r, common.Filepath("."+r.URL.Path))
 			return
 		}
-		s.serveFile(w, r, "./index.html")
+		svr.serveFile(w, r, "./index.html")
 	}
 }
 
-func (s *Server) serveFile(w http.ResponseWriter, r *http.Request, filePath common.Filepath) {
-	s.Writer.Printf("Trying to serve: %s\n", filePath)
+func (svr *Server) serveFile(w http.ResponseWriter, r *http.Request, filePath common.Filepath) {
+	svr.Writer.Printf("Trying to serve: %s\n", filePath)
 	err := common.CheckFileExists(filePath)
 	switch {
 	case errors.Is(os.ErrNotExist, err):
-		s.Writer.Errorf("File not found\n")
+		svr.Writer.Errorf("File not found\n")
 		http.NotFound(w, r)
 	case errors.Is(ErrPathIsDir, err):
-		s.serveFile(w, r, common.Filepath(fmt.Sprintf("%s/index.html", filePath)))
+		svr.serveFile(w, r, common.Filepath(fmt.Sprintf("%s/index.html", filePath)))
 	default:
 		// TODO Make this safe from path traversal exploit
-		http.ServeFile(w, r, filepath.Join(string(s.api.Webroot), string(filePath)))
+		http.ServeFile(w, r, filepath.Join(string(svr.api.Webroot), string(filePath)))
 	}
 }
 
 // Handle direct SQL query requests
-func (s *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
+func (svr *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.V2().Printf("Query request: %s\n", r.URL.Path)
+		var err error
 
-		if !s.options.AllowUntrustedQueries {
-			s.WarnError("Query disallowed!")
-			common.SendErrorResponse(w, "Currently not allowing untrusted database queries to run", http.StatusNotImplemented)
-			return
+		svr.V2().Printf("Query request: %svr\n", r.URL.Path)
+
+		args := apipkg.HandlerHelperArgs{
+			HTTPRequest: r,
+			Database:    db,
+			APIResponse: apiutil.NewResponse(apiutil.ResponseArgs{
+				HTTPWriter: w,
+				Request:    r,
+				CLIWriter:  svr.Writer,
+				Logger:     svr.Logger,
+			}),
 		}
-		// Use io.TeeReader to log the body while still allowing it to be read
-		var bodyBuffer bytes.Buffer
-		teeReader := io.TeeReader(r.Body, &bodyBuffer)
 
-		// Read the body into a buffer
-		_, err := io.ReadAll(teeReader)
+		err = svr.checkUntrustedQueriesAuthorization(args)
 		if err != nil {
-			common.SendErrorResponse(w, "Failed to read request body", http.StatusInternalServerError)
-			return
+			goto end
 		}
 
-		query := string(bodyBuffer.Bytes())
-		s.V3().InfoPrint("Database query submitted.",
-			"requestor_ip", r.RemoteAddr,
-			"query", strings.Replace(query, "\n", " ", -1),
-		)
-
-		// Decode the body into the queryRequest struct
-		var req struct {
-			SQL    string `json:"sql"`
-			Params []any  `json:"params"`
-		}
-		err = jsonv2.UnmarshalRead(&bodyBuffer, &req)
+		args.RequestBody, err = svr.getHTTPBody(args)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		qs, err := db.ParseQueryString(req.SQL)
-		if err != nil {
-			common.SendErrorResponse(w, "failed to parse database query", http.StatusInternalServerError)
-			return
+			goto end
 		}
 
-		// Execute the query
-		result, err := dbpkg.ExecuteQuery(ctx, db, qs, req.Params)
+		args.DBQuery, args.QueryValues, err = svr.getDBQuery(args)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error(), http.StatusInternalServerError)
-			return
+			goto end
 		}
 
-		// Return response
-		common.SendJSONResponse(w, r, result, http.StatusOK)
+		// Now call the SQL query
+		args.QueryResult, err = svr.api.GetQueryResult(ctx, args)
+		if err != nil {
+			goto end
+		}
+
+		// Now get the response content
+		args.Content, err = svr.api.GetResponseContent(args)
+		if err != nil {
+			goto end
+		}
+
+		// Finally, send the success response. `args.Content` is expected to
+		// contain the value to return as JSON.
+		svr.api.SendSuccessResponse(args.SendResponseArgs(nil))
+	end:
+		if err != nil {
+			// Or, send the error if it was an error This assumes that err will have been
+			// joined with a `ResponsePayload` — which by declaration is also an `error` —
+			// one example being rfc9457.Response.
+			svr.api.SendErrorResponse(args.SendResponseArgs(err))
+		}
+		return
 	}
 }
 
 // Handle proxy requests
-func (s *Server) handleProxyFunc(method common.HTTPMethod) http.HandlerFunc {
+func (svr *Server) checkUntrustedQueriesAuthorization(args apipkg.HandlerHelperArgs) (err error) {
+	if !svr.options.AllowUntrustedQueries {
+		// Should PresentationStyle not return 404 instead, or it 501 still valid? 501 is
+		// probably valid since this is not a production server and leaking info is not a
+		// big concern for local development and testing.
+		err = errors.Join(
+			ErrUnauthorizedEndpointAccess,
+			apiutil.UnauthorizedPayload(args.HTTPRequest, apiutil.PayloadArgs{
+				Detail: fmt.Sprintf(
+					apiutil.AllowUntrustedQueriesErrorDetail,
+					args.APIEndpointRequested(),
+				),
+				Suggestion: fmt.Sprintf(
+					apiutil.AllowUntrustedQueriesErrorSuggestion,
+					cfgldr.AllowUntrustedQueriesFlag,
+					args.APIEndpointRequested(),
+				),
+			}),
+		)
+	}
+	return err
+}
+
+var (
+	ErrFailedToUnmarshalJSON                 = errors.New("failed to unmarshal JSON")
+	ErrInvalidDBQueryString                  = errors.New("invalid database query string; failed to parse")
+	ErrFailedToGetDBQueryFromHTTPRequestBody = errors.New("failed to get database query from HTTP request body")
+	ErrInvalidURL                            = errors.New("invalid URL")
+	ErrMissingHostAfterProxySegment          = errors.New("missing host after proxy segment")
+	ErrInvalidProxyTargetHost                = errors.New("invalid target proxy host")
+)
+
+func (svr *Server) getHTTPBody(args apipkg.HandlerHelperArgs) (body bytes.Buffer, err error) {
+	errorStyle := svr.options.ErrorStyle
+
+	// Use io.TeeReader to log the body while still allowing it to be read
+	teeReader := io.TeeReader(args.HTTPRequest.Body, &body)
+	// Read the body into a buffer
+	_, err = io.ReadAll(teeReader)
+	if err != nil {
+		err = errors.Join(
+			apiutil.ErrFailedToReadHTTPRequestBody,
+			apiutil.InternalServerErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+				Location: apiutil.BodyLocation,
+				Suggestion: errorStyle.ErrorMessage(
+					fmt.Sprintf(apiutil.TryRestartingTheServerOrFileOnGithub, apiutil.ReportOnGithubMessageFunc()),
+					apiutil.ErrFailedToReadHTTPRequestBody.Error(),
+					err,
+				),
+			}),
+			err,
+		)
+		goto end
+	}
+end:
+	return body, err
+}
+
+func (svr *Server) getDBQuery(args apipkg.HandlerHelperArgs) (qs dbqvars.QueryString, values []any, err error) {
+	// Decode the body into the queryRequest struct
+	var req struct {
+		Query  string `json:"db_query"`
+		Values []any  `json:"parameters"`
+	}
+	err = jsonv2.UnmarshalRead(&args.RequestBody, &req)
+	if err != nil {
+		err = errors.Join(
+			ErrFailedToGetDBQueryFromHTTPRequestBody,
+			ErrFailedToUnmarshalJSON,
+			apiutil.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+				Detail: fmt.Sprintf("%s; %s",
+					ErrFailedToGetDBQueryFromHTTPRequestBody.Error(),
+					ErrFailedToUnmarshalJSON.Error(),
+				),
+				Suggestion: apiutil.EnsureYourHTTPRequestBodyContainsAValidDBQueryJSON,
+			}),
+		)
+		goto end
+	}
+	values = req.Values
+	qs, err = args.Database.ParseQueryString(req.Query)
+	if err != nil {
+		err = errors.Join(
+			ErrFailedToGetDBQueryFromHTTPRequestBody,
+			ErrInvalidDBQueryString,
+			apiutil.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+				Detail:     svr.options.ErrorStyle.ErrorMessage("Invalid Database Query", fmt.Sprintf("Query=%s", req.Query), err),
+				Suggestion: fmt.Sprintf(apiutil.EnsureYourDBQueryIsValidForDB, svr.displayDBTypeName()),
+			}),
+		)
+		goto end
+	}
+end:
+	return qs, values, err
+}
+
+// Handle proxy requests
+func (svr *Server) handleProxyFunc(method common.HTTPMethod) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// ParseBytes "/proxy/<host>/<subpath...>?<query>"
-		targetPath := strings.TrimPrefix(r.URL.Path, "/proxy/")
-		hostPart, rest, _ := strings.Cut(targetPath, "/")
-		if hostPart == "" {
-			s.Errorf("missing host after /proxy/")
-			http.Error(w, "missing host after /proxy/", http.StatusBadRequest)
-			return
+		var err error
+
+		args := apipkg.HandlerHelperArgs{
+			HTTPRequest: r,
+			Database:    svr.db,
+			APIResponse: apiutil.NewResponse(apiutil.ResponseArgs{
+				HTTPWriter: w,
+				Request:    r,
+				CLIWriter:  svr.Writer,
+				Logger:     svr.Logger,
+			}),
 		}
 
-		// (Optional but wise) guard against Server-Side Request Forgery (SSRF) / illegal hosts
-		// if !s.allowedHost(hostPart) { http.Error(...); return }
-
-		// Construct a "bare" target with no path so the Director won't double up paths.
-		rawTarget := "https://" + hostPart
-		targetURL, err := url.Parse(rawTarget)
-		if err != nil || targetURL.Host == "" {
-			s.Errorf("invalid target host: %s\n", hostPart)
-			http.Error(w, "invalid target host: "+hostPart, http.StatusBadRequest)
-			return
+		args.TargetURL, args.URLPath, err = svr.getTargetURLAndPath(args)
+		if err != nil {
+			goto end
 		}
 
-		proxy := httputil.NewSingleHostReverseProxy(targetURL)
+		svr.createProxy(args).ServeHTTP(w, r) // do not mutate r beforehand
 
-		// Build a Director that *only* mutates the outbound request.
-		proxy.Director = s.proxyDirectorFunc(proxy.Director, proxy, r, targetURL, rest)
-		// Give yourself visibility vs “mystery crash”
-		proxy.ErrorHandler = s.proxyErrorHandlerFunc(targetURL)
-
-		// (Optional) Hardened Transport (timeouts, no HTTP/2 if you suspect issues, etc.)
-		proxy.Transport = &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			// DisableCompression:  true, // sometimes useful when chasing bugs
+	end:
+		if err != nil {
+			// Or, send the error if it was an error This assumes that err will have been
+			// joined with a `ResponsePayload` — which by declaration is also an `error` —
+			// one example being rfc9457.Response.
+			svr.api.SendErrorResponse(args.SendResponseArgs(err))
 		}
-		proxy.ServeHTTP(w, r) // do not mutate r beforehand
-
+		return
 	}
 }
 
-func (s *Server) proxyErrorHandlerFunc(targetURL *url.URL) func(http.ResponseWriter, *http.Request, error) {
+func (svr *Server) getTargetURLAndPath(args apipkg.HandlerHelperArgs) (target *url.URL, up common.URLPath, err error) {
+	var targetHost string
+
+	path := args.HTTPRequest.URL.Path
+	// ParseBytes "/proxy/<host>/<subpath...>?<query>"
+	targetPath := strings.TrimPrefix(path, "/proxy/")
+
+	hostPart, path, _ := strings.Cut(targetPath, "/")
+	if hostPart == "" {
+		err = errors.Join(
+			ErrInvalidURL,
+			ErrMissingHostAfterProxySegment,
+			apiutil.InvalidURLFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+				Location:   apiutil.PathLocation,
+				Detail:     fmt.Sprintf(`Invalid URL format; got %s`, path),
+				Suggestion: apiutil.EnsureURLBeginsWithPrefix,
+			}),
+		)
+		goto end
+	}
+	up = common.URLPath(path)
+
+	target, err = url.Parse(fmt.Sprintf("https://%s", hostPart))
+	targetHost = "'No host provided'"
+	if target != nil && target.Host != "" {
+		targetHost = target.Host
+	}
+	if err != nil {
+		err = errors.Join(
+			ErrInvalidURL,
+			ErrInvalidProxyTargetHost,
+			apiutil.InvalidURLFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+				Location:   apiutil.PathLocation,
+				Detail:     fmt.Sprintf(`Invalid URL format for proxy target host; got %s`, targetHost),
+				Suggestion: apiutil.EnsureURLBeginsWithPrefix,
+			}),
+		)
+		goto end
+	}
+
+end:
+	return target, up, err
+}
+
+func (svr *Server) createProxy(args apipkg.HandlerHelperArgs) (proxy *httputil.ReverseProxy) {
+	proxy = httputil.NewSingleHostReverseProxy(args.TargetURL)
+
+	// Build a Director that *only* mutates the outbound request.
+	proxy.Director = svr.proxyDirectorFunc(proxy.Director, proxy, args.HTTPRequest, args)
+	// Give yourself visibility vs “mystery crash”
+	proxy.ErrorHandler = svr.proxyErrorHandlerFunc(args.TargetURL)
+
+	// (Optional) Hardened Transport (timeouts, no HTTP/2 if you suspect issues, etc.)
+	proxy.Transport = &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		// DisableCompression:  true, // sometimes useful when chasing bugs
+	}
+
+	svr.Writer.Printf("Proxying: %s %s\n", args.HTTPRequest.Method, args.TargetURL.String())
+
+	return proxy
+}
+
+func (svr *Server) proxyErrorHandlerFunc(targetURL *url.URL) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, req *http.Request, err error) {
 		// Log and convert to a 502 (or 504 on timeout)
 		status := http.StatusBadGateway
@@ -155,8 +316,8 @@ func (s *Server) proxyErrorHandlerFunc(targetURL *url.URL) func(http.ResponseWri
 		if errors.As(err, &nErr) && nErr.Timeout() {
 			status = http.StatusGatewayTimeout
 		}
-		s.Errorf("Proxy error for https://%s%s; %v\n", targetURL.Host, req.URL.Path, err)
-		s.Error("Proxy error",
+		svr.Errorf("Proxy error for https://%s%s; %v\n", targetURL.Host, req.URL.Path, err)
+		svr.Error("Proxy error",
 			"target_host", targetURL.Host,
 			"url_path", req.URL.Path,
 			"error", err,
@@ -165,17 +326,24 @@ func (s *Server) proxyErrorHandlerFunc(targetURL *url.URL) func(http.ResponseWri
 	}
 }
 
-func (s *Server) proxyDirectorFunc(priorDirector func(*http.Request), proxy *httputil.ReverseProxy, in *http.Request, targetURL *url.URL, rest string) func(*http.Request) {
+func (svr *Server) proxyDirectorFunc(priorDirector func(*http.Request), proxy *httputil.ReverseProxy, in *http.Request, args apipkg.HandlerHelperArgs) func(*http.Request) {
 	return func(out *http.Request) {
+		in := args.HTTPRequest
+		path := args.URLPath
+		targetURL := args.TargetURL
+
 		// Start with stdlib’s defaults.
 		priorDirector(out)
 
-		// Then apply our mapping.
-		subPath := "/"
-		if rest != "" {
-			subPath = "/" + rest
+		if len(path) >= 1 && path[0] != '/' {
+			path = common.URLPath("/" + string(path))
 		}
-		out.URL.Path = subPath
+		if path == "" {
+			path = "/"
+		}
+
+		// Then apply our mapping.
+		out.URL.Path = string(path)
 		out.URL.RawQuery = in.URL.RawQuery
 		out.URL.Scheme = targetURL.Scheme
 		out.URL.Host = targetURL.Host
@@ -183,7 +351,7 @@ func (s *Server) proxyDirectorFunc(priorDirector func(*http.Request), proxy *htt
 		// Host header to upstream (avoid surprises)
 		out.Host = targetURL.Host
 
-		s.Printf("Proxying %s to %s\n", in.URL.Path, targetURL.Host)
+		svr.Printf("Proxying %s to %s\n", in.URL.Path, targetURL.Host)
 
 		// Forward the client IP chain
 		out.Header.Set("X-Forwarded-Host", in.Host)

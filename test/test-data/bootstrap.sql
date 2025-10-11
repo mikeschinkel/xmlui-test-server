@@ -1,4 +1,4 @@
--- bootstrap_test.sql
+-- bootstrap.sql
 -- Purpose: Comprehensive test schema for API integration testing with ALL PathVars parameter types
 -- This schema supports testing every permutation from xmluisvr/pathvars/ADR_PATHVARS.md
 

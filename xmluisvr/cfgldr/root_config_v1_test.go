@@ -1,18 +1,19 @@
 package cfgldr_test
 
 import (
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/mikeschinkel/go-jsontest"
+	_ "github.com/mikeschinkel/go-jsontest/pipefuncs"
 	"github.com/stretchr/testify/require"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/fsutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
-
-	_ "github.com/mikeschinkel/go-jsontest/pipefuncs"
 )
 
 // TestCreateGoldenData is not a real test but a convenience to write a "Golden" file we can cherry pick from
@@ -25,9 +26,10 @@ func TestCreateGoldenData(t *testing.T) {
 		RowType:     "string",
 	}))
 	db := cfgldr.NewSQLite3ConfigV1("data.db")
-	err := db.AddExtension(&cfgldr.SQLite3ExtensionConfigV1{
+	ext := &cfgldr.SQLite3ExtensionConfigV1{
 		Filepath: "steampipe_sqlite_github.so",
-	})
+	}
+	err := db.AddExtension(ext, nil)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -39,12 +41,11 @@ func TestCreateGoldenData(t *testing.T) {
 		ServerConfig: server,
 		DBConfig:     db,
 	})
-	err = fsutil.WriteJSONFile("./test-data/test-server.json", root, 0644, 0755)
+	err = writeJSONFile("./test-data/test-server.json", root, 0644, 0755)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 }
-
 func TestLoadRootConfigV1(t *testing.T) {
 	type args struct {
 		appName string
@@ -122,4 +123,28 @@ func TestLoadRootConfigV1(t *testing.T) {
 
 func ptr[T any](t T) *T {
 	return &t
+}
+
+func writeJSONFile(file string, value any, filePerms, dirPerms os.FileMode) (err error) {
+	var bytes []byte
+	err = os.MkdirAll(filepath.Dir(file), dirPerms)
+	if err != nil {
+		err = fmt.Errorf("failed to create directory %s", filepath.Dir(file))
+		goto end
+	}
+
+	bytes, err = jsonv2.Marshal(value, jsontext.WithIndent("\t"))
+	if err != nil {
+		err = fmt.Errorf("failed to marshal value of type '%T' to json", value)
+		goto end
+	}
+
+	err = os.WriteFile(file, bytes, filePerms)
+	if err != nil {
+		err = fmt.Errorf("failed to write test file; %s", file)
+		goto end
+	}
+
+end:
+	return err
 }

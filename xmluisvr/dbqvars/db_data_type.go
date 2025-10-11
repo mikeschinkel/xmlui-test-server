@@ -1,4 +1,4 @@
-package common
+package dbqvars
 
 import (
 	"errors"
@@ -6,6 +6,17 @@ import (
 	"strings"
 )
 
+type DBAccessMode int
+
+const (
+	UnspecifiedDBAccessMode DBAccessMode = iota
+	DBReadOnlyMode
+	DBReadWriteMode
+	DBAdminMode
+	DBSuperAdminMode
+)
+
+type DBDataTypes []DBDataType
 type DBDataType string
 
 func (dt DBDataType) Normalize() DBDataType {

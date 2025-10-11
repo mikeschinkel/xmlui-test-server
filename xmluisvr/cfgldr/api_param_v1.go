@@ -15,7 +15,7 @@ type APIParamV1 struct {
 	MultiSegment bool   `json:"multi_segment"`
 	Optional     bool   `json:"optional"`
 	DefaultValue string `json:"default"`
-	UseType      int    `json:"-"`
+	Location     string `json:"-"`
 }
 
 type APIParamV1Args struct {

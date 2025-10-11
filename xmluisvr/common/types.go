@@ -4,13 +4,13 @@ type (
 	DirPath         string //Absolute or Relative
 	EnvironmentVars map[string]string
 	ExtensionId     string
-	SQLQuery        string
-	Filepath        string //Absolute or Relative
-	ConnectString   string //Absolute or Relative
-	QueryString     string //Absolute or Relative
-	FullURL         string
-	Identifier      string //Absolute or Relative
-	JSONBytes       []byte //Absolute or Relative
+
+	Filepath      string //Absolute or Relative
+	ConnectString string //Absolute or Relative
+	QueryString   string //Absolute or Relative
+	FullURL       string
+	Identifier    string //Absolute or Relative
+	JSONBytes     []byte //Absolute or Relative
 
 	LoadOrder  int
 	OSArch     string
@@ -18,5 +18,8 @@ type (
 	Version    string
 	Host       string
 	ServerPort int
-	Selector   string
 )
+
+type ContentGetter interface {
+	Content() any
+}

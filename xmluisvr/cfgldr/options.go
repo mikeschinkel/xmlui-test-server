@@ -1,13 +1,15 @@
 package cfgldr
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 const (
@@ -18,11 +20,17 @@ const (
 	DefaultDBBootstrapFile       = "bootstrap.sql"
 	DefaultQuiet                 = false
 	DefaultAllowUntrustedQueries = false
-	DefaultVerbosity             = 1
+	DefaultVerbosity             = int(common.DefaultVerbosity)
+	DefaultErrorStyle            = string(common.DefaultErrorStyle)
+	DefaultDBAccessMode          = int(dbqvars.DBReadWriteMode)
 )
 
 const (
-	DefaultConnectString = DefaultSQLite3DBFile
+	AllowUntrustedQueriesFlag = "dangerously-allow-untrusted-db-queries"
+)
+
+var (
+	DefaultConnectString = DefaultSQLite3Database
 )
 
 type Options struct {
@@ -34,7 +42,9 @@ type Options struct {
 	DBBootstrapFile       string
 	Quiet                 bool
 	Verbosity             int
+	ErrorStype            string
 	AllowUntrustedQueries bool
+	DBAccessMode          int
 	DBExtensionFiles      []string
 }
 
@@ -47,6 +57,8 @@ type OptionsArgs struct {
 	DBBootstrapFile       *string
 	Quiet                 *bool
 	Verbosity             *int
+	ErrorStype            *string
+	DBAccessMode          *int
 	AllowUntrustedQueries *bool
 	DBExtensionFiles      []string
 }
@@ -78,8 +90,14 @@ func NewOptions(args OptionsArgs) *Options {
 	if args.Verbosity != nil {
 		opts.Verbosity = *args.Verbosity
 	}
+	if args.ErrorStype != nil {
+		opts.ErrorStype = *args.ErrorStype
+	}
 	if args.Timeout != nil {
 		opts.Timeout = *args.Timeout
+	}
+	if args.DBAccessMode != nil {
+		opts.DBAccessMode = *args.DBAccessMode
 	}
 	if args.DBExtensionFiles != nil {
 		opts.DBExtensionFiles = args.DBExtensionFiles
@@ -88,7 +106,6 @@ func NewOptions(args OptionsArgs) *Options {
 }
 
 var options *Options
-var ErrVerbosityMustBe1To3 = errors.New("verbosity must be between 1 to 3")
 
 func GetOptions() (opts *Options, err error) {
 
@@ -109,6 +126,8 @@ func GetOptions() (opts *Options, err error) {
 			dbExtensions          stringSliceFlag
 			quiet                 *bool
 			verbosity             *int
+			errorStyle            *string
+			dbAccessMode          *int
 			allowUntrustedQueries *bool
 		}{
 			timeout:               new(int),
@@ -120,6 +139,8 @@ func GetOptions() (opts *Options, err error) {
 			dbExtensions:          stringSliceFlag{},
 			quiet:                 new(bool),
 			verbosity:             new(int),
+			errorStyle:            new(string),
+			dbAccessMode:          new(int),
 			allowUntrustedQueries: new(bool),
 		}
 
@@ -140,7 +161,7 @@ func GetOptions() (opts *Options, err error) {
 		flag.IntVar(flags.port, "port", DefaultHTTPPort, "dbPort to run the server on")
 		flag.IntVar(flags.port, "p", DefaultHTTPPort, "dbPort to run the server on (shorthand)")
 
-		flag.IntVar(flags.port, "timeout", DefaultTimeout, "Timeout(in seconds) (TODO explain what this controls)")
+		flag.IntVar(flags.timeout, "timeout", DefaultTimeout, "Timeout(in seconds) (TODO explain what this controls)")
 
 		flag.StringVar(flags.apiFile, "api", DefaultAPIFile, "Path to APIConfig description file")
 		flag.StringVar(flags.connStr, "db", DefaultConnectString, "Path to SQLite connStr file or PostgreSQL connection string or DB description file")
@@ -149,31 +170,31 @@ func GetOptions() (opts *Options, err error) {
 		)
 		flag.IntVar(flags.dbPort, "db-port", 0, "PostgreSQL port (optional, overrides port in --db if provided)")
 		flag.Var(&flags.dbExtensions, "db-ext", "One or more paths to connStr extensions to load (currently only SQLite3.)")
+		flag.IntVar(flags.dbAccessMode, "db-access", DefaultDBAccessMode, "Mode for API access the database (1=Read-only,2=Read-Write,3=Admin,4=SuperAdmin, default 2)")
 
 		flag.BoolVar(flags.quiet, "quiet", DefaultQuiet, "Disable display of most command line output")
 		flag.BoolVar(flags.quiet, "q", DefaultQuiet, "Disable display of most command line output (shorthand)")
-		flag.BoolVar(flags.allowUntrustedQueries, "dangerously-allow-untrusted-db-queries", false, "Allow UNTRUSTED Database Queries to be submitted via the API")
+		flag.BoolVar(flags.allowUntrustedQueries, AllowUntrustedQueriesFlag, false, "Allow UNTRUSTED Database Queries to be submitted via the API")
 
 		flag.IntVar(flags.verbosity, "verbosity", DefaultVerbosity, "Verbosity of most command line output (1 to 3, default 1)")
 		flag.IntVar(flags.verbosity, "v", DefaultVerbosity, "Verbosity of most command line output (shorthand, 1 to 3, default 1)")
 
+		flag.StringVar(flags.errorStyle, "err-style", DefaultErrorStyle, "Errors style can be 'dev' for Developer style, or 'pres' for Presentation style")
+
 		flag.Parse()
 
-		if !(1 <= *flags.verbosity && *flags.verbosity <= 3) {
-			err = errors.Join(ErrVerbosityMustBe1To3, fmt.Errorf("verbosity=%d", *flags.verbosity))
-			goto end
-		}
-
 		options = NewOptions(OptionsArgs{
-			HTTPPort:         flags.port,
-			APIFile:          flags.apiFile,
-			ConnectString:    flags.connStr,
-			DBPort:           flags.dbPort,
-			DBBootstrapFile:  flags.dbBootstrapFile,
-			Quiet:            flags.quiet,
-			Verbosity:        flags.verbosity,
-			DBExtensionFiles: flags.dbExtensions.values(),
-			Timeout:          flags.timeout,
+			HTTPPort:              flags.port,
+			APIFile:               flags.apiFile,
+			ConnectString:         flags.connStr,
+			DBPort:                flags.dbPort,
+			DBBootstrapFile:       flags.dbBootstrapFile,
+			Quiet:                 flags.quiet,
+			Verbosity:             flags.verbosity,
+			DBExtensionFiles:      flags.dbExtensions.values(),
+			Timeout:               flags.timeout,
+			ErrorStype:            flags.errorStyle,
+			AllowUntrustedQueries: flags.allowUntrustedQueries,
 		})
 	}
 end:

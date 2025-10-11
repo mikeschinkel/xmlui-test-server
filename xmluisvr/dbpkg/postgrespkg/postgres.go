@@ -15,6 +15,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 func init() {
@@ -42,9 +43,9 @@ func (p *Postgres) CreateNewFromConfig(config cfgldr.DatabaseConfig) (dbpkg.Data
 	panic("implement me")
 }
 
-func (*Postgres) ParseQueryString(query string) (_ common.QueryString, err error) {
+func (*Postgres) ParseQueryString(query string) (_ dbqvars.QueryString, err error) {
 	// Add SQL Query validation
-	return common.QueryString(query), err
+	return dbqvars.QueryString(query), err
 }
 func (p *Postgres) CreateNew(args dbpkg.DatabaseArgs) (_ dbpkg.Database, err error) {
 	return NewPostgres(args), err

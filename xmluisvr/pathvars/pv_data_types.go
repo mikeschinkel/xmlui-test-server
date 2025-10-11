@@ -21,7 +21,7 @@ const (
 	DefaultPVDataType = StringType
 
 	// DefaultPVDataTypeName is the string representation of the default data type.
-	DefaultPVDataTypeName PVDataTypeName = StringTypeName
+	DefaultPVDataTypeName PVDataTypeSlug = StringTypeName
 )
 
 // PVDataType represents the enumerated data types supported for parameters.
@@ -66,59 +66,70 @@ const (
 	EmailType
 )
 
-// PVDataTypeName represents the string name of a parameter data type.
-type PVDataTypeName string
+// PVDataTypeSlug represents the string name of a parameter data type.
+type PVDataTypeSlug string
 
 // String names for parameter data types.
 const (
 	// InvalidTypeName indicates an unrecognized type name.
-	InvalidTypeName PVDataTypeName = "invalid"
+	InvalidTypeName PVDataTypeSlug = "invalid"
 
 	// StringTypeName is the string representation of StringType.
-	StringTypeName PVDataTypeName = "string"
+	StringTypeName PVDataTypeSlug = "string"
 
 	// IntegerTypeName is the string representation of IntegerType.
-	IntegerTypeName PVDataTypeName = "integer"
+	IntegerTypeName PVDataTypeSlug = "integer"
 
 	// IntTypeName is an accepted alternate name for IntegerType.
-	IntTypeName PVDataTypeName = "int" // Accepted alternate for "integer"
+	IntTypeName PVDataTypeSlug = "int" // Accepted alternate for "integer"
 
 	// DecimalTypeName is the string representation of DecimalType.
-	DecimalTypeName PVDataTypeName = "decimal"
+	DecimalTypeName PVDataTypeSlug = "decimal"
 
 	// RealTypeName is the string representation of RealType.
-	RealTypeName PVDataTypeName = "real"
+	RealTypeName PVDataTypeSlug = "real"
 
 	// IdentifierTypeName is the string representation of IdentifierType.
-	IdentifierTypeName PVDataTypeName = "identifier"
+	IdentifierTypeName PVDataTypeSlug = "identifier"
 
 	// DateTypeName is the string representation of DateType.
-	DateTypeName PVDataTypeName = "date"
+	DateTypeName PVDataTypeSlug = "date"
 
 	// UUIDTypeName is the string representation of UUIDType.
-	UUIDTypeName PVDataTypeName = "uuid"
+	UUIDTypeName PVDataTypeSlug = "uuid"
 
 	// AlphanumericTypeName is the string representation of AlphanumericType.
-	AlphanumericTypeName PVDataTypeName = "alphanumeric"
+	AlphanumericTypeName PVDataTypeSlug = "alphanumeric"
 
 	// AlphanumTypeName is an accepted alternate name for AlphanumericType.
-	AlphanumTypeName PVDataTypeName = "alphanum" // Accepted alternate for "alphanumeric"
+	AlphanumTypeName PVDataTypeSlug = "alphanum" // Accepted alternate for "alphanumeric"
 
 	// SlugTypeName is the string representation of SlugType.
-	SlugTypeName PVDataTypeName = "slug"
+	SlugTypeName PVDataTypeSlug = "slug"
 
 	// BooleanTypeName is the string representation of BooleanType.
-	BooleanTypeName PVDataTypeName = "boolean"
+	BooleanTypeName PVDataTypeSlug = "boolean"
 
 	// BoolTypeName is an accepted alternate name for BooleanType.
-	BoolTypeName PVDataTypeName = "bool" // Accepted alternate for "boolean"
+	BoolTypeName PVDataTypeSlug = "bool" // Accepted alternate for "boolean"
 
 	// EmailTypeName is the string representation of EmailType.
-	EmailTypeName PVDataTypeName = "email"
+	EmailTypeName PVDataTypeSlug = "email"
 )
 
-// TypeName returns the canonical string name for this data type.
-func (dt PVDataType) TypeName() PVDataTypeName {
+func (dt PVDataType) WithIndefiniteArticle() string {
+	slug := string(dt.Slug())
+	switch dt {
+	case AlphanumericType, IdentifierType, IntegerType:
+		return "an " + slug
+	default:
+		// Stop Goland from complaining switch {} is incomplete in its case statements
+	}
+	return "a" + slug
+}
+
+// Slug returns the canonical lowercase string name for this data type	.
+func (dt PVDataType) Slug() PVDataTypeSlug {
 	switch dt {
 	case StringType:
 		return StringTypeName
@@ -149,10 +160,44 @@ func (dt PVDataType) TypeName() PVDataTypeName {
 	}
 }
 
+func (dt PVDataType) Example() any {
+	switch dt {
+	case StringType:
+		return "abc"
+	case IntegerType:
+		return 123
+	case DecimalType:
+		// TODO Might need to consider format constraints
+		return 1.23
+	case RealType:
+		return 1.2345
+	case IdentifierType:
+		return "id"
+	case DateType:
+		// TODO Might need to consider format constraints
+		return "1999-12-31"
+	case UUIDType:
+		// TODO Might need to consider format constraints
+		return "NEED A GOOD EXAMPLE"
+	case AlphanumericType:
+		return "abc123"
+	case SlugType:
+		return "abc-123"
+	case BooleanType:
+		return "true"
+	case EmailType:
+		return "yourname@example.com"
+	case UnspecifiedDataType:
+		fallthrough
+	default:
+		return "Unspecified has no example"
+	}
+}
+
 // ParsePVDataType converts a string type name to a PVDataType enum value.
 // Returns an error if the type name is not recognized.
 func ParsePVDataType(typeStr string) (dataType PVDataType, err error) {
-	switch PVDataTypeName(typeStr) {
+	switch PVDataTypeSlug(typeStr) {
 	case StringTypeName:
 		dataType = StringType
 	case IntegerTypeName, IntTypeName:
@@ -180,18 +225,16 @@ func ParsePVDataType(typeStr string) (dataType PVDataType, err error) {
 	default:
 		err = errors.Join(
 			ErrInvalidParameterType,
-			fmt.Errorf("type=%q", typeStr),
-			fmt.Errorf("reason=%s", "unsupported data type"),
+			ErrUnsupportedDataType,
+			fmt.Errorf("date_type=%s", typeStr),
 		)
 	}
 	return dataType, err
 }
 
-// InferDataTypeFromName attempts to infer a data type from a parameter name.
-// Returns the inferred data type and true if the name matches a known data type,
-// otherwise returns UnspecifiedDataType and false.
-func InferDataTypeFromName(name string) PVDataType {
-	dataType, err := ParsePVDataType(name)
+// GetDataType returns the data type if matched, or UnspecifiedDataType if not.
+func GetDataType(name Identifier) PVDataType {
+	dataType, err := ParsePVDataType(string(name))
 	if err != nil {
 		return UnspecifiedDataType
 	}
