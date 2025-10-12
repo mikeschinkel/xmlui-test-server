@@ -1,4 +1,4 @@
-package apiutil
+package apiresp
 
 import (
 	"errors"
@@ -122,14 +122,14 @@ end:
 func CurrentlyUnhandledErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
 	use := args.clone()
 
-	if args.HTTPStatus == 0 {
-		args.HTTPStatus = http.StatusInternalServerError
+	if use.HTTPStatus == 0 {
+		use.HTTPStatus = http.StatusInternalServerError
 	}
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
 		Type:     rfc9457.CurrentlyUnhandledErrorType,
 		Title:    "Unexpected Server Error",
 		Status:   use.GetHTTPStatus(),
-		Detail:   fmt.Sprintf("Currently unhandled error: %v.\nPlease %s.", args.Error, ReportOnGithubMessageFunc()),
+		Detail:   fmt.Sprintf("Currently unhandled error: %v.\nPlease %s.", use.GetError(), ReportOnGithubMessageFunc()),
 		Instance: req.RequestURI,
 		Extensions: []rfc9457.Extension{
 			RFC9457Extension{
@@ -324,6 +324,28 @@ func InvalidURLFormatErrorPayload(req *http.Request, args PayloadArgs) ResponseP
 				Parameter:     "",  // TODO: Can we populate this?
 				ExpectedType:  "",  // TODO: Can we populate this?
 				ReceivedValue: "",  // TODO: Can we populate this?
+				Constraint:    nil, // TODO: Can we populate this?
+			},
+		},
+	}))
+}
+
+func InvalidURLParameterErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+	use := args.clone()
+	pve := use.GetPVE()
+	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
+		Type:     rfc9457.InvalidURLParameterErrorType,
+		Title:    "Invalid URL Parameter",
+		Instance: req.RequestURI,
+		Status:   pve.HTTPStatus,
+		Detail:   pve.Detail,
+		Extensions: []rfc9457.Extension{
+			RFC9457Extension{
+				Suggestion:    pve.Suggestion,
+				Location:      LocationType(pve.Location),
+				Parameter:     pve.Parameter,
+				ExpectedType:  pve.ExpectedType,
+				ReceivedValue: pve.ReceivedValue,
 				Constraint:    nil, // TODO: Can we populate this?
 			},
 		},

@@ -1,4 +1,4 @@
-package apiutil
+package apiresp
 
 import (
 	jsonv2 "encoding/json/v2"

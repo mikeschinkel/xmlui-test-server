@@ -1,4 +1,4 @@
-package jsonutil
+package jsonxtractr
 
 import (
 	"bytes"
@@ -103,14 +103,6 @@ end:
 	return valuesMap, found, err
 }
 
-var (
-	ErrSelectorNotFound         = errors.New("selector not found")
-	ErrExtractingFromReader     = errors.New("extracting from reader")
-	ErrExtractingFromBytes      = errors.New("extracting from bytes")
-	ErrExtractingJSONBodyValues = errors.New("extracting JSON body values")
-	ErrFailedToExtractValue     = errors.New("failed to extract value")
-)
-
 // ExtractValueFromReader extracts a single value from JSON - convenience wrapper
 func ExtractValueFromReader(reader io.Reader, selector Selector) (value any, err error) {
 	var valuesMap ValuesMap
@@ -120,8 +112,8 @@ func ExtractValueFromReader(reader io.Reader, selector Selector) (value any, err
 	valuesMap, notFound, err = ExtractValuesFromReader(reader, []Selector{selector})
 	if err != nil {
 		err = errors.Join(
-			ErrFailedToExtractValue,
-			ErrExtractingFromReader,
+			ErrFailedToExtractValueFromJSON,
+			ErrExtractingFromJSONByReader,
 			fmt.Errorf("selector=%s", selector),
 			err,
 		)
@@ -130,8 +122,8 @@ func ExtractValueFromReader(reader io.Reader, selector Selector) (value any, err
 
 	if len(notFound) > 0 {
 		err = errors.Join(
-			ErrSelectorNotFound,
-			ErrExtractingFromReader,
+			ErrJSONSelectorNotFound,
+			ErrExtractingFromJSONByReader,
 			fmt.Errorf("selector=%s", selector))
 		goto end
 	}
@@ -139,8 +131,8 @@ func ExtractValueFromReader(reader io.Reader, selector Selector) (value any, err
 	value, ok = valuesMap[selector]
 	if !ok {
 		err = errors.Join(
-			ErrSelectorNotFound,
-			ErrExtractingFromReader,
+			ErrJSONSelectorNotFound,
+			ErrExtractingFromJSONByReader,
 			fmt.Errorf("selector=%s", selector))
 		goto end
 	}
@@ -158,8 +150,8 @@ func ExtractValueFromBytes(jsonBytes []byte, selector Selector) (value any, err 
 	valuesMap, notFound, err = ExtractValuesFromBytes(jsonBytes, []Selector{selector})
 	if err != nil {
 		err = errors.Join(
-			ErrFailedToExtractValue,
-			ErrExtractingFromBytes,
+			ErrFailedToExtractValueFromJSON,
+			ErrExtractingFromJSONBytes,
 			fmt.Errorf("selector=%s", selector),
 			err,
 		)
@@ -168,8 +160,8 @@ func ExtractValueFromBytes(jsonBytes []byte, selector Selector) (value any, err 
 
 	if len(notFound) > 0 {
 		err = errors.Join(
-			ErrSelectorNotFound,
-			ErrExtractingFromBytes,
+			ErrJSONSelectorNotFound,
+			ErrExtractingFromJSONBytes,
 			fmt.Errorf("selector=%s", selector))
 		goto end
 	}
@@ -177,8 +169,8 @@ func ExtractValueFromBytes(jsonBytes []byte, selector Selector) (value any, err 
 	value, ok = valuesMap[selector]
 	if !ok {
 		err = errors.Join(
-			ErrSelectorNotFound,
-			ErrExtractingFromBytes,
+			ErrJSONSelectorNotFound,
+			ErrExtractingFromJSONBytes,
 			fmt.Errorf("selector=%s", selector))
 		goto end
 	}

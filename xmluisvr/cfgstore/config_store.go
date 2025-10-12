@@ -8,8 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // DefaultConfigDirType is currently hardcoded for ~/.config but having this
@@ -176,7 +174,7 @@ func (s *configStore) Save(data []byte) (err error) {
 	if err != nil {
 		goto end
 	}
-	defer common.CloseOrLog(file)
+	defer CloseOrLog(file)
 
 	_, err = file.Write(data)
 

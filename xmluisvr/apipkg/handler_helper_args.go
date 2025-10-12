@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
@@ -17,11 +17,11 @@ import (
 type HandlerHelperArgs struct {
 	HTTPRequest *http.Request
 	MatchResult pathvars.MatchResult
-	APIResponse *apiutil.Response
+	APIResponse *apiresp.Response
 	Database    dbpkg.Database
 	Endpoint    *Endpoint
 	QueryValues []any
-	QueryResult apiutil.QueryResult
+	QueryResult apiresp.QueryResult
 	DBQuery     dbqvars.QueryString
 	RequestBody bytes.Buffer
 	Content     any
@@ -35,12 +35,12 @@ func (args HandlerHelperArgs) GetQueryString() (qs dbqvars.QueryString, err erro
 		qs = args.DBQuery
 	}
 	if args.Endpoint == nil {
-		err = apiutil.ErrNeitherDBQueryNorEndpointSet
+		err = apiresp.ErrNeitherDBQueryNorEndpointSet
 		goto end
 	}
 	dbq = args.Endpoint.ParsedQuery
 	if dbq == nil {
-		err = apiutil.ErrNeitherDBQueryNorEndpointSet
+		err = apiresp.ErrNeitherDBQueryNorEndpointSet
 		goto end
 	}
 	qs = dbq.QueryString()
@@ -90,7 +90,7 @@ func (api *API) GetResponseContent(args HandlerHelperArgs) (content any, err err
 	case errors.Is(err, dbpkg.ErrOneRowExpectedZeroReturned):
 		err = errors.Join(
 			ErrQueryValuesExtractionFailed,
-			apiutil.NoResultsPayload(args.HTTPRequest, apiutil.PayloadArgs{
+			apiresp.NoResultsPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Error:            err,
 				ErrorStyle:       api.Options.ErrorStyle,
 				DBQuery:          args.Endpoint.ParsedQuery.QueryString(),
@@ -104,7 +104,7 @@ func (api *API) GetResponseContent(args HandlerHelperArgs) (content any, err err
 		err = errors.Join(
 			ErrQueryValuesExtractionFailed,
 			fmt.Errorf("rows_returned=%d", len(dbResult)),
-			apiutil.NoResultsPayload(args.HTTPRequest, apiutil.PayloadArgs{
+			apiresp.NoResultsPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Error:            err,
 				ErrorStyle:       api.Options.ErrorStyle,
 				DBQuery:          args.Endpoint.ParsedQuery.QueryString(),
@@ -116,7 +116,7 @@ func (api *API) GetResponseContent(args HandlerHelperArgs) (content any, err err
 	case err != nil:
 		err = errors.Join(
 			ErrQueryValuesExtractionFailed,
-			apiutil.CurrentlyUnhandledErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+			apiresp.CurrentlyUnhandledErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Location:         "CHANGE ME", // TODO: Determine appropriate value by breakpoint debugging during tests
 				Error:            err,
 				EndpointTemplate: result.Route.Endpoint(),

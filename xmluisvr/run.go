@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
@@ -96,7 +96,7 @@ func Initialize(_ Context, args *RunArgs) (err error) {
 	// throughout the package.
 	common.SetLogger(args.Logger)
 
-	apiutil.SetGitHubRepoURL(common.GitHubRepoURL)
+	apiresp.SetGitHubRepoURL(common.GitHubRepoURL)
 
 	return err
 }

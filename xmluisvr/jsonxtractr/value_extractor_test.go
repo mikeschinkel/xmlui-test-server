@@ -1,4 +1,4 @@
-package jsonutil_test
+package jsonxtractr_test
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonxtractr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
@@ -51,7 +51,7 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   `{"xs":[10,20,30]}`,
 			query: dbqvars.NewParameter("xs.3", 1),
 			wantErrIsAny: []error{
-				jsonutil.ErrJSONIndexOutOfRange,
+				jsonxtractr.ErrJSONIndexOutOfRange,
 			},
 		},
 		{
@@ -59,7 +59,7 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   `{"obj":{"have":1}}`,
 			query: dbqvars.NewParameter("obj.missing", 1),
 			wantErrIsAny: []error{
-				jsonutil.ErrJSONPathSegmentNotFound,
+				jsonxtractr.ErrJSONPathSegmentNotFound,
 			},
 		},
 		{
@@ -67,7 +67,7 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   `{"obj":{"k":1}}`,
 			query: dbqvars.NewParameter("obj.0", 1),
 			wantErrIsAny: []error{
-				jsonutil.ErrJSONPathExpectedArrayAtSegment,
+				jsonxtractr.ErrJSONPathExpectedArrayAtSegment,
 			},
 		},
 		{
@@ -75,7 +75,7 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   `{"xs":[{"k":1}]}`,
 			query: dbqvars.NewParameter("xs.k", 1),
 			wantErrIsAny: []error{
-				jsonutil.ErrJSONPathExpectedObjectAtSegment,
+				jsonxtractr.ErrJSONPathExpectedObjectAtSegment,
 			},
 		},
 		{
@@ -83,7 +83,7 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   `{"a":{"b":1}}`,
 			query: dbqvars.NewParameter("a..b", 1),
 			wantErrIsAny: []error{
-				jsonutil.ErrJSONPathContainsEmptySegment,
+				jsonxtractr.ErrJSONPathContainsEmptySegment,
 			},
 		},
 		{
@@ -91,7 +91,7 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   `{"xs":[0,1]}`,
 			query: dbqvars.NewParameter("xs.-1", 1),
 			wantErrIsAny: []error{
-				jsonutil.ErrJSONIndexOutOfRange,
+				jsonxtractr.ErrJSONIndexOutOfRange,
 			},
 		},
 		{
@@ -99,8 +99,8 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   ``,
 			query: dbqvars.NewParameter("foo", 1),
 			wantErrIsAll: []error{
-				jsonutil.ErrJSONPathTraversalFailed,
-				jsonutil.ErrJSONBodyCannotBeEmpty,
+				jsonxtractr.ErrJSONPathTraversalFailed,
+				jsonxtractr.ErrJSONBodyCannotBeEmpty,
 			},
 		},
 		{
@@ -108,7 +108,7 @@ func TestStreamingExtractValue(t *testing.T) {
 			raw:   `{"foo":"bar"}`,
 			query: dbqvars.NewParameter("", 1),
 			wantErrIsAny: []error{
-				jsonutil.ErrJSONValueSelectorCannotBeEmpty,
+				jsonxtractr.ErrJSONValueSelectorCannotBeEmpty,
 			},
 		},
 	}
@@ -116,7 +116,7 @@ func TestStreamingExtractValue(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := jsonutil.ExtractValueFromBytes([]byte(tt.raw), tt.query.Name)
+			got, err := jsonxtractr.ExtractValueFromBytes([]byte(tt.raw), tt.query.Name)
 
 			// Error expectations
 			if len(tt.wantErrIsAny) > 0 || len(tt.wantErrIsAll) > 0 {
@@ -158,12 +158,12 @@ func TestStreamingExtractValue(t *testing.T) {
 
 func TestStreamingExtractValue_UnmarshalErrorIsWrapped(t *testing.T) {
 	// invalid JSON
-	_, err := jsonutil.ExtractValueFromBytes([]byte(`{"unterminated": 1`), "foo")
+	_, err := jsonxtractr.ExtractValueFromBytes([]byte(`{"unterminated": 1`), "foo")
 	if err == nil {
 		t.Fatalf("ExtractValueFromBytes() expected error for invalid JSON, got nil")
 	}
 	// With streaming, JSON syntax errors are wrapped in ErrJSONTokenReadFailed
-	if !errors.Is(err, jsonutil.ErrJSONTokenReadFailed) {
+	if !errors.Is(err, jsonxtractr.ErrJSONTokenReadFailed) {
 		t.Fatalf("ExtractValueFromBytes() error %v not errors.Is(..., ErrJSONTokenReadFailed)", err)
 	}
 }
@@ -173,7 +173,7 @@ func TestStreamingExtractValue_TypeTransparence(t *testing.T) {
 	raw := `{"n": 1, "b": true, "s": "x", "o": {"k": "v"}, "a": [1,2]}`
 
 	check := func(path string, want any) {
-		got, err := jsonutil.ExtractValueFromBytes([]byte(raw), rfc9457.Selector(path))
+		got, err := jsonxtractr.ExtractValueFromBytes([]byte(raw), rfc9457.Selector(path))
 		if err != nil {
 			t.Fatalf("ExtractValueFromBytes(%q) unexpected error: %v", path, err)
 		}
@@ -205,7 +205,7 @@ func TestStreamingExtractValue_WithReader(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := strings.NewReader(jsonData)
-			got, err := jsonutil.ExtractValueFromReader(reader, rfc9457.Selector(tt.path))
+			got, err := jsonxtractr.ExtractValueFromReader(reader, rfc9457.Selector(tt.path))
 			if err != nil {
 				t.Fatalf("ExtractValueFromReader() unexpected error: %v", err)
 			}
@@ -221,7 +221,7 @@ func TestStreamingExtractValue_ErrorContext(t *testing.T) {
 	// Test that error messages contain helpful context
 	jsonData := `{"users": [{"name": "Alice"}, {"name": "Bob"}], "settings": {"theme": "dark"}}`
 
-	_, err := jsonutil.ExtractValueFromBytes([]byte(jsonData), "users.5.name")
+	_, err := jsonxtractr.ExtractValueFromBytes([]byte(jsonData), "users.5.name")
 	if err == nil {
 		t.Fatal("Expected error for out of range array index")
 	}
@@ -246,7 +246,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 	tests := []struct {
 		name          string
 		selectors     []rfc9457.Selector
-		wantValuesMap jsonutil.ValuesMap
+		wantValuesMap jsonxtractr.ValuesMap
 		wantNotFound  []rfc9457.Selector
 		wantErr       bool
 	}{
@@ -258,7 +258,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"scores.1",
 				"settings.theme",
 			},
-			wantValuesMap: jsonutil.ValuesMap{
+			wantValuesMap: jsonxtractr.ValuesMap{
 				"user.name":      "Alice",
 				"user.age":       float64(30),
 				"scores.1":       float64(85),
@@ -275,7 +275,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"scores.0",     // valid
 				"scores.10",    // invalid - out of range
 			},
-			wantValuesMap: jsonutil.ValuesMap{
+			wantValuesMap: jsonxtractr.ValuesMap{
 				"user.name": "Alice",
 				"scores.0":  float64(100),
 			},
@@ -289,7 +289,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 				"user.nonexistent",
 				"scores.999",
 			},
-			wantValuesMap: jsonutil.ValuesMap{},
+			wantValuesMap: jsonxtractr.ValuesMap{},
 			wantNotFound:  []rfc9457.Selector{"missing.key", "user.nonexistent", "scores.999"},
 			wantErr:       true,
 		},
@@ -297,7 +297,7 @@ func TestExtractValuesFromBytes_MultipleSelectors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			valuesMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), tt.selectors)
+			valuesMap, notFound, err := jsonxtractr.ExtractValuesFromBytes([]byte(jsonData), tt.selectors)
 
 			// Check error expectation
 			if tt.wantErr && err == nil {
@@ -326,13 +326,13 @@ func TestExtractValuesFromReader_MultipleSelectors(t *testing.T) {
 	selectors := []rfc9457.Selector{"a", "b.c", "d.2"}
 
 	reader := strings.NewReader(jsonData)
-	valuesMap, notFound, err := jsonutil.ExtractValuesFromReader(reader, selectors)
+	valuesMap, notFound, err := jsonxtractr.ExtractValuesFromReader(reader, selectors)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	expectedValuesMap := jsonutil.ValuesMap{
+	expectedValuesMap := jsonxtractr.ValuesMap{
 		"a":   float64(1),
 		"b.c": float64(2),
 		"d.2": float64(5),
@@ -359,7 +359,7 @@ func TestExtractValuesFromBytes_ErrorCollection(t *testing.T) {
 		"missing3",
 	}
 
-	valuesMap, notFound, err := jsonutil.ExtractValuesFromBytes([]byte(jsonData), selectors)
+	valuesMap, notFound, err := jsonxtractr.ExtractValuesFromBytes([]byte(jsonData), selectors)
 
 	// Should have error for the missing selectors
 	if err == nil {

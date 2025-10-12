@@ -21,6 +21,7 @@ import (
 
 	"github.com/mikeschinkel/go-fsfix"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
@@ -124,53 +125,64 @@ func assertRFC9457Equal(t *testing.T, got, want *rfc9457.Response) {
 	if got.Instance != want.Instance {
 		t.Errorf("Instance: got '%s', want '%s'", got.Instance, want.Instance)
 	}
-	if got.Parameter != want.Parameter {
-		t.Errorf("Parameter: got '%s', want '%s'", got.Parameter, want.Parameter)
+	if len(got.Extensions) == 0 {
+		t.Error("Extension not set")
+		return
 	}
-	if got.ExpectedType != want.ExpectedType {
-		t.Errorf("ExpectedType: got '%s', want '%s'", got.ExpectedType, want.ExpectedType)
+	ext := got.Extensions[0].(apiresp.RFC9457Extension)
+
+	if len(want.Extensions) == 0 {
+		t.Error("Want extension not set")
+		return
 	}
-	if got.ReceivedValue != want.ReceivedValue {
-		t.Errorf("ReceivedValue: got '%s', want '%s'", got.ReceivedValue, want.ReceivedValue)
+	wantExt := want.Extensions[0].(apiresp.RFC9457Extension)
+	if ext.Parameter != wantExt.Parameter {
+		t.Errorf("Parameter: ext '%s', wantExt.'%s'", ext.Parameter, wantExt.Parameter)
 	}
-	if got.Location != want.Location {
-		t.Errorf("Location: got '%s', want '%s'", got.Location, want.Location)
+	if ext.ExpectedType != wantExt.ExpectedType {
+		t.Errorf("ExpectedType: ext '%s', wantExt.'%s'", ext.ExpectedType, wantExt.ExpectedType)
 	}
-	if got.Suggestion != want.Suggestion {
-		t.Errorf("Suggestion: got '%s', want '%s'", got.Suggestion, want.Suggestion)
+	if ext.ReceivedValue != wantExt.ReceivedValue {
+		t.Errorf("ReceivedValue: ext '%s', wantExt.'%s'", ext.ReceivedValue, wantExt.ReceivedValue)
+	}
+	if ext.Location != wantExt.Location {
+		t.Errorf("Location: ext '%s', wantExt.'%s'", ext.Location, wantExt.Location)
+	}
+	if ext.Suggestion != wantExt.Suggestion {
+		t.Errorf("Suggestion: ext '%s', wantExt.'%s'", ext.Suggestion, wantExt.Suggestion)
 	}
 
 	// Compare Constraint (handles nil and any type)
-	if want.Constraint != nil {
-		if got.Constraint != want.Constraint {
-			t.Errorf("Constraint: got '%v', want '%v'", got.Constraint, want.Constraint)
+	if wantExt.Constraint != nil {
+		if ext.Constraint != wantExt.Constraint {
+			t.Errorf("Constraint: ext '%v', wantExt.'%v'", ext.Constraint, wantExt.Constraint)
 		}
-	} else if got.Constraint != nil {
-		t.Errorf("Constraint: got '%v', want nil", got.Constraint)
+	} else if ext.Constraint != nil {
+		t.Errorf("Constraint: ext '%v', wantExt.nil", ext.Constraint)
 	}
 
 	// Compare ValidationErrors slice
-	if len(got.ValidationErrors) != len(want.ValidationErrors) {
-		t.Errorf("ValidationErrors length: got %d, want %d", len(got.ValidationErrors), len(want.ValidationErrors))
-	} else {
-		for i := range want.ValidationErrors {
-			gotErr := got.ValidationErrors[i]
-			wantErr := want.ValidationErrors[i]
-			if gotErr.Parameter != wantErr.Parameter {
-				t.Errorf("ValidationErrors[%d].Parameter: got '%s', want '%s'", i, gotErr.Parameter, wantErr.Parameter)
-			}
-			if gotErr.Location != wantErr.Location {
-				t.Errorf("ValidationErrors[%d].Location: got '%s', want '%s'", i, gotErr.Location, wantErr.Location)
-			}
-			if gotErr.Expected != wantErr.Expected {
-				t.Errorf("ValidationErrors[%d].Expected: got '%s', want '%s'", i, gotErr.Expected, wantErr.Expected)
-			}
-			if gotErr.Received != wantErr.Received {
-				t.Errorf("ValidationErrors[%d].Received: got '%s', want '%s'", i, gotErr.Received, wantErr.Received)
-			}
-			if gotErr.Message != wantErr.Message {
-				t.Errorf("ValidationErrors[%d].Message: got '%s', want '%s'", i, gotErr.Message, wantErr.Message)
-			}
+	if len(ext.ValidationErrors) != len(wantExt.ValidationErrors) {
+		t.Errorf("ValidationErrors length: ext %d, wantExt.%d", len(ext.ValidationErrors), len(wantExt.ValidationErrors))
+		return
+	}
+	for i := range wantExt.ValidationErrors {
+		extErr := ext.ValidationErrors[i]
+		wantExtErr := wantExt.ValidationErrors[i]
+		if extErr.Parameter != wantExtErr.Parameter {
+			t.Errorf("ValidationErrors[%d].Parameter: ext '%s', wantExt.'%s'", i, extErr.Parameter, wantExtErr.Parameter)
+		}
+		if extErr.Location != wantExtErr.Location {
+			t.Errorf("ValidationErrors[%d].Location: ext '%s', wantExt.'%s'", i, extErr.Location, wantExtErr.Location)
+		}
+		if extErr.Expected != wantExtErr.Expected {
+			t.Errorf("ValidationErrors[%d].Expected: ext '%s', wantExt.'%s'", i, extErr.Expected, wantExtErr.Expected)
+		}
+		if extErr.Received != wantExtErr.Received {
+			t.Errorf("ValidationErrors[%d].Received: ext '%s', wantExt.'%s'", i, extErr.Received, wantExtErr.Received)
+		}
+		if extErr.Message != wantExtErr.Message {
+			t.Errorf("ValidationErrors[%d].Message: ext '%s', wantExt.'%s'", i, extErr.Message, wantExtErr.Message)
 		}
 	}
 }
@@ -276,6 +288,7 @@ func setupTestServer(t *testing.T, envName EnvironmentName, configContent string
 		DBBootstrapFile: env.bootstrapFile.Filepath,
 		Timeout:         300,
 		Verbosity:       3, // Max verbosity for debugging
+		ErrorStype:      string(common.DevelopmentStyle),
 	}
 
 	// Load root config
@@ -522,7 +535,10 @@ func waitForServerReady(t *testing.T, baseURL string, timeout time.Duration) boo
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(healthURL)
 		if err == nil {
-			resp.Body.Close()
+			err := resp.Body.Close()
+			if err != nil {
+				t.Errorf("Failed to close body for %s: %v", healthURL, err)
+			}
 			if resp.StatusCode == 200 {
 				return true
 			}
@@ -619,13 +635,28 @@ func runTestRequest(t *testing.T, baseURL string, req testRequest) {
 
 	// Check expected fields in JSON response
 	if len(req.expectedFields) > 0 {
-		var result map[string]interface{}
-		if err := json.Unmarshal(body, &result); err != nil {
-			t.Fatalf("Failed to unmarshal JSON response: %v\nBody: %s", err, string(body))
-		}
-		for _, field := range req.expectedFields {
-			if _, exists := result[field]; !exists {
-				t.Errorf("Expected field '%s' not found in response: %s", field, string(body))
+		bodyStr := string(body)
+
+		// Try to unmarshal as array first (cardinality="many")
+		var resultArray []map[string]interface{}
+		if err := json.Unmarshal(body, &resultArray); err == nil && len(resultArray) > 0 {
+			// Validate fields exist in first element of array
+			for _, field := range req.expectedFields {
+				if _, exists := resultArray[0][field]; !exists {
+					t.Errorf("Expected field '%s' not found in response: %s", field, bodyStr)
+				}
+			}
+		} else {
+			// Try as single object (cardinality="one")
+			var resultObject map[string]interface{}
+			if err := json.Unmarshal(body, &resultObject); err != nil {
+				t.Fatalf("Failed to unmarshal JSON response as object or array: %v\nBody: %s", err, bodyStr)
+			}
+			// Validate fields exist in object
+			for _, field := range req.expectedFields {
+				if _, exists := resultObject[field]; !exists {
+					t.Errorf("Expected field '%s' not found in response: %s", field, bodyStr)
+				}
 			}
 		}
 	}

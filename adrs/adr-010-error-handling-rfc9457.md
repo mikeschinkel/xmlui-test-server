@@ -307,11 +307,16 @@ func InvalidParameterType(param, expectedType, receivedValue, location, instance
         Status:        http.StatusUnprocessableEntity, // 422
         Detail:        fmt.Sprintf("Parameter '%s' must be %s, received '%s'", param, expectedType, receivedValue),
         Instance:      instance,
-        Parameter:     param,
+Extensions: []rfc9457.Extension{
+apiresp.RFC9457Extension{
+
+Parameter:     param,
         ExpectedType:  expectedType,
         ReceivedValue: receivedValue,
         Location:      location,
-    }
+    },
+},
+}	
 }
 
 // ConstraintViolation creates an error for constraint violations
@@ -322,11 +327,16 @@ func ConstraintViolation(param, constraint, receivedValue, location, instance st
         Status:        http.StatusUnprocessableEntity, // 422
         Detail:        fmt.Sprintf("Parameter '%s' violates constraint %s, received '%s'", param, constraint, receivedValue),
         Instance:      instance,
-        Parameter:     param,
+Extensions: []rfc9457.Extension{
+apiresp.RFC9457Extension{
+
+Parameter:     param,
         ReceivedValue: receivedValue,
         Location:      location,
         Constraint:    constraint,
-    }
+    },
+},
+}	
 }
 
 // MissingParameter creates an error for missing required parameters
@@ -337,9 +347,14 @@ func MissingParameter(param, location, instance string) *HTTPError {
         Status:    http.StatusUnprocessableEntity, // 422
         Detail:    fmt.Sprintf("Required parameter '%s' is missing from %s", param, location),
         Instance:  instance,
-        Parameter: param,
+Extensions: []rfc9457.Extension{
+apiresp.RFC9457Extension{
+
+Parameter: param,
         Location:  location,
-    }
+    },
+},
+}	
 }
 
 // Mutation methods (no return value for clearer semantics and easier debugging)

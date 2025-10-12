@@ -1,4 +1,4 @@
-package errutil
+package errparsr
 
 import (
 	"errors"
@@ -93,21 +93,60 @@ func (pe ParsedError) MaybeGetCustomError(typ reflect.Type) (err error) {
 }
 
 func (pe ParsedError) GetCustomError(typ reflect.Type) (_ error, err error) {
+	var found error
 	var errs []error
 	var ok bool
+
+	// First, see if there's a direct key match
 	errs, ok = pe.CustomErrors[typ]
-	if len(errs) == 0 {
-		errs = append(errs, nil)
-	}
-	if !ok {
-		err = errors.Join(
-			ErrCustomErrorNotFoundInParsedError,
-			fmt.Errorf("error_type=%s", typ.String()),
-		)
+	if ok {
+		found = errs[0]
 		goto end
 	}
+
+	// Otherwise, iterate all custom errors and find one matching or implementing the type
+	for _, errs = range pe.CustomErrors {
+		for _, e := range errs {
+			if e == nil {
+				continue
+			}
+			t := reflect.TypeOf(e)
+			bt := pe.baseType(t)     // error instance base type (no pointers)
+			want := pe.baseType(typ) // requested type base (no pointers)
+
+			// 1) exact concrete type match (value or pointer forms)
+			if t == typ || bt == want {
+				found = e
+				goto end
+			}
+			// 2) interface implementation (handle *iface, iface, *T, T)
+			if want.Kind() != reflect.Interface {
+				continue
+			}
+			// Check both pointer and non-pointer forms of the error value
+			if t.Implements(want) || bt.Implements(want) {
+				found = e
+				goto end
+			}
+		}
+	}
+
+	// If still not found, compose an error
+	err = errors.Join(
+		ErrCustomErrorNotFoundInParsedError,
+		fmt.Errorf("error_type=%s", typ.String()),
+	)
+
 end:
-	return errs[0], err
+	return found, err
+}
+
+// helper: peel all pointer indirections
+func (pe ParsedError) baseType(t reflect.Type) reflect.Type {
+	for t != nil && t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t
 }
 
 func (pe ParsedError) GetCustomErrors(typ reflect.Type) (errs []error, err error) {

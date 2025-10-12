@@ -1,4 +1,4 @@
-package jsonutil
+package jsonxtractr
 
 type Selectors []Selector
 

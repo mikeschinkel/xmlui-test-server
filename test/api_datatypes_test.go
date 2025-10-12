@@ -3,12 +3,12 @@ package test
 import (
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
 // TestAPIDataTypes tests basic data type validation for path parameters.
-// Covers tests 01-08 from TEST_PLAN.md:
+// Covers tests 01-08 from TEST_SPECIFICATION.md:
 //   - Integer type ({id:int})
 //   - String type ({email:string})
 //   - UUID type ({uuid:uuid})
@@ -36,16 +36,20 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/abc",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'id' expected an integer type but got 'abc'",
-				Instance:      "/api/users/abc",
-				Parameter:     "id",
-				ExpectedType:  "integer",
-				ReceivedValue: "abc",
-				Location:      apiutil.PathLocation,
-				Suggestion:    "Use an integer for 'id' like 123, for example: /api/users/123",
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'id' expected an integer type but got 'abc'",
+				Instance: "/api/users/abc",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "id",
+						ExpectedType:  "integer",
+						ReceivedValue: "abc",
+						Location:      apiresp.PathLocation,
+						Suggestion:    "Use an integer for 'id' like 123, for example: /api/users/123",
+					},
+				},
 			},
 		},
 		{
@@ -54,16 +58,20 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/12.34",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'id' expected an integer type but got '12.34'",
-				Instance:      "/api/users/12.34",
-				Parameter:     "id",
-				ExpectedType:  "integer",
-				ReceivedValue: "12.34",
-				Location:      apiutil.PathLocation,
-				Suggestion:    "Use an integer for 'id' like 123, for example: /api/users/123",
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'id' expected an integer type but got '12.34'",
+				Instance: "/api/users/12.34",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "id",
+						ExpectedType:  "integer",
+						ReceivedValue: "12.34",
+						Location:      apiresp.PathLocation,
+						Suggestion:    "Use an integer for 'id' like 123, for example: /api/users/123",
+					},
+				},
 			},
 		},
 
@@ -97,15 +105,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/by-uuid/not-a-valid-uuid",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'uuid' expected type 'uuid' but received 'not-a-valid-uuid'",
-				Instance:      "/api/users/by-uuid/not-a-valid-uuid",
-				Parameter:     "uuid",
-				ExpectedType:  "uuid",
-				ReceivedValue: "not-a-valid-uuid",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'uuid' expected type 'uuid' but received 'not-a-valid-uuid'",
+				Instance: "/api/users/by-uuid/not-a-valid-uuid",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "uuid",
+						ExpectedType:  "uuid",
+						ReceivedValue: "not-a-valid-uuid",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 		{
@@ -114,15 +126,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/by-uuid/550e8400e29b41d4a716446655440000",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'uuid' expected type 'uuid' but received '550e8400e29b41d4a716446655440000'",
-				Instance:      "/api/users/by-uuid/550e8400e29b41d4a716446655440000",
-				Parameter:     "uuid",
-				ExpectedType:  "uuid",
-				ReceivedValue: "550e8400e29b41d4a716446655440000",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'uuid' expected type 'uuid' but received '550e8400e29b41d4a716446655440000'",
+				Instance: "/api/users/by-uuid/550e8400e29b41d4a716446655440000",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "uuid",
+						ExpectedType:  "uuid",
+						ReceivedValue: "550e8400e29b41d4a716446655440000",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 
@@ -140,15 +156,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/by-slug/Alice-Carter",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'slug' expected type 'slug' but received 'Alice-Carter'",
-				Instance:      "/api/users/by-slug/Alice-Carter",
-				Parameter:     "slug",
-				ExpectedType:  "slug",
-				ReceivedValue: "Alice-Carter",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'slug' expected type 'slug' but received 'Alice-Carter'",
+				Instance: "/api/users/by-slug/Alice-Carter",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "slug",
+						ExpectedType:  "slug",
+						ReceivedValue: "Alice-Carter",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 		{
@@ -157,15 +177,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/by-slug/alice_carter",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'slug' expected type 'slug' but received 'alice_carter'",
-				Instance:      "/api/users/by-slug/alice_carter",
-				Parameter:     "slug",
-				ExpectedType:  "slug",
-				ReceivedValue: "alice_carter",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'slug' expected type 'slug' but received 'alice_carter'",
+				Instance: "/api/users/by-slug/alice_carter",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "slug",
+						ExpectedType:  "slug",
+						ReceivedValue: "alice_carter",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 
@@ -190,15 +214,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/by-status/1",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'active' expected type 'boolean' but received '1'",
-				Instance:      "/api/users/by-status/1",
-				Parameter:     "active",
-				ExpectedType:  "boolean",
-				ReceivedValue: "1",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'active' expected type 'boolean' but received '1'",
+				Instance: "/api/users/by-status/1",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "active",
+						ExpectedType:  "boolean",
+						ReceivedValue: "1",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 		{
@@ -207,15 +235,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/by-status/yes",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'active' expected type 'boolean' but received 'yes'",
-				Instance:      "/api/users/by-status/yes",
-				Parameter:     "active",
-				ExpectedType:  "boolean",
-				ReceivedValue: "yes",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'active' expected type 'boolean' but received 'yes'",
+				Instance: "/api/users/by-status/yes",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "active",
+						ExpectedType:  "boolean",
+						ReceivedValue: "yes",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 
@@ -240,15 +272,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/users/by-rating/abc",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'rating' expected type 'real' but received 'abc'",
-				Instance:      "/api/users/by-rating/abc",
-				Parameter:     "rating",
-				ExpectedType:  "real",
-				ReceivedValue: "abc",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'rating' expected type 'real' but received 'abc'",
+				Instance: "/api/users/by-rating/abc",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "rating",
+						ExpectedType:  "real",
+						ReceivedValue: "abc",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 
@@ -267,15 +303,19 @@ func TestAPIDataTypes(t *testing.T) {
 			expectedStatus: 422,
 			// Date format constraint violation
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.ConstraintViolationErrorType,
-				Title:         "Constraint Violation",
-				Status:        422,
-				Detail:        "Parameter 'birth_date' failed constraint 'format[yyyy-mm-dd]': value '15-01-1990' does not match required format",
-				Instance:      "/api/users/by-birth-date/15-01-1990",
-				Parameter:     "birth_date",
-				Constraint:    "format[yyyy-mm-dd]",
-				ReceivedValue: "15-01-1990",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.ConstraintViolationErrorType,
+				Title:    "Constraint Violation",
+				Status:   422,
+				Detail:   "Parameter 'birth_date' failed constraint 'format[yyyy-mm-dd]': value '15-01-1990' does not match required format",
+				Instance: "/api/users/by-birth-date/15-01-1990",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "birth_date",
+						Constraint:    "format[yyyy-mm-dd]",
+						ReceivedValue: "15-01-1990",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 
@@ -293,15 +333,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/sensors/ABC-123",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'sensor_id' expected type 'alphanumeric' but received 'ABC-123'",
-				Instance:      "/api/sensors/ABC-123",
-				Parameter:     "sensor_id",
-				ExpectedType:  "alphanumeric",
-				ReceivedValue: "ABC-123",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'sensor_id' expected type 'alphanumeric' but received 'ABC-123'",
+				Instance: "/api/sensors/ABC-123",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "sensor_id",
+						ExpectedType:  "alphanumeric",
+						ReceivedValue: "ABC-123",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 		{
@@ -310,15 +354,19 @@ func TestAPIDataTypes(t *testing.T) {
 			path:           "/api/sensors/ABC%20123",
 			expectedStatus: 422,
 			expectedRFC9457: &rfc9457.Response{
-				Type:          rfc9457.InvalidParameterErrorType,
-				Title:         "Invalid Parameter Type",
-				Status:        422,
-				Detail:        "Parameter 'sensor_id' expected type 'alphanumeric' but received 'ABC 123'",
-				Instance:      "/api/sensors/ABC%20123",
-				Parameter:     "sensor_id",
-				ExpectedType:  "alphanumeric",
-				ReceivedValue: "ABC 123",
-				Location:      apiutil.PathLocation,
+				Type:     rfc9457.InvalidParameterErrorType,
+				Title:    "Invalid Parameter Type",
+				Status:   422,
+				Detail:   "Parameter 'sensor_id' expected type 'alphanumeric' but received 'ABC 123'",
+				Instance: "/api/sensors/ABC%20123",
+				Extensions: []rfc9457.Extension{
+					apiresp.RFC9457Extension{
+						Parameter:     "sensor_id",
+						ExpectedType:  "alphanumeric",
+						ReceivedValue: "ABC 123",
+						Location:      apiresp.PathLocation,
+					},
+				},
 			},
 		},
 	}

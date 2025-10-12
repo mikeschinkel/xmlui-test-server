@@ -3,13 +3,13 @@ package apipkg
 import (
 	"errors"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonxtractr"
 )
 
 var (
-	ErrExtractingFromReader     = jsonutil.ErrExtractingFromReader
-	ErrExtractingJSONBodyValues = jsonutil.ErrExtractingJSONBodyValues
-	ErrSelectorNotFound         = jsonutil.ErrSelectorNotFound
+	ErrExtractingFromReader     = jsonxtractr.ErrExtractingFromJSONByReader
+	ErrExtractingJSONBodyValues = jsonxtractr.ErrExtractingJSONBodyValues
+	ErrSelectorNotFound         = jsonxtractr.ErrJSONSelectorNotFound
 )
 
 var (

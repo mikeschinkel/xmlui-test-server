@@ -1,4 +1,4 @@
-package apiutil
+package apiresp
 
 type LocationType string
 

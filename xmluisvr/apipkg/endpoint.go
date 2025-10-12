@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonxtractr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
@@ -110,11 +110,11 @@ type Endpoint struct {
 	pathParsed    bool
 }
 
-func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []jsonutil.Selector) (valuesMap jsonutil.ValuesMap, notFound []jsonutil.Selector, err error) {
+func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []jsonxtractr.Selector) (valuesMap jsonxtractr.ValuesMap, notFound []jsonxtractr.Selector, err error) {
 	dbq := ep.ParsedQuery
 	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
-	valuesMap, notFound, err = jsonutil.ExtractValuesFromReader(r, selectors)
-	if errors.Is(err, jsonutil.ErrJSONValueSelectorCannotBeEmpty) {
+	valuesMap, notFound, err = jsonxtractr.ExtractValuesFromReader(r, selectors)
+	if errors.Is(err, jsonxtractr.ErrJSONValueSelectorCannotBeEmpty) {
 		err = nil
 		goto end
 	}
@@ -140,11 +140,11 @@ type ParameterValuesSource struct {
 	Headers    http.Header // TODO: Not yet supported
 }
 
-func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues []any, missing []apiutil.MissingParameter, err error) {
+func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues []any, missing []apiresp.MissingParameter, err error) {
 	var pathValuesMap pathvars.ValuesMap
 	var namesNotFound []pathvars.Identifier
-	var jsonValuesMap jsonutil.ValuesMap
-	var notFound []jsonutil.Selector
+	var jsonValuesMap jsonxtractr.ValuesMap
+	var notFound []jsonxtractr.Selector
 	var selectors []dbqvars.Selector
 	var epParams []EndpointParam
 
@@ -166,7 +166,7 @@ func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues [
 	switch {
 	case pvs.BodyReader != nil:
 		// We got a reader for the JSON body
-		jsonValuesMap, notFound, err = ep.GetBodyValuesMap(pvs.BodyReader, jsonutil.ToSelectors(selectors))
+		jsonValuesMap, notFound, err = ep.GetBodyValuesMap(pvs.BodyReader, jsonxtractr.ToSelectors(selectors))
 		if err != nil {
 			err = errors.Join(ErrExtractingJSONBodyValues, err)
 			goto end
@@ -174,7 +174,7 @@ func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues [
 	default:
 		// We did NOT get a reader for the JSON body
 		// Convert slice of []common.Identifier to slice of []common.Selector{}.
-		notFound = combineStringsAsY(namesNotFound, []jsonutil.Selector{})
+		notFound = combineStringsAsY(namesNotFound, []jsonxtractr.Selector{})
 	}
 
 	queryValues = make([]any, len(parameters))
@@ -188,19 +188,19 @@ func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues [
 			// We did not get a body ready so no jsonValuesMap to look at
 			continue
 		}
-		qv, ok = jsonValuesMap[jsonutil.Selector(p.Name)]
+		qv, ok = jsonValuesMap[jsonxtractr.Selector(p.Name)]
 		if ok {
 			queryValues[i] = qv
 			continue
 		}
 	}
-	missing = make([]apiutil.MissingParameter, len(notFound))
-	epParams = EndpointParams(ep.Params).FilterByNames(jsonutil.Selectors(notFound).Strings())
+	missing = make([]apiresp.MissingParameter, len(notFound))
+	epParams = EndpointParams(ep.Params).FilterByNames(jsonxtractr.Selectors(notFound).Strings())
 	for i, p := range epParams {
-		missing[i] = apiutil.MissingParameter{
+		missing[i] = apiresp.MissingParameter{
 			// TODO: Converting an Identifier to a Selector. p.Name should probably be a Selector
 			Selector: rfc9457.Selector(p.Name),
-			Location: apiutil.LocationType(p.Location),
+			Location: apiresp.LocationType(p.Location),
 			Expected: "", // TODO Can we populate this?
 			Received: "", // TODO Can we populate this?
 			Message:  "", // TODO Can we populate this?

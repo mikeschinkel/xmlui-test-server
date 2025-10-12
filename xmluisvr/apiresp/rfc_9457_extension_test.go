@@ -1,14 +1,14 @@
-package apiutil_test
+package apiresp_test
 
 import (
 	"encoding/json"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 )
 
 // assertExtensionEqual compares two RFC9457Extension structs field by field
-func assertExtensionEqual(t *testing.T, got, want *apiutil.RFC9457Extension) {
+func assertExtensionEqual(t *testing.T, got, want *apiresp.RFC9457Extension) {
 	t.Helper()
 
 	if got.Parameter != want.Parameter {
@@ -59,45 +59,45 @@ func assertExtensionEqual(t *testing.T, got, want *apiutil.RFC9457Extension) {
 func TestRFC9457Extension_MarshalJSON(t *testing.T) {
 	tests := []struct {
 		name string
-		ext  *apiutil.RFC9457Extension
+		ext  *apiresp.RFC9457Extension
 		want string
 	}{
 		{
 			name: "extension_all_fields",
-			ext: &apiutil.RFC9457Extension{
+			ext: &apiresp.RFC9457Extension{
 				Parameter:     "id",
 				ExpectedType:  "int",
 				ReceivedValue: "abc",
-				Location:      apiutil.PathLocation,
+				Location:      apiresp.PathLocation,
 			},
 			want: `{"parameter":"id","expected_type":"int","received_value":"abc","location":"path"}`,
 		},
 		{
 			name: "extension_with_constraint",
-			ext: &apiutil.RFC9457Extension{
+			ext: &apiresp.RFC9457Extension{
 				Parameter:     "score",
 				ReceivedValue: "150",
-				Location:      apiutil.PathLocation,
+				Location:      apiresp.PathLocation,
 				Constraint:    "range[0..100]",
 			},
 			want: `{"parameter":"score","received_value":"150","location":"path","constraint":"range[0..100]"}`,
 		},
 		{
 			name: "extension_with_suggestion",
-			ext: &apiutil.RFC9457Extension{
+			ext: &apiresp.RFC9457Extension{
 				Parameter:  "date",
-				Location:   apiutil.PathLocation,
+				Location:   apiresp.PathLocation,
 				Suggestion: "Try using format: 1990-05-15",
 			},
 			want: `{"parameter":"date","location":"path","suggestion":"Try using format: 1990-05-15"}`,
 		},
 		{
 			name: "extension_with_validation_errors",
-			ext: &apiutil.RFC9457Extension{
-				ValidationErrors: []apiutil.ValidationError{
+			ext: &apiresp.RFC9457Extension{
+				ValidationErrors: []apiresp.ValidationError{
 					{
 						Parameter: "email",
-						Location:  apiutil.BodyLocation,
+						Location:  apiresp.BodyLocation,
 						Expected:  "valid email",
 						Received:  "invalid@",
 						Message:   "Email format is invalid",
@@ -126,27 +126,27 @@ func TestRFC9457Extension_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name    string
 		json    string
-		want    *apiutil.RFC9457Extension
+		want    *apiresp.RFC9457Extension
 		wantErr bool
 	}{
 		{
 			name: "extension_roundtrip",
 			json: `{"parameter":"id","expected_type":"int","received_value":"abc","location":"path"}`,
-			want: &apiutil.RFC9457Extension{
+			want: &apiresp.RFC9457Extension{
 				Parameter:     "id",
 				ExpectedType:  "int",
 				ReceivedValue: "abc",
-				Location:      apiutil.PathLocation,
+				Location:      apiresp.PathLocation,
 			},
 		},
 		{
 			name: "extension_with_validation_errors",
 			json: `{"validation_errors":[{"parameter":"email","location":"body","expected":"valid email","received":"invalid@","message":"Email format is invalid"}]}`,
-			want: &apiutil.RFC9457Extension{
-				ValidationErrors: []apiutil.ValidationError{
+			want: &apiresp.RFC9457Extension{
+				ValidationErrors: []apiresp.ValidationError{
 					{
 						Parameter: "email",
-						Location:  apiutil.BodyLocation,
+						Location:  apiresp.BodyLocation,
 						Expected:  "valid email",
 						Received:  "invalid@",
 						Message:   "Email format is invalid",
@@ -158,7 +158,7 @@ func TestRFC9457Extension_UnmarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var got apiutil.RFC9457Extension
+			var got apiresp.RFC9457Extension
 			err := json.Unmarshal([]byte(tt.json), &got)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Unmarshal error: %v, wantErr: %v", err, tt.wantErr)
@@ -170,9 +170,9 @@ func TestRFC9457Extension_UnmarshalJSON(t *testing.T) {
 }
 
 func TestRFC9457Extension_SetSuggestion(t *testing.T) {
-	ext := &apiutil.RFC9457Extension{
+	ext := &apiresp.RFC9457Extension{
 		Parameter: "date",
-		Location:  apiutil.PathLocation,
+		Location:  apiresp.PathLocation,
 	}
 
 	ext.SetSuggestion("Try using format: YYYY-MM-DD")
@@ -183,9 +183,9 @@ func TestRFC9457Extension_SetSuggestion(t *testing.T) {
 }
 
 func TestRFC9457Extension_SetConstraint(t *testing.T) {
-	ext := &apiutil.RFC9457Extension{
+	ext := &apiresp.RFC9457Extension{
 		Parameter: "score",
-		Location:  apiutil.PathLocation,
+		Location:  apiresp.PathLocation,
 	}
 
 	ext.SetConstraint("range[0..100]")
@@ -196,15 +196,15 @@ func TestRFC9457Extension_SetConstraint(t *testing.T) {
 }
 
 func TestRFC9457Extension_AddValidationError(t *testing.T) {
-	ext := &apiutil.RFC9457Extension{
+	ext := &apiresp.RFC9457Extension{
 		Parameter: "user",
-		Location:  apiutil.BodyLocation,
+		Location:  apiresp.BodyLocation,
 	}
 
 	// Add first validation error
-	ve1 := apiutil.ValidationError{
+	ve1 := apiresp.ValidationError{
 		Parameter: "email",
-		Location:  apiutil.BodyLocation,
+		Location:  apiresp.BodyLocation,
 		Expected:  "valid email",
 		Received:  "invalid@",
 		Message:   "Email format is invalid",
@@ -219,8 +219,8 @@ func TestRFC9457Extension_AddValidationError(t *testing.T) {
 	if got.Parameter != "email" {
 		t.Errorf("Parameter: got %q, want %q", got.Parameter, "email")
 	}
-	if got.Location != apiutil.BodyLocation {
-		t.Errorf("Location: got %v, want %v", got.Location, apiutil.BodyLocation)
+	if got.Location != apiresp.BodyLocation {
+		t.Errorf("Location: got %v, want %v", got.Location, apiresp.BodyLocation)
 	}
 	if got.Expected != "valid email" {
 		t.Errorf("Expected: got %q, want %q", got.Expected, "valid email")
@@ -233,9 +233,9 @@ func TestRFC9457Extension_AddValidationError(t *testing.T) {
 	}
 
 	// Add second validation error
-	ve2 := apiutil.ValidationError{
+	ve2 := apiresp.ValidationError{
 		Parameter: "age",
-		Location:  apiutil.BodyLocation,
+		Location:  apiresp.BodyLocation,
 		Expected:  "integer",
 		Received:  "abc",
 		Message:   "Age must be numeric",
@@ -249,23 +249,23 @@ func TestRFC9457Extension_AddValidationError(t *testing.T) {
 
 func TestRFC9457Extension_MultipleMutations(t *testing.T) {
 	// Test that multiple mutations work correctly
-	ext := apiutil.NewRFC9457Extension(apiutil.RFC9457ExtensionArgs{
+	ext := apiresp.NewRFC9457Extension(apiresp.RFC9457ExtensionArgs{
 		Parameter: "score",
-		Location:  apiutil.PathLocation,
+		Location:  apiresp.PathLocation,
 	})
 
 	ext.SetConstraint("range[0..100]")
 	ext.SetSuggestion("Provide a value between 0 and 100")
-	ext.AddValidationError(apiutil.ValidationError{
+	ext.AddValidationError(apiresp.ValidationError{
 		Parameter: "score",
-		Location:  apiutil.PathLocation,
+		Location:  apiresp.PathLocation,
 		Expected:  "0-100",
 		Received:  "150",
 		Message:   "Score out of range",
 	})
-	ext.AddValidationError(apiutil.ValidationError{
+	ext.AddValidationError(apiresp.ValidationError{
 		Parameter: "rating",
-		Location:  apiutil.PathLocation,
+		Location:  apiresp.PathLocation,
 		Expected:  "0.0-5.0",
 		Received:  "6.5",
 		Message:   "Rating out of range",
@@ -284,22 +284,22 @@ func TestRFC9457Extension_MultipleMutations(t *testing.T) {
 }
 
 func TestNewRFC9457Extension(t *testing.T) {
-	args := apiutil.RFC9457ExtensionArgs{
+	args := apiresp.RFC9457ExtensionArgs{
 		Parameter:     "test_param",
 		ExpectedType:  "int",
 		ReceivedValue: "abc",
-		Location:      apiutil.PathLocation,
+		Location:      apiresp.PathLocation,
 		Constraint:    "range[0..10]",
 		Suggestion:    "Use a number",
-		ValidationErrors: []apiutil.ValidationError{
-			{Parameter: "test", Location: apiutil.PathLocation, Expected: "int", Received: "abc", Message: "Invalid"},
+		ValidationErrors: []apiresp.ValidationError{
+			{Parameter: "test", Location: apiresp.PathLocation, Expected: "int", Received: "abc", Message: "Invalid"},
 		},
 	}
 
-	got := apiutil.NewRFC9457Extension(args)
+	got := apiresp.NewRFC9457Extension(args)
 
 	// Build expected result from args
-	want := &apiutil.RFC9457Extension{
+	want := &apiresp.RFC9457Extension{
 		Parameter:        args.Parameter,
 		ExpectedType:     args.ExpectedType,
 		ReceivedValue:    args.ReceivedValue,
@@ -313,11 +313,11 @@ func TestNewRFC9457Extension(t *testing.T) {
 }
 
 func TestRFC9457Extension_Error(t *testing.T) {
-	ext := &apiutil.RFC9457Extension{
+	ext := &apiresp.RFC9457Extension{
 		Parameter:     "id",
 		ExpectedType:  "int",
 		ReceivedValue: "abc",
-		Location:      apiutil.PathLocation,
+		Location:      apiresp.PathLocation,
 		Constraint:    "range[0..100]",
 		Suggestion:    "Use a valid integer",
 	}

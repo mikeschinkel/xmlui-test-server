@@ -316,6 +316,7 @@ type authorizerFunc = func(int, string, string, string) int
 // authorizer tests access modes to determine if user is authorized to run specified Sqlite3 operations
 func (s *SQLite3) authorizer() authorizerFunc {
 	return func(op int, funcName, extName, arg3 string) (decision int) {
+
 		if !denyUnlessAuthorized {
 			decision = sqlite3.SQLITE_OK
 			goto end
@@ -329,16 +330,15 @@ func (s *SQLite3) authorizer() authorizerFunc {
 		}
 
 		// Test the cases where mode+ops are the only criteria
-		if !s.AccessMode.IsRecognizedOp(op) {
+		if isRecognizedOp(op) {
 			s.WarnError("Unrecognized SQLite operation", "op", op)
 		}
 
 		// Test the cases where mode+ops are the only criteria
-		if s.AccessMode.AllowedOp(op, funcName) {
+		if s.IsAuthorizedSQLite3Operation(op, funcName) {
 			decision = sqlite3.SQLITE_OK
 			goto end
 		}
-		print()
 	end:
 		return decision
 	}
@@ -399,4 +399,22 @@ end:
 func (s *SQLite3) ParseConnectString(cs string) (_ common.ConnectString, err error) {
 	// TODO Add validation here
 	return common.ConnectString(cs), err
+}
+
+func (s *SQLite3) IsAuthorizedSQLite3Operation(op int, funcName string) (allowed bool) {
+	var ok bool
+	var deniedOpMode dbpkg.AccessMode
+	// Test these special cases first
+	if op == sqlite3.SQLITE_FUNCTION &&
+		s.AccessMode < dbpkg.SuperAdminMode &&
+		strings.EqualFold(funcName, "load_extension") {
+		goto end
+	}
+	deniedOpMode, ok = accessModeOpsDenied[op]
+	if !ok {
+		goto end
+	}
+	allowed = s.AccessMode > deniedOpMode
+end:
+	return allowed
 }

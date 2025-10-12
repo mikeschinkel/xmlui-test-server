@@ -1,8 +1,12 @@
-package apiutil
+package apiresp
 
 import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
+
+func init() {
+	rfc9457.RegisterExtension((*RFC9457Extension)(nil))
+}
 
 type RFC9457Extension struct {
 	Parameter        string            `json:"parameter,omitempty"`

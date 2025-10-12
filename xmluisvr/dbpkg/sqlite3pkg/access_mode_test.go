@@ -1,10 +1,11 @@
-package dbpkg_test
+package sqlite3pkg_test
 
 import (
 	"testing"
 
 	"github.com/mattn/go-sqlite3"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/sqlite3pkg"
 )
 
 type operation int
@@ -108,7 +109,11 @@ func TestAccessMode_Allowed(t *testing.T) {
 				name = "AllowedOp"
 			}
 			t.Run(name, func(t *testing.T) {
-				if got := tt.m.AllowedOp(int(tt.op), tt.funcName); got != tt.allowed {
+				sdb := sqlite3pkg.NewSQLite3(sqlite3pkg.SQLite3Args{
+					DatabaseArgs: dbpkg.DatabaseArgs{AccessMode: tt.m},
+				})
+				got := sdb.IsAuthorizedSQLite3Operation(int(tt.op), tt.funcName)
+				if got != tt.allowed {
 					t.Errorf("AllowedOp() = %v, want %v", got, tt.allowed)
 				}
 			})

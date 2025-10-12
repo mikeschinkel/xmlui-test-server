@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 type testData struct {
@@ -25,7 +24,7 @@ func TestConfigStore_SaveLoadExists(t *testing.T) {
 	var err error
 	dir := filepath.Join(os.TempDir(), "xmlui-test-"+uuid.NewString())
 	t.Cleanup(func() {
-		common.LogOnError(os.RemoveAll(dir))
+		cfgstore.LogOnError(os.RemoveAll(dir))
 	})
 
 	filename := "config/testdata.json"

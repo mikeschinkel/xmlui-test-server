@@ -15,6 +15,7 @@ const (
 	UnauthorizedErrorType        = uri + path + "/validation/unauthorized"
 	InvalidBodyFormatErrorType   = uri + path + "/validation/invalid-body-format"
 	InvalidURLFormatErrorType    = uri + path + "/validation/invalid-url-format"
+	InvalidURLParameterErrorType = uri + path + "/validation/invalid-url-parameter"
 	InvalidDBQueryErrorType      = uri + path + "/validation/invalid-database-query"
 	InternalServerErrorType      = uri + path + "/server/internal"
 	EndpointNotMatchedErrorType  = uri + path + "/routing/endpoint-not-matched"

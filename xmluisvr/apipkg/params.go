@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
@@ -51,7 +51,7 @@ func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath pathvars.Templ
 		}
 		pv, ok := pathValuesMap[name]
 		if !ok {
-			apiParams[i].Location = string(apiutil.QueryLocation)
+			apiParams[i].Location = string(apiresp.QueryLocation)
 			continue
 		}
 		// Path var use-type is authoritative so assign the use-type from the path var to

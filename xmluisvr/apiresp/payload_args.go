@@ -1,10 +1,12 @@
-package apiutil
+package apiresp
 
 import (
+	"errors"
 	"unsafe"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
@@ -20,12 +22,13 @@ var payloadArgsProps = map[uintptr]propInfo{
 	unsafe.Offsetof(paType.Location):          {"Location", func(args *PayloadArgs) bool { return args.Location == "" }},
 	unsafe.Offsetof(paType.HTTPStatus):        {"HTTPStatus", func(args *PayloadArgs) bool { return args.HTTPStatus == 0 }},
 	unsafe.Offsetof(paType.ErrorStyle):        {"ErrorStyle", func(args *PayloadArgs) bool { return args.ErrorStyle == "" }},
-	unsafe.Offsetof(paType.Error):             {"Error", func(args *PayloadArgs) bool { return args.Error == nil }},
+	unsafe.Offsetof(paType.Error):             {"Error", func(args *PayloadArgs) bool { return errors.Is(args.Error, ErrUnspecifiedError) }},
 	unsafe.Offsetof(paType.MissingParameters): {"MissingParameters", func(args *PayloadArgs) bool { return len(args.MissingParameters) == 0 }},
-	unsafe.Offsetof(paType.RFC9457):           {"RFC9457", func(args *PayloadArgs) bool { return args.RFC9457 == nil }},
 	unsafe.Offsetof(paType.DBQuery):           {"DBQuery", func(args *PayloadArgs) bool { return args.DBQuery == "" }},
 	unsafe.Offsetof(paType.EndpointTemplate):  {"EndpointTemplate", func(args *PayloadArgs) bool { return args.EndpointTemplate == "" }},
 	unsafe.Offsetof(paType.Detail):            {"Detail", func(args *PayloadArgs) bool { return args.Detail == "" }},
+	unsafe.Offsetof(paType.RFC9457):           {"RFC9457", func(args *PayloadArgs) bool { return args.RFC9457 == nil }},
+	unsafe.Offsetof(paType.PVE):               {"PVE", func(args *PayloadArgs) bool { return args.PVE == nil }},
 }
 
 type PayloadArgs struct {
@@ -35,10 +38,11 @@ type PayloadArgs struct {
 	ErrorStyle        common.ErrorStyle
 	Error             error
 	MissingParameters []MissingParameter
-	RFC9457           *rfc9457.Response
 	DBQuery           dbqvars.QueryString
 	EndpointTemplate  string
 	Detail            string
+	RFC9457           *rfc9457.Response
+	PVE               *pathvars.ParameterValidationError
 	propsUsed         map[uintptr]struct{}
 }
 
@@ -55,7 +59,13 @@ func (args *PayloadArgs) clone() *PayloadArgs {
 }
 
 func (args *PayloadArgs) useProp(propId uintptr) {
+	if args.propsUsed == nil {
+		stderrf("\nYou are attempting to mark property '%s' as being used by calling its Getter() but you are calling it on the original PayloadArgs and not the cloned version.\n", propId)
+		goto end
+	}
 	args.propsUsed[propId] = struct{}{}
+end:
+	return
 }
 
 // checkUsage checks to see if the developer passed a disallowed non-zero value
@@ -71,8 +81,8 @@ func (args *PayloadArgs) checkUsage(rp ResponsePayload) ResponsePayload {
 		switch {
 		case used && info.zeroFunc(args):
 			stderrf("\nProperty '%s' was expected TO be passed but had a zero value\n", info.name)
-		case !used && info.zeroFunc(args):
-			stderrf("\nProperty '%s' was expected to NOT be passed but had a non-zero value\n", info.name)
+		case !used && !info.zeroFunc(args):
+			stderrf("\nProperty '%s' was expected NOT to be passed but had a non-zero value\n", info.name)
 		}
 	}
 	return rp
@@ -121,4 +131,9 @@ func (args *PayloadArgs) GetMissingParameters() []MissingParameter {
 func (args *PayloadArgs) GetDBQuery() dbqvars.QueryString {
 	args.useProp(unsafe.Offsetof(args.DBQuery))
 	return args.DBQuery
+}
+
+func (args *PayloadArgs) GetPVE() *pathvars.ParameterValidationError {
+	args.useProp(unsafe.Offsetof(args.PVE))
+	return args.PVE
 }

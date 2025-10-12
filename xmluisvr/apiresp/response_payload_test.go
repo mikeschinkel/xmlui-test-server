@@ -1,4 +1,4 @@
-package apiutil_test
+package apiresp_test
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
@@ -16,11 +16,11 @@ func TestInternalServerErrorPayload(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/users/abc", nil)
 
-	payload := apiutil.InternalServerErrorPayload(req, apiutil.PayloadArgs{})
+	payload := apiresp.InternalServerErrorPayload(req, apiresp.PayloadArgs{})
 
 	// Should return Response
 	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiutil.Response, got %T", payload)
+		t.Fatalf("Expected *apiresp.Response, got %T", payload)
 	}
 
 	// Verify all fields
@@ -45,9 +45,9 @@ func TestInternalServerErrorPayload(t *testing.T) {
 	}
 	respExt := resp.Extensions[0]
 
-	ext, ok := respExt.(apiutil.RFC9457Extension)
+	ext, ok := respExt.(apiresp.RFC9457Extension)
 	if !ok {
-		t.Errorf("Extensions is not of type apiutil.RFC9457Extension, got %T instead", respExt)
+		t.Errorf("Extensions is not of type apiresp.RFC9457Extension, got %T instead", respExt)
 	}
 
 	// Optional fields should be empty
@@ -78,12 +78,12 @@ func TestInternalServerErrorPayload(t *testing.T) {
 func TestEndpointNotMatchedPayload(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/nonexistent", nil)
 
-	payload := apiutil.EndpointNotMatchedPayload(req, apiutil.PayloadArgs{})
+	payload := apiresp.EndpointNotMatchedPayload(req, apiresp.PayloadArgs{})
 	// Should return Response
 
 	var resp *rfc9457.Response
 	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiutil.Response, got %T", payload)
+		t.Fatalf("Expected *apiresp.Response, got %T", payload)
 	}
 
 	// Verify all fields
@@ -108,9 +108,9 @@ func TestEndpointNotMatchedPayload(t *testing.T) {
 	}
 	respExt := resp.Extensions[0]
 
-	ext, ok := respExt.(apiutil.RFC9457Extension)
+	ext, ok := respExt.(apiresp.RFC9457Extension)
 	if !ok {
-		t.Errorf("Extensions is not of type apiutil.RFC9457Extension, got %T instead", respExt)
+		t.Errorf("Extensions is not of type apiresp.RFC9457Extension, got %T instead", respExt)
 	}
 
 	// Optional fields should be empty
@@ -148,23 +148,23 @@ func TestUnprocessableEntityPayload_WithRFC9457(t *testing.T) {
 		Detail:   "Parameter 'id' expected type 'int' but received 'abc'",
 		Instance: "/api/users/abc",
 		Extensions: []rfc9457.Extension{
-			apiutil.RFC9457Extension{
+			apiresp.RFC9457Extension{
 				Parameter:     "id",
 				ExpectedType:  "int",
 				ReceivedValue: "abc",
-				Location:      apiutil.PathLocation,
+				Location:      apiresp.PathLocation,
 			},
 		},
 	}
 
-	payload := apiutil.UnprocessableEntityPayload(req, apiutil.PayloadArgs{
+	payload := apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{
 		RFC9457: inputRFC9457,
 	})
 
 	// Should return the same Response
 	var resp *rfc9457.Response
 	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiutil.Response, got %T", payload)
+		t.Fatalf("Expected *apiresp.Response, got %T", payload)
 	}
 
 	// Should be the exact same instance
@@ -189,9 +189,9 @@ func TestUnprocessableEntityPayload_WithRFC9457(t *testing.T) {
 	}
 	respExt := resp.Extensions[0]
 
-	ext, ok := respExt.(apiutil.RFC9457Extension)
+	ext, ok := respExt.(apiresp.RFC9457Extension)
 	if !ok {
-		t.Errorf("Extensions is not of type apiutil.RFC9457Extension, got %T instead", respExt)
+		t.Errorf("Extensions is not of type apiresp.RFC9457Extension, got %T instead", respExt)
 	}
 
 	if ext.Parameter != "id" {
@@ -205,11 +205,11 @@ func TestUnprocessableEntityPayload_WithNil(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/users/abc", nil)
 
-	payload := apiutil.UnprocessableEntityPayload(req, apiutil.PayloadArgs{})
+	payload := apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{})
 
 	// Should return InternalServerError instead
 	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiutil.Response, got %T", payload)
+		t.Fatalf("Expected *apiresp.Response, got %T", payload)
 	}
 
 	// Should be an internal server error (fallback behavior)
@@ -232,7 +232,7 @@ func TestNewResponsePayload(t *testing.T) {
 		"name":  "Test User",
 	}
 
-	payload := apiutil.NewResponsePayload(apiutil.ResponsePayloadArgs{
+	payload := apiresp.NewResponsePayload(apiresp.ResponsePayloadArgs{
 		Content:    content,
 		HTTPStatus: http.StatusOK,
 		MIMEType:   rfc9457.ApplicationJSON,
@@ -241,7 +241,7 @@ func TestNewResponsePayload(t *testing.T) {
 	// Verify it implements ResponsePayload
 	var resp *rfc9457.Response
 	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiutil.Response, got %T", payload)
+		t.Fatalf("Expected *apiresp.Response, got %T", payload)
 	}
 
 	// Verify HTTPStatusCode
@@ -271,15 +271,15 @@ func TestPayloadImplementsInterfaces(t *testing.T) {
 	}{
 		{
 			name:    "InternalServerErrorPayload",
-			payload: apiutil.InternalServerErrorPayload(req, apiutil.PayloadArgs{}),
+			payload: apiresp.InternalServerErrorPayload(req, apiresp.PayloadArgs{}),
 		},
 		{
 			name:    "EndpointNotMatchedPayload",
-			payload: apiutil.EndpointNotMatchedPayload(req, apiutil.PayloadArgs{}),
+			payload: apiresp.EndpointNotMatchedPayload(req, apiresp.PayloadArgs{}),
 		},
 		{
 			name: "UnprocessableEntityPayload",
-			payload: apiutil.UnprocessableEntityPayload(req, apiutil.PayloadArgs{
+			payload: apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{
 				RFC9457: &rfc9457.Response{
 					Type:   rfc9457.InvalidParameterErrorType,
 					Title:  "Test",
@@ -289,7 +289,7 @@ func TestPayloadImplementsInterfaces(t *testing.T) {
 		},
 		{
 			name: "NewResponsePayload",
-			payload: apiutil.NewResponsePayload(apiutil.ResponsePayloadArgs{
+			payload: apiresp.NewResponsePayload(apiresp.ResponsePayloadArgs{
 				Content:    map[string]string{"test": "data"},
 				HTTPStatus: 200,
 				MIMEType:   rfc9457.ApplicationJSON,
@@ -302,7 +302,7 @@ func TestPayloadImplementsInterfaces(t *testing.T) {
 			// Verify ResponsePayload interface
 			var resp *rfc9457.Response
 			if !errors.As(tc.payload, &resp) {
-				t.Fatalf("Expected *apiutil.Response, got %T", tc.payload)
+				t.Fatalf("Expected *apiresp.Response, got %T", tc.payload)
 			}
 
 			// Verify HTTPStatusCode method exists

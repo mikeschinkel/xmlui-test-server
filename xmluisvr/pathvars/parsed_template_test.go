@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/errutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/errparsr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
@@ -112,7 +112,7 @@ func TestTemplate_RFC9457Generation(t *testing.T) {
 		wantParam         string
 		wantExpectedType  string
 		wantReceivedValue string
-		wantLocation      apiutil.LocationType
+		wantLocation      apiresp.LocationType
 	}{
 		{
 			name:              "Invalid integer parameter",
@@ -122,7 +122,7 @@ func TestTemplate_RFC9457Generation(t *testing.T) {
 			wantParam:         "id",
 			wantExpectedType:  "integer",
 			wantReceivedValue: "abc",
-			wantLocation:      apiutil.PathLocation,
+			wantLocation:      apiresp.PathLocation,
 		},
 		{
 			name:              "Invalid UUID parameter",
@@ -132,7 +132,7 @@ func TestTemplate_RFC9457Generation(t *testing.T) {
 			wantParam:         "uuid",
 			wantExpectedType:  "uuid",
 			wantReceivedValue: "not-a-uuid",
-			wantLocation:      apiutil.PathLocation,
+			wantLocation:      apiresp.PathLocation,
 		},
 		{
 			name:              "Invalid boolean parameter",
@@ -142,7 +142,7 @@ func TestTemplate_RFC9457Generation(t *testing.T) {
 			wantParam:         "enabled",
 			wantExpectedType:  "boolean",
 			wantReceivedValue: "maybe",
-			wantLocation:      apiutil.PathLocation,
+			wantLocation:      apiresp.PathLocation,
 		},
 	}
 
@@ -163,7 +163,7 @@ func TestTemplate_RFC9457Generation(t *testing.T) {
 			}
 
 			// Extract Response from error
-			pe, parseErr := errutil.ParseError(err)
+			pe, parseErr := errparsr.ParseError(err)
 			if parseErr != nil {
 				t.Fatalf("ParseError() error = %v", parseErr)
 			}
@@ -199,7 +199,7 @@ func TestTemplate_RFC9457Generation(t *testing.T) {
 			if len(resp.Extensions) == 0 {
 				t.Fatal("Expected at least one extension")
 			}
-			ext, ok := resp.Extensions[0].(*apiutil.RFC9457Extension)
+			ext, ok := resp.Extensions[0].(*apiresp.RFC9457Extension)
 			if !ok {
 				t.Fatalf("Expected *RFC9457Extension, got %T", resp.Extensions[0])
 			}
@@ -231,7 +231,7 @@ func TestTemplate_RFC9457_DetailMessage(t *testing.T) {
 		t.Fatal("Expected validation error, got nil")
 	}
 
-	pe, _ := errutil.ParseError(err)
+	pe, _ := errparsr.ParseError(err)
 	customErr := pe.MaybeGetCustomError(rfc9457.ResponseArchetype)
 	var rfc9457 *rfc9457.Response
 	errors.As(customErr, &rfc9457)
@@ -271,7 +271,7 @@ func TestTemplate_RFC9457_HTTPStatusCode(t *testing.T) {
 				return // Some types might accept "invalid" as valid
 			}
 
-			pe, _ := errutil.ParseError(err)
+			pe, _ := errparsr.ParseError(err)
 			customErr := pe.MaybeGetCustomError(rfc9457.ResponseArchetype)
 			if customErr == nil {
 				return // Not an RFC9457 error

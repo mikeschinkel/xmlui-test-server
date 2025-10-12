@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiutil"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
@@ -59,7 +59,7 @@ func (svr *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerF
 		args := apipkg.HandlerHelperArgs{
 			HTTPRequest: r,
 			Database:    db,
-			APIResponse: apiutil.NewResponse(apiutil.ResponseArgs{
+			APIResponse: apiresp.NewResponse(apiresp.ResponseArgs{
 				HTTPWriter: w,
 				Request:    r,
 				CLIWriter:  svr.Writer,
@@ -116,13 +116,13 @@ func (svr *Server) checkUntrustedQueriesAuthorization(args apipkg.HandlerHelperA
 		// big concern for local development and testing.
 		err = errors.Join(
 			ErrUnauthorizedEndpointAccess,
-			apiutil.UnauthorizedPayload(args.HTTPRequest, apiutil.PayloadArgs{
+			apiresp.UnauthorizedPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Detail: fmt.Sprintf(
-					apiutil.AllowUntrustedQueriesErrorDetail,
+					apiresp.AllowUntrustedQueriesErrorDetail,
 					args.APIEndpointRequested(),
 				),
 				Suggestion: fmt.Sprintf(
-					apiutil.AllowUntrustedQueriesErrorSuggestion,
+					apiresp.AllowUntrustedQueriesErrorSuggestion,
 					cfgldr.AllowUntrustedQueriesFlag,
 					args.APIEndpointRequested(),
 				),
@@ -150,12 +150,12 @@ func (svr *Server) getHTTPBody(args apipkg.HandlerHelperArgs) (body bytes.Buffer
 	_, err = io.ReadAll(teeReader)
 	if err != nil {
 		err = errors.Join(
-			apiutil.ErrFailedToReadHTTPRequestBody,
-			apiutil.InternalServerErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
-				Location: apiutil.BodyLocation,
+			apiresp.ErrFailedToReadHTTPRequestBody,
+			apiresp.InternalServerErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
+				Location: apiresp.BodyLocation,
 				Suggestion: errorStyle.ErrorMessage(
-					fmt.Sprintf(apiutil.TryRestartingTheServerOrFileOnGithub, apiutil.ReportOnGithubMessageFunc()),
-					apiutil.ErrFailedToReadHTTPRequestBody.Error(),
+					fmt.Sprintf(apiresp.TryRestartingTheServerOrFileOnGithub, apiresp.ReportOnGithubMessageFunc()),
+					apiresp.ErrFailedToReadHTTPRequestBody.Error(),
 					err,
 				),
 			}),
@@ -178,12 +178,12 @@ func (svr *Server) getDBQuery(args apipkg.HandlerHelperArgs) (qs dbqvars.QuerySt
 		err = errors.Join(
 			ErrFailedToGetDBQueryFromHTTPRequestBody,
 			ErrFailedToUnmarshalJSON,
-			apiutil.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+			apiresp.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Detail: fmt.Sprintf("%s; %s",
 					ErrFailedToGetDBQueryFromHTTPRequestBody.Error(),
 					ErrFailedToUnmarshalJSON.Error(),
 				),
-				Suggestion: apiutil.EnsureYourHTTPRequestBodyContainsAValidDBQueryJSON,
+				Suggestion: apiresp.EnsureYourHTTPRequestBodyContainsAValidDBQueryJSON,
 			}),
 		)
 		goto end
@@ -194,9 +194,9 @@ func (svr *Server) getDBQuery(args apipkg.HandlerHelperArgs) (qs dbqvars.QuerySt
 		err = errors.Join(
 			ErrFailedToGetDBQueryFromHTTPRequestBody,
 			ErrInvalidDBQueryString,
-			apiutil.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
+			apiresp.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Detail:     svr.options.ErrorStyle.ErrorMessage("Invalid Database Query", fmt.Sprintf("Query=%s", req.Query), err),
-				Suggestion: fmt.Sprintf(apiutil.EnsureYourDBQueryIsValidForDB, svr.displayDBTypeName()),
+				Suggestion: fmt.Sprintf(apiresp.EnsureYourDBQueryIsValidForDB, svr.displayDBTypeName()),
 			}),
 		)
 		goto end
@@ -213,7 +213,7 @@ func (svr *Server) handleProxyFunc(method common.HTTPMethod) http.HandlerFunc {
 		args := apipkg.HandlerHelperArgs{
 			HTTPRequest: r,
 			Database:    svr.db,
-			APIResponse: apiutil.NewResponse(apiutil.ResponseArgs{
+			APIResponse: apiresp.NewResponse(apiresp.ResponseArgs{
 				HTTPWriter: w,
 				Request:    r,
 				CLIWriter:  svr.Writer,
@@ -251,10 +251,10 @@ func (svr *Server) getTargetURLAndPath(args apipkg.HandlerHelperArgs) (target *u
 		err = errors.Join(
 			ErrInvalidURL,
 			ErrMissingHostAfterProxySegment,
-			apiutil.InvalidURLFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
-				Location:   apiutil.PathLocation,
+			apiresp.InvalidURLFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
+				Location:   apiresp.PathLocation,
 				Detail:     fmt.Sprintf(`Invalid URL format; got %s`, path),
-				Suggestion: apiutil.EnsureURLBeginsWithPrefix,
+				Suggestion: apiresp.EnsureURLBeginsWithPrefix,
 			}),
 		)
 		goto end
@@ -270,10 +270,10 @@ func (svr *Server) getTargetURLAndPath(args apipkg.HandlerHelperArgs) (target *u
 		err = errors.Join(
 			ErrInvalidURL,
 			ErrInvalidProxyTargetHost,
-			apiutil.InvalidURLFormatErrorPayload(args.HTTPRequest, apiutil.PayloadArgs{
-				Location:   apiutil.PathLocation,
+			apiresp.InvalidURLFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
+				Location:   apiresp.PathLocation,
 				Detail:     fmt.Sprintf(`Invalid URL format for proxy target host; got %s`, targetHost),
-				Suggestion: apiutil.EnsureURLBeginsWithPrefix,
+				Suggestion: apiresp.EnsureURLBeginsWithPrefix,
 			}),
 		)
 		goto end

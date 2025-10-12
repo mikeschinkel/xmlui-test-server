@@ -1,11 +1,11 @@
-# ADR-011: Test Organization and RFC 9457 Implementation
+What# ADR-011: Test Organization and RFC 9457 Implementation
 
 |Label|Status|
 |--|--|
 |**Status:** | In Progress|
 |**Date:** | 2025-10-05|
 |**Related:** | [ADR-010: Error Handling with RFC 9457](./adr-010-error-handling-rfc9457.md)|
-|**Context:** | Test reorganization plan in [test/TEST_PLAN.md](../test/TEST_PLAN.md)|
+|**Context:** | Test reorganization plan in [test/TEST_SPECIFICATION.md](../test/TEST_SPECIFICATION.md)|
 
 ---
 
@@ -36,7 +36,7 @@ We considered two options:
 - ✅ Works well with ParsedError extraction pattern
 - ❌ Creates dependency on common package
 
-**Option B (Rejected):** Instantiate only in apiutil
+**Option B (Rejected):** Instantiate only in apiresp
 - ✅ Centralized error handling
 - ❌ Requires duplicating context info via `fmt.Errorf()` metadata
 - ❌ Less type-safe, more fragile parsing
@@ -58,11 +58,16 @@ err = errors.Join(
         Status:        http.StatusUnprocessableEntity,
         Detail:        detail,
         Instance:      source,
-        Parameter:     string(param.Name),
+Extensions: []rfc9457.Extension{
+apiresp.RFC9457Extension{
+
+Parameter:     string(param.Name),
         ExpectedType:  string(param.dataType.Slug()),
         ReceivedValue: value,
         Location:      common.LocationType(location.Slug()),
-    }),
+    },
+},
+}	),
     err,
 )
 ```
@@ -71,11 +76,11 @@ API handler extracts RFC9457Response using ParsedError:
 
 ```go
 // In apipkg/api_handler.go
-pe, _ := errutil.ParseError(err)
+pe, _ := errparsr.ParseError(err)
 err = pe.MaybeGetCustomError(common.RFC9457ResponseType)
 if err != nil && errors.As(err, &rfc9457) {
     httpStatus = rfc9457.Status
-    response.Send(apiutil.UnprocessableEntityPayload(r, rfc9457))
+    response.Send(apiresp.UnprocessableEntityPayload(r, rfc9457))
 }
 ```
 
@@ -84,7 +89,7 @@ if err != nil && errors.As(err, &rfc9457) {
 - ✅ Context-rich error messages without string parsing
 - ✅ Solves shared-types problem pragmatically (accept dependency on common)
 - ⚠️ All packages using RFC9457Response depend on common
-- ✅ ParsedError pattern (xmluisvr/errutil) provides clean extraction
+- ✅ ParsedError pattern (xmluisvr/errparsr) provides clean extraction
 
 ---
 
@@ -109,11 +114,16 @@ func MakeInvalidParameterError(
         Status:        422,
         Detail:        fmt.Sprintf("..."),
         Instance:      instance,
-        Parameter:     param,
+Extensions: []rfc9457.Extension{
+apiresp.RFC9457Extension{
+
+Parameter:     param,
         ExpectedType:  expectedType,
         ReceivedValue: receivedValue,
         Location:      location,
-    }
+    },
+},
+}	
 }
 ```
 
@@ -126,11 +136,16 @@ common.NewRFC9457Response(common.RFC9457ResponseArgs{
     Status:        422,
     Detail:        detail,
     Instance:      instance,
-    Parameter:     param,
+Extensions: []rfc9457.Extension{
+apiresp.RFC9457Extension{
+
+Parameter:     param,
     ExpectedType:  expectedType,
     ReceivedValue: receivedValue,
     Location:      location,
-})
+},
+},
+}	)
 ```
 
 ### Benefits
@@ -142,7 +157,7 @@ common.NewRFC9457Response(common.RFC9457ResponseArgs{
 - ✅ Refactoring-friendly
 
 ### Consequences
-- ✅ Deleted `xmluisvr/apiutil/http_error_makers.go` (used anti-pattern)
+- ✅ Deleted `xmluisvr/apiresp/http_error_makers.go` (used anti-pattern)
 - ✅ All error creation follows consistent pattern
 - ⚠️ Slightly more verbose at call site (acceptable tradeoff)
 
@@ -207,7 +222,7 @@ xmluisvr/pathvars/
   validator.go
   validator_test.go                ← Unit tests for validation logic
 
-xmluisvr/apiutil/
+xmluisvr/apiresp/
   response_payload.go
   response_payload_test.go         ← Unit tests for payload maker functions
 
@@ -391,11 +406,16 @@ testRequest{
         Status:        422,
         Detail:        "Parameter 'id' expected an integer type but got 'abc'",
         Instance:      "/api/users/abc",
-        Parameter:     "id",
+Extensions: []rfc9457.Extension{
+apiresp.RFC9457Extension{
+
+Parameter:     "id",
         ExpectedType:  "integer",
         ReceivedValue: "abc",
         Location:      common.PathLocation,
     },
+},
+}	,
 }
 ```
 
@@ -424,7 +444,7 @@ testRequest{
 - ✅ Validation infrastructure in place (`assertRFC9457Equal`)
 - ⏳ 3 of 84 test scenarios migrated to `expectedRFC9457`
 - ⏳ 81 scenarios still using legacy `shouldContain`
-- 📋 Tracked in test/TEST_PLAN.md Phase 4
+- 📋 Tracked in test/TEST_SPECIFICATION.md Phase 4
 
 ### Consequences
 - ✅ More robust test suite
@@ -465,44 +485,56 @@ testRequest{
 ## Implementation Status
 
 ### Phase 1: Foundation ✅ **COMPLETED**
-- ✅ test/TEST_PLAN.md created
+- ✅ test/TEST_SPECIFICATION.md created (consolidated test plan)
 - ✅ test/api_test_helpers.go created (400+ lines)
-- ✅ xmluisvr/apiutil/http_error_makers.go deleted
+- ✅ xmluisvr/apiresp/http_error_makers.go deleted
 - ✅ Constraint `not-empty` renamed to `notempty`
 
-### Phase 2: Unit Tests 📦 **PENDING**
+### Phase 2: Documentation Consolidation ✅ **COMPLETED (2025-10-11)**
+- ✅ test/TEST_SPECIFICATION.md created (consolidated all test docs)
+  - 34 test scenarios with complete status
+  - RFC 9457 error response reference
+  - Implementation action plan with priorities
+  - Test data reference and bootstrap SQL documentation
+- ✅ Updated ADR-011 with current status
+- ⏳ Archival of old documentation files (pending)
+
+### Phase 3: Extract Working Tests 📦 **PENDING**
+- ⏳ test/api_datatypes_test.go (tests 02, 03, 04, 06, 07, 08, 14)
+- ⏳ test/api_constraints_test.go (tests 09, 10, 11)
+- ⏳ test/api_query_params_test.go (tests 20, 21, 22)
+- ⏳ test/api_advanced_test.go (tests 23, 24, 25)
+- ⏳ test/api_responses_test.go (tests 26, 27, 28)
+- ⏳ test/api_errors_test.go (tests 29, 30, 31, 32, 33)
+- ⏳ test/api_complex_test.go (test 34)
+
+### Phase 4: Fix Critical Blockers 🔥 **PENDING**
+- ⏳ Implement parameter type validation (int, uuid, slug, date, alphanumeric)
+- ⏳ Implement constraint validation (range, length, enum, regex, notempty)
+- ⏳ Fix parser crashes (enum commas, regex escaping, UUID format constraint)
+- ⏳ Implement query parameter extraction
+- ⏳ Implement boolean type converter
+- ⏳ Update all tests with RFC 9457 validation
+
+### Phase 5: Unit Tests (Package-level) 📦 **PENDING**
 - ⏳ xmluisvr/pathvars/template_test.go
-- ⏳ xmluisvr/apiutil/response_payload_test.go
+- ⏳ xmluisvr/apiresp/response_payload_test.go
 
-### Phase 3: Integration Test Split 🧪 **PENDING**
-- ⏳ test/api_datatypes_test.go
-- ⏳ test/api_constraints_test.go
-- ⏳ test/api_parameters_test.go
-- ⏳ test/api_advanced_test.go
-- ⏳ test/api_responses_test.go
-- ⏳ test/api_errors_test.go
-- ⏳ test/api_complex_test.go
-
-### Phase 4: Feature Implementation 🔧 **PENDING**
-- Critical blockers (constraint validation, query params)
-- Iterative TDD cycle for each failing test
-
-### Phase 5: Cleanup 🧹 **PENDING**
-- Remove all `shouldContain` usage
-- Delete test/api_integration_test.go
-- Update documentation
+### Phase 6: Final Cleanup 🧹 **PENDING**
+- ⏳ Remove all `shouldContain` usage
+- ⏳ Delete test/api_integration_test.go.old
+- ⏳ Update CLAUDE.md with new test structure
+- ⏳ Verify `make test` succeeds with all 34 scenarios passing
 
 ---
 
 ## Related Documents
 
-- [test/TEST_PLAN.md](../test/TEST_PLAN.md) - Detailed implementation plan
-- [test/RFC9457_TEST_REFERENCE.md](../test/RFC9457_TEST_REFERENCE.md) - Expected RFC 9457 responses
-- [test/UNIMPLEMENTED.md](../test/UNIMPLEMENTED.md) - Feature implementation status
+- **[test/TEST_SPECIFICATION.md](../test/TEST_SPECIFICATION.md)** - ✅ **ACTIVE** - Consolidated test specification (all test scenarios, status, RFC 9457 reference, implementation plan)
 - [ADR-010: Error Handling with RFC 9457](./adr-010-error-handling-rfc9457.md) - Original RFC 9457 decision
 - [xmluisvr/pathvars/ADR_PATHVARS.md](../xmluisvr/pathvars/ADR_PATHVARS.md) - Path variables architecture
 
 ---
 
-**Last Updated:** 2025-10-05
-**Next Review:** After Phase 2 completion (unit tests)
+**Last Updated:** 2025-10-11
+**Next Review:** After Phase 3 completion (test extraction)

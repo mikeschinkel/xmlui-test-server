@@ -1,4 +1,4 @@
-package jsonutil
+package jsonxtractr
 
 import (
 	"encoding/json/jsontext"

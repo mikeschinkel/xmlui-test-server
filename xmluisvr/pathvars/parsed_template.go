@@ -280,7 +280,7 @@ type ParameterValidationError struct {
 	Detail           string
 	Parameter        string
 	ExpectedType     string
-	ReceivedValue    any
+	ReceivedValue    string
 	Location         string
 	Suggestion       string
 	EndpointTemplate string
@@ -293,7 +293,7 @@ func (e ParameterValidationError) Error() string {
 		fmt.Sprintf("detail=%s", e.Detail),
 		fmt.Sprintf("parameter=%s", e.Parameter),
 		fmt.Sprintf("expected_type=%s", e.ExpectedType),
-		fmt.Sprintf("received_value=%v", e.ReceivedValue),
+		fmt.Sprintf("received_value=%s", e.ReceivedValue),
 		fmt.Sprintf("location=%s", e.Location),
 		fmt.Sprintf("suggestion=%s", e.Suggestion),
 		fmt.Sprintf("endpoint_template=%s", e.EndpointTemplate),

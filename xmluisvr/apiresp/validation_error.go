@@ -1,4 +1,4 @@
-package apiutil
+package apiresp
 
 type ValidationError struct {
 	Parameter string       `json:"parameter"`
