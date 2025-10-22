@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 // ----- Helper to build a nested error -----
@@ -42,8 +43,8 @@ func TestNestedRouterErrors(t *testing.T) {
 	if !errors.Is(err, pathvars.ErrInvalidTemplate) {
 		t.Fatalf("expected Is(err, pathvars.ErrInvalidTemplate) == true")
 	}
-	if !errors.Is(err, pathvars.ErrInvalidParameter) {
-		t.Fatalf("expected Is(err, pathvars.ErrInvalidParameter) == true")
+	if !errors.Is(err, pvtypes.ErrInvalidParameter) {
+		t.Fatalf("expected Is(err, pvtypes.ErrInvalidParameter) == true")
 	}
 	if !errors.Is(err, pathvars.ErrInvalidConstraint) {
 		t.Fatalf("expected Is(err, pathvars.ErrInvalidConstraint) == true")

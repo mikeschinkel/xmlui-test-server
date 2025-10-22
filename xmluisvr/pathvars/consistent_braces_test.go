@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func TestConsistentBraceHandling(t *testing.T) {
@@ -32,7 +33,7 @@ func TestConsistentBraceHandling(t *testing.T) {
 					t.Errorf("Expected error for %s but got none", tt.reason)
 					return
 				}
-				if !errors.Is(err, pathvars.ErrInvalidParameter) && !errors.Is(err, pathvars.ErrInvalidTemplate) {
+				if !errors.Is(err, pvtypes.ErrInvalidParameter) && !errors.Is(err, pathvars.ErrInvalidTemplate) {
 					t.Errorf("Expected InvalidParameter or InvalidTemplate error, got: %v", err)
 					return
 				}

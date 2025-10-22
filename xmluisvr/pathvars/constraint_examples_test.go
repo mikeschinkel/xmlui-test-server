@@ -92,7 +92,7 @@ func TestUUIDFormatConstraint_Examples(t *testing.T) {
 			}
 
 			// Get the example
-			example := param.Example(nil)
+			example := param.Example(err, nil)
 			if example == nil {
 				t.Fatal("Example() returned nil")
 			}
@@ -157,7 +157,7 @@ func TestParameterExample_FallbackToDataType(t *testing.T) {
 				t.Fatalf("Failed to parse parameter %q: %v", tt.paramSpec, err)
 			}
 
-			example := param.Example(nil)
+			example := param.Example(err, nil)
 			if example == nil {
 				t.Fatal("Example() returned nil")
 			}

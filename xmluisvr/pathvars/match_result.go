@@ -4,52 +4,32 @@
 package pathvars
 
 import (
-	"maps"
-	"slices"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
-// ValuesMap is an ordered map of parameter names to their extracted values.
-// Order preservation is critical for:
-//   - Error suggestion URLs that match the user's request parameter order (ADR-018)
-//   - Deterministic test behavior (no map iteration randomness)
-//   - Debug output that reflects actual HTTP request structure
-type ValuesMap struct {
-	*OrderedMap[Identifier, any]
+// MatchAttempt represents the result of attempting to match a request against a route template.
+// It provides detailed information about what matched and what didn't, allowing the router
+// to make intelligent decisions about whether to try the next route or return an error.
+type MatchAttempt struct {
+	// PathMatched indicates whether the URL path matched the route's path pattern (regex match).
+	PathMatched bool
+
+	// QueryMatched indicates whether all query parameters validated successfully.
+	QueryMatched bool
+
+	// ValuesMap contains extracted parameter values (may be partial if validation failed).
+	ValuesMap pvtypes.ValuesMap
 }
 
-func (vm ValuesMap) SetNil() {
-	vm.OrderedMap = nil
+// Matched returns true if both path and query matched successfully.
+func (ma MatchAttempt) Matched() bool {
+	return ma.PathMatched && ma.QueryMatched
 }
 
-func (vm ValuesMap) IsNil() bool {
-	return vm.OrderedMap == nil
-}
-
-func NewValuesMap(cap int) ValuesMap {
-	return ValuesMap{
-		OrderedMap: NewOrderedMap[Identifier, any](cap),
-	}
-}
-
-func (vm ValuesMap) GetValues(names []Identifier) (values ValuesMap, notFound []Identifier) {
-	n := len(names)
-	values = NewValuesMap(n)
-	notFound = make([]Identifier, 0, n)
-
-	notFoundMap := make(map[Identifier]struct{}, len(names))
-	for _, name := range names {
-		notFoundMap[name] = struct{}{}
-	}
-	for _, name := range names {
-		value, ok := vm.Get(name)
-		if !ok {
-			continue
-		}
-		values.Set(name, value)
-		delete(notFoundMap, name)
-	}
-	notFound = slices.Collect(maps.Keys(notFoundMap))
-	return values, notFound
+// ShouldContinue returns true if the router should try the next route.
+// This happens when the path didn't match - we haven't found the right route yet.
+func (ma MatchAttempt) ShouldContinue() bool {
+	return !ma.PathMatched
 }
 
 // MatchResult represents the result of matching an HTTP request against a route template.
@@ -62,11 +42,11 @@ type MatchResult struct {
 
 	// valuesMap contains the extracted parameter values from the matched request.
 	// This field is private to control access and ensure proper initialization.
-	valuesMap ValuesMap
+	valuesMap pvtypes.ValuesMap
 }
 
 // NewMatchResult creates a new MatchResult with the specified route index and parameter values.
-func NewMatchResult(r *Route, valuesMap ValuesMap) MatchResult {
+func NewMatchResult(r *Route, valuesMap pvtypes.ValuesMap) MatchResult {
 	return MatchResult{
 		Index:     r.Index,
 		Route:     r,
@@ -74,15 +54,21 @@ func NewMatchResult(r *Route, valuesMap ValuesMap) MatchResult {
 	}
 }
 
-func (m MatchResult) GetValues(names []Identifier) (ValuesMap, []Identifier) {
+func (m MatchResult) GetValues(names []Identifier) (pvtypes.ValuesMap, []Identifier) {
 	return m.valuesMap.GetValues(names)
 }
 
 // ValuesMap returns the map of extracted parameter values.
+// This includes:
+//   - Path parameters (from URL path segments)
+//   - Template-defined query parameters (validated from template like ?{email:string})
+//
+// NOTE: This does NOT include Params-defined query parameters that are not in the template.
+// Those are validated separately via ValidateQueryParameters() using parsedQuery.
 // If the internal map is nil, it initializes an empty map to prevent nil pointer issues.
-func (m MatchResult) ValuesMap() ValuesMap {
+func (m MatchResult) ValuesMap() pvtypes.ValuesMap {
 	if m.valuesMap.IsNil() {
-		m.valuesMap = NewValuesMap(0)
+		m.valuesMap = pvtypes.NewValuesMap(0)
 	}
 	return m.valuesMap
 }
@@ -101,7 +87,7 @@ func (m MatchResult) VarCount() int {
 
 // HasVars returns true if any parameters were extracted from the request.
 func (m MatchResult) HasVars() bool {
-	return m.valuesMap.Len() > 0
+	return !m.valuesMap.IsNil() && m.valuesMap.Len() > 0
 }
 
 // ForEachVar iterates over all extracted parameters, calling the provided function

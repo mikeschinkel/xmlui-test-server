@@ -261,35 +261,56 @@ func (p Parameter) DataTypeSlug() PVDataTypeSlug {
 	return p.dataType.Slug()
 }
 
-func (p Parameter) Example(err error) any {
+func (p Parameter) Example(err error, args *ExampleArgs) (example any) {
 	var pe *ParameterError
+	if args == nil {
+		args = &ExampleArgs{}
+	}
 	// If we have an error with a specific constraint, use that constraint's example
 	if errors.As(err, &pe) && pe.ConstraintType != "" {
 		for _, c := range p.constraints {
-			if c.String() == pe.ConstraintType {
-				if ex := c.Example(err); ex != nil {
-					return ex
-				}
+			if c.String() != pe.ConstraintType {
+				continue
 			}
+			example = c.Example(err)
+			if example == nil {
+				continue
+			}
+			goto end
 		}
 	}
+
+	// For suggestion text with type errors (not constraint errors), use data type example
+	// This ensures format[v4] failures show generic UUID (v1) in text, not constraint-specific v4
+	if args.SuggestionType == DataTypeSuggestion {
+		// Check if this is a type error (no constraint error)
+		if pe == nil || pe.ConstraintType == "" {
+			example = p.dataType.Example()
+			goto end
+		}
+	}
+
 	// Check if any constraint provides an example (prefer type-validating constraints first)
 	for _, c := range p.constraints {
 		if !c.ValidatesType() {
 			continue
 		}
-		if ex := c.Example(nil); ex != nil {
-			return ex
+		example = c.Example(nil)
+		if example != nil {
+			goto end
 		}
 	}
 	// Check other constraints (e.g., range, length) for examples
 	for _, c := range p.constraints {
-		if ex := c.Example(nil); ex != nil {
-			return ex
+		example = c.Example(nil)
+		if example != nil {
+			goto end
 		}
 	}
+	example = p.dataType.Example()
+end:
 	// Fall back to data type example
-	return p.dataType.Example()
+	return example
 }
 
 func (p Parameter) ValidateForDataType(value string) (err error) {
@@ -415,7 +436,7 @@ func (p Parameter) ErrorSuggestion(err error, value, example string) string {
 	return fmt.Sprintf("Use %s for '%s' like %v, for example: %s",
 		p.dataType.WithIndefiniteArticle(),
 		p.Name,
-		p.dataType.Example(),
+		p.Example(err, &ExampleArgs{SuggestionType: DataTypeSuggestion}),
 		example,
 	)
 }

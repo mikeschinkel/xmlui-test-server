@@ -151,7 +151,7 @@ func TestTemplate_ParameterValidationError(t *testing.T) {
 			}
 
 			// Match and validate (should fail with ParameterError)
-			_, _, err = tmpl.Match(tt.path, "")
+			_, err = tmpl.Match(tt.path, "")
 			if err == nil {
 				t.Fatal("Expected validation error, got nil")
 			}
@@ -698,7 +698,7 @@ func TestParameterValidationError_Comprehensive(t *testing.T) {
 			}
 
 			// Match and validate (should fail with ParameterError)
-			_, _, err = tmpl.Match(tt.path, tt.query)
+			_, err = tmpl.Match(tt.path, tt.query)
 			if err == nil {
 				t.Fatal("Expected validation error, got nil")
 			}
@@ -798,7 +798,7 @@ func TestTemplate_FaultSource(t *testing.T) {
 			}
 
 			invalidPath := tmplStr[:strings.Index(tmplStr, "{")] + "invalid"
-			_, _, err = tmpl.Match(invalidPath, "")
+			_, err = tmpl.Match(invalidPath, "")
 			if err == nil {
 				return // Some types might accept "invalid" as valid
 			}

@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
-func newValuesMap(args ...any) pathvars.ValuesMap {
-	vm := pathvars.NewValuesMap(0)
+func newValuesMap(args ...any) pvtypes.ValuesMap {
+	vm := pvtypes.NewValuesMap(0)
 	for i := 0; i < len(args); i += 2 {
 		vm.Set(pathvars.Identifier(args[i].(string)), args[i+1])
 	}
@@ -24,7 +25,7 @@ func TestSuggestionURL_ADR018(t *testing.T) {
 		name               string
 		templateStr        string
 		problematicParam   string
-		userProvidedParams pathvars.ValuesMap
+		userProvidedParams pvtypes.ValuesMap
 		expectedURL        string
 	}{
 		{
@@ -124,7 +125,7 @@ func TestSuggestionURL_ADR018(t *testing.T) {
 			}
 
 			// Generate suggestion URL
-			got := template.SuggestionURL(pathvars.SuggestionURLArgs{
+			got := template.Example(&pvtypes.ExampleArgs{
 				ProblematicParam:   problematicParam,
 				UserProvidedParams: &tt.userProvidedParams,
 				ValidationErr:      nil,
@@ -145,7 +146,7 @@ func TestSuggestionURL_PathParameterProblematic(t *testing.T) {
 		name               string
 		templateStr        string
 		problematicParam   string
-		userProvidedParams pathvars.ValuesMap
+		userProvidedParams pvtypes.ValuesMap
 		expectedURL        string
 	}{
 		{
@@ -177,12 +178,12 @@ func TestSuggestionURL_PathParameterProblematic(t *testing.T) {
 				t.Fatalf("Failed to parse template: %v", err)
 			}
 
-			problematicParam, exists := template.Parameters().Get(pathvars.Identifier(tt.problematicParam))
+			problematicParam, exists := template.Parameters().Get(pvtypes.Identifier(tt.problematicParam))
 			if !exists {
 				t.Fatalf("Problematic parameter %s not found in template", tt.problematicParam)
 			}
 
-			got := template.SuggestionURL(pathvars.SuggestionURLArgs{
+			got := template.Example(&pvtypes.ExampleArgs{
 				ProblematicParam:   problematicParam,
 				UserProvidedParams: &tt.userProvidedParams,
 				ValidationErr:      nil,
@@ -231,7 +232,7 @@ func TestSuggestionURL_EmptyUserProvided(t *testing.T) {
 				t.Fatalf("Problematic parameter %s not found in template", tt.problematicParam)
 			}
 
-			got := template.SuggestionURL(pathvars.SuggestionURLArgs{
+			got := template.Example(&pvtypes.ExampleArgs{
 				ProblematicParam:   problematicParam,
 				UserProvidedParams: nil,
 				ValidationErr:      nil,

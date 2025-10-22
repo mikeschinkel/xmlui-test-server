@@ -40,3 +40,9 @@ var (
 
 	ErrQueryValuesExtractionFailed = errors.New("query values extraction failed")
 )
+
+var (
+	ErrParsingFailed                    = errors.New("parsing failed")
+	ErrEndpointParsingFailed            = errors.New("endpoint parsing failed")
+	ErrParsingOfMultipleEndpointsFailed = errors.New("parsing of multiple endpoints failed")
+)

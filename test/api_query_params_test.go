@@ -192,7 +192,7 @@ func TestAPIQueryParams(t *testing.T) {
 						ExpectedType:  "decimal",
 						ReceivedValue: "invalid",
 						Location:      apiresp.QueryLocation,
-						Suggestion:    "Use a decimal for 'min_budget' like 1.2345, for example: /api/projects/search?min_budget=1.2345",
+						Suggestion:    "Use a decimal for 'min_budget' like 1.23, for example: /api/projects/search?min_budget=1.23",
 					},
 				},
 			},

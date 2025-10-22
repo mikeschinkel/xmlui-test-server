@@ -35,6 +35,16 @@ func (svr *Server) handleRootFunc() http.HandlerFunc {
 	}
 }
 
+// handleHealthCheckFunc returns a simple health check handler that bypasses all routing logic.
+// This is used by tests to verify the server is ready without triggering API parameter validation.
+func (svr *Server) handleHealthCheckFunc() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}
+}
+
 func (svr *Server) serveFile(w http.ResponseWriter, r *http.Request, filePath common.Filepath) {
 	svr.Writer.Printf("Trying to serve: %s\n", filePath)
 	err := common.CheckFileExists(filePath)

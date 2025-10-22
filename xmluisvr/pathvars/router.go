@@ -38,7 +38,6 @@
 package pathvars
 
 import (
-	"errors"
 	"net/http"
 )
 
@@ -167,8 +166,6 @@ func (r *Router) Compile() (err error) {
 // Returns ErrRouterNotCompiled if the router hasn't been compiled,
 // or ErrNoMatch if no route matches the request.
 func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
-	var valuesMap ValuesMap
-	var matched bool
 
 	u := req.URL
 
@@ -186,23 +183,27 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 			continue
 		}
 
-		valuesMap, matched, err = route.ParsedTemplate.Match(u.Path, u.RawQuery)
-		if errors.Is(err, ErrRequiredParameterNotProvided) {
+		var attempt MatchAttempt
+		attempt, err = route.ParsedTemplate.Match(u.Path, u.RawQuery)
+
+		// If path didn't match, try next route (ignore any errors)
+		//goland:noinspection GoDfaErrorMayBeNotNil
+		if attempt.ShouldContinue() {
 			continue
 		}
+
+		// Path matched - if there's an error, it's a validation failure
 		if err != nil {
-			// Error occurred during matching (validation, malformed input, etc.)
-			// regardless of whether path matched
 			goto end
 		}
-		if matched {
-			result = MatchResult{
-				Index:     route.Index,
-				Route:     route,
-				valuesMap: valuesMap,
-			}
-			goto end
+
+		// Path matched and validation passed - success
+		result = MatchResult{
+			Index:     route.Index,
+			Route:     route,
+			valuesMap: attempt.ValuesMap,
 		}
+		goto end
 	}
 
 	err = NewErr(

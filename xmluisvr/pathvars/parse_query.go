@@ -4,7 +4,19 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
+
+type ParsedQuery struct {
+	*pvtypes.OrderedMap[string, []string]
+}
+
+func NewParsedQuery(cap int) *ParsedQuery {
+	return &ParsedQuery{
+		OrderedMap: pvtypes.NewOrderedMap[string, []string](0),
+	}
+}
 
 // ParseQuery parses the URL-encoded query string and returns an OrderedMap
 // preserving the parameter order as they appear in the URL.
@@ -17,15 +29,15 @@ import (
 //   - Error messages that show parameters in the order users typed them
 //   - Suggestion URLs per ADR-018 (required + user-provided params in request order)
 //   - Deterministic test behavior (no map iteration randomness)
-func ParseQuery(query string) (*OrderedMap[string, []string], error) {
-	m := NewOrderedMap[string, []string](8) // Reasonable default capacity
+func ParseQuery(query string) (*ParsedQuery, error) {
+	m := NewParsedQuery(4) // Reasonable default capacity
 	err := parseQuery(m, query)
 	return m, err
 }
 
 // parseQuery is the internal implementation that populates the OrderedMap.
 // Adapted from Go stdlib net/url.parseQuery with minimal modifications.
-func parseQuery(m *OrderedMap[string, []string], query string) (err error) {
+func parseQuery(pq *ParsedQuery, query string) (err error) {
 	for query != "" {
 		var key string
 		key, query, _ = strings.Cut(query, "&")
@@ -53,11 +65,11 @@ func parseQuery(m *OrderedMap[string, []string], query string) (err error) {
 		}
 
 		// Modified from stdlib: use OrderedMap instead of map
-		existing, found := m.Get(key)
+		existing, found := pq.Get(key)
 		if !found {
-			m.Set(key, []string{value})
+			pq.Set(key, []string{value})
 		} else {
-			m.Set(key, append(existing, value))
+			pq.Set(key, append(existing, value))
 		}
 	}
 	return err

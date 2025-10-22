@@ -55,6 +55,23 @@ func (c *EnumConstraint) ValidDataTypes() []PVDataType {
 	}
 }
 
+func (c *EnumConstraint) ErrorDetail(param *Parameter, value string) string {
+	return fmt.Sprintf("Parameter '%s' with value '%s' failed constraint validation: value '%s' is not in the allowed set: [%s]",
+		param.Name,
+		value,
+		value,
+		strings.Join(c.list, ", "),
+	)
+}
+
+func (c *EnumConstraint) Example(err error) (ex any) {
+	// Return the first enum value as the example
+	if len(c.list) > 0 {
+		ex = c.list[0]
+	}
+	return ex
+}
+
 // ParseEnumConstraint parses val1,val2,val3 format
 func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error) {
 	var values []string

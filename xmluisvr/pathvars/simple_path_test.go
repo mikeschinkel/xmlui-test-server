@@ -3,6 +3,8 @@ package pathvars
 import (
 	"reflect"
 	"testing"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func TestSimplePathWithoutParameters(t *testing.T) {
@@ -24,12 +26,15 @@ func TestSimplePathWithoutParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.path[1:], func(t *testing.T) {
 			// Test exact match - should succeed
-			vars, matched, _ := template.Match(tt.path, "")
-			if tt.expectMatch && !matched {
+			attempt, err := template.Match(tt.path, "")
+			if attempt.PathMatched && tt.expectErr {
+				t.Errorf("Path error: Expected: %t, Error: %v", tt.expectErr, err)
+			}
+			if !attempt.Matched() && tt.expectMatch {
 				t.Errorf("Expected '%s' to match template '/users', but it didn't", tt.path)
 			}
-			if vars.Len() != 0 {
-				t.Errorf("Expected no variables for simple path, got %d: %v", vars.Len(), vars)
+			if attempt.ValuesMap.Len() != 0 {
+				t.Errorf("Expected no variables for simple path, got %d: %v", attempt.ValuesMap.Len(), attempt.ValuesMap)
 			}
 		})
 	}
@@ -52,10 +57,10 @@ func TestSimplePathWithoutParametersVerbose(t *testing.T) {
 	//}
 
 	tests := []struct {
-		path     string
-		expected bool
-		name     string
-		vm       *ValuesMap
+		path        string
+		expectMatch bool
+		name        string
+		vm          *pvtypes.ValuesMap
 	}{
 		{"/users", true, "exact match", nil},
 		{"/posts", false, "different path", nil},
@@ -65,23 +70,24 @@ func TestSimplePathWithoutParametersVerbose(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		var valuesMap ValuesMap
-		var matched bool
-		valuesMap, matched, err = template.Match(test.path, "")
-		//valuesMap, matched, err = template.Match(test.path, "")
+		attempt, err := template.Match(test.path, "")
+
 		//t.Logf("Path: %s, Matched: %v, Vars: %v (%s)", test.path, matched, valuesMap, test.name)
-		if err != nil {
-			t.Errorf("Path error: %v", err)
+		//goland:noinspection GoDfaErrorMayBeNotNil
+		if test.expectMatch && !attempt.PathMatched {
+			t.Errorf("Path error: Expected Match: %t, Error: %v", test.expectMatch, err)
 		}
-
+		//goland:noinspection GoDfaErrorMayBeNotNil
+		valuesMap := attempt.ValuesMap
 		if test.vm == nil && valuesMap.Len() != 0 {
-			t.Errorf("Path %s expected: no parameters, got valuesMap=%v=%v", test.path, valuesMap.Keys(), valuesMap.Values())
+			t.Errorf("Path %s expectErr: no parameters, got valuesMap=%v=%v", test.path, valuesMap.Keys(), valuesMap.Values())
 		} else if test.vm != nil && reflect.DeepEqual(*test.vm, valuesMap) {
-			t.Errorf("Path %s expected: valuesMap=%v, got valuesMap=%v", test.path, test.vm, valuesMap)
+			t.Errorf("Path %s expectErr: valuesMap=%v, got valuesMap=%v", test.path, test.vm, valuesMap)
 		}
 
-		if matched != test.expected {
-			t.Errorf("Path %s expected: match=%v, got match=%v", test.path, test.expected, matched)
+		//goland:noinspection GoDfaErrorMayBeNotNil
+		if test.expectMatch && !attempt.Matched() {
+			t.Errorf("Path %s expectErr: match=%v, got match=%v", test.path, test.expectMatch, attempt.Matched())
 		}
 	}
 }

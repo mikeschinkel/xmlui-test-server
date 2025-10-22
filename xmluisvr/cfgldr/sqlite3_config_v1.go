@@ -25,6 +25,7 @@ var _ DatabaseConfig = (*SQLite3ConfigV1)(nil)
 type SQLite3ConfigV1 struct {
 	Schema         string                      `json:"$schema,omitempty"`
 	Version        int                         `json:"version,omitempty"`
+	Notes          []string                    `json:"@notes,omitempty"`
 	Type           string                      `json:"type"`
 	Filepath       string                      `json:"filepath"`
 	Extensions     []*SQLite3ExtensionConfigV1 `json:"-"` // `json:"extensions"`
@@ -75,6 +76,7 @@ func NewSQLite3ConfigV1(filepath string) *SQLite3ConfigV1 {
 	return &SQLite3ConfigV1{
 		Schema:   SQLite3ConfigV1Schema,
 		Version:  SQLite3ConfigV1Version,
+		Notes:    make([]string, 0),
 		Type:     string(SQLite3Database),
 		Filepath: filepath,
 	}
@@ -170,6 +172,7 @@ func (c *SQLite3ConfigV1) Normalize(sourceFile string, opts *Options) {
 var _ DBExtensionConfig = (*SQLite3ExtensionConfigV1)(nil)
 
 type SQLite3ExtensionConfigV1 struct {
+	Notes        []string          `json:"@notes,omitempty"`
 	Id           string            `json:"id"`
 	Version      string            `json:"version"`
 	Name         string            `json:"name"`
@@ -236,6 +239,9 @@ func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile string, opts *Options) {
 		base := filepath.Base(filePath)
 		ext := filepath.Ext(base)
 		c.Id = base[:len(base)-len(ext)]
+	}
+	if c.Notes == nil {
+		c.Notes = make([]string, 0)
 	}
 	if c.Name == "" {
 		c.Name = c.Id

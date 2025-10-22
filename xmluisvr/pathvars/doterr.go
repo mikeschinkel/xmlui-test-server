@@ -199,9 +199,13 @@ func CombineErrs(errs []error) error {
 // Otherwise returns nil.
 // The returned slice preserves insertion order and is a copy.
 func ErrMeta(err error) []KV {
+	var ok bool
+	var e, ce entry
+	var cePtr *entry
+
 	// Case (a): err is an entry → return its metadata
 	//goland:noinspection GoTypeAssertionOnErrors,DuplicatedCode
-	e, ok := err.(entry)
+	e, ok = err.(entry)
 	if ok {
 		out := make([]KV, len(e.kvs))
 		for i, pair := range e.kvs {
@@ -219,7 +223,15 @@ func ErrMeta(err error) []KV {
 	children := u.Unwrap()
 	for _, child := range children {
 		//goland:noinspection GoTypeAssertionOnErrors
-		if ce, ok := child.(entry); ok {
+		ce, ok = child.(entry)
+		if !ok {
+			//goland:noinspection GoTypeAssertionOnErrors
+			cePtr, ok = child.(*entry)
+			if ok {
+				ce = *cePtr
+			}
+		}
+		if ok {
 			out := make([]KV, len(ce.kvs))
 			for i, pair := range ce.kvs {
 				out[i] = pair

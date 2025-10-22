@@ -90,16 +90,18 @@ func (e *TemplateError) enhanceSuggestionWithContext(baseSuggestion string) stri
 }
 
 type TemplateErrorArgs struct {
+	Endpoint   string
+	Example    string
 	Source     string
 	Location   LocationType
 	Suggestion string
 	Parameter  Parameter
 }
 
-func newTemplateError(t *ParsedTemplate, err error, args TemplateErrorArgs) *TemplateError {
+func NewTemplateError(err error, args TemplateErrorArgs) *TemplateError {
 	return &TemplateError{
-		Endpoint:   t.raw,
-		Example:    t.Example(args.Parameter),
+		Endpoint:   args.Endpoint,
+		Example:    args.Example,
 		Source:     args.Source,
 		Location:   args.Location,
 		Suggestion: args.Suggestion,

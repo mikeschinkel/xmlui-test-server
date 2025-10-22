@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func TestRouterErrorHandling(t *testing.T) {
@@ -31,9 +32,9 @@ func TestRouterErrorHandling(t *testing.T) {
 		{"empty-path-after-method", "GET", "", false, nil, "", nil},
 
 		// Invalid parameter syntax
-		{"empty-braces", "GET", "/users/{}", true, pathvars.ErrInvalidParameter, "", nil},
-		{"unmatched-open-brace", "GET", "/users/{id", true, pathvars.ErrInvalidParameter, "", nil},
-		{"unmatched-close-brace", "GET", "/users/id}", true, pathvars.ErrInvalidParameter, "", nil}, // Now consistent - error like unmatched opening
+		{"empty-braces", "GET", "/users/{}", true, pvtypes.ErrInvalidParameter, "", nil},
+		{"unmatched-open-brace", "GET", "/users/{id", true, pvtypes.ErrInvalidParameter, "", nil},
+		{"unmatched-close-brace", "GET", "/users/id}", true, pvtypes.ErrInvalidParameter, "", nil}, // Now consistent - error like unmatched opening
 		{"no-param-name", "GET", "/users/{:int}", true, pathvars.ErrNameSpecNameCannotBeEmpty, "", nil},
 
 		// Invalid types

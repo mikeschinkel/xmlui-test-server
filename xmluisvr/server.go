@@ -159,8 +159,13 @@ func (svr *Server) addRoutes(ctx Context) {
 		svr.mux.HandleFunc(fmt.Sprintf("%s /proxy/", method), svr.handleProxyFunc(method))
 	}
 
+	// Health check endpoint (bypasses API routing for test readiness checks)
+	route := "GET /healthz"
+	svr.V3().Printf("  — %s\n", route)
+	svr.mux.HandleFunc(route, svr.handleHealthCheckFunc())
+
 	// Then handle query endpoint
-	route := "POST /query"
+	route = "POST /query"
 	svr.V3().Printf("  — %s\n", route)
 	svr.mux.HandleFunc(route, svr.handleQueryFunc(ctx, svr.db))
 

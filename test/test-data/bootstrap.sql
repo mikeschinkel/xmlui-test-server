@@ -53,7 +53,9 @@ INSERT OR IGNORE INTO projects (owner_id, name, slug, status, priority, budget, 
     (1, 'Website Redesign', 'website-redesign', 'active', 4, 15000.50, '2025-10-15'),
     (1, 'Mobile App MVP', 'mobile-app-mvp', 'active', 5, 25000.75, '2025-11-30'),
     (2, 'Data Migration', 'data-migration', 'draft', 2, 8000.25, '2025-09-01'),
-    (3, 'API Documentation', 'api-docs', 'archived', 1, 3000.00, '2025-08-15');
+    (3, 'API Documentation', 'api-docs', 'archived', 1, 3000.00, '2025-08-15'),
+    (1, 'Test Project Alpha', 'test-project-alpha', 'active', 3, 12000.00, '2025-12-01'),
+    (2, 'Legacy Project Archive', 'legacy-project-archive', 'archived', 2, 8500.00, '2025-07-01');
 
 -- =========================
 -- TASKS TABLE
@@ -78,6 +80,7 @@ INSERT OR IGNORE INTO tasks (project_id, assignee_id, title, status, priority, e
     (1, 1, 'Audit current site', 'doing', 2, 8.5, '2025-10-01'),
     (1, 2, 'Design homepage', 'todo', 4, 16.0, '2025-10-10'),
     (1, 3, 'Implement responsive layout', 'todo', 3, 24.5, '2025-10-15'),
+    (1, 1, 'Fix urgent security issue', 'todo', 5, 4.0, '2025-09-25'),
     (2, 2, 'Auth flow', 'doing', 5, 12.0, '2025-10-05'),
     (2, 1, 'API client', 'todo', 4, 20.0, '2025-10-08'),
     (2, 3, 'Push notifications', 'todo', 3, 18.5, '2025-10-18');

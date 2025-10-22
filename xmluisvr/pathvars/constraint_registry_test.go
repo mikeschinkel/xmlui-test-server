@@ -81,7 +81,7 @@ func TestUUIDConstraintRegistry(t *testing.T) {
 		if key != expectedKey {
 			t.Errorf("Expected constraint map key %q, got %q", expectedKey, key)
 		}
-		t.Logf("UUID format constraint map key: %s", key)
+		//t.Logf("UUID format constraint map key: %s", key)
 
 		key = pathvars.GetConstraintMapKey(pathvars.FormatConstraintType, pathvars.StringTypeSlug)
 		expectedKey = "string_format"

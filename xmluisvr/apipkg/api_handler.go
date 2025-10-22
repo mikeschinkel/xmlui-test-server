@@ -8,6 +8,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 
 	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
@@ -89,6 +90,13 @@ func (api *API) getQueryValues(args HandlerHelperArgs) (queryValues []any, err e
 	r := args.HTTPRequest
 	result := args.MatchResult
 	endpoint := args.Endpoint
+
+	// Validate Params-defined query parameters BEFORE extracting values for SQL
+	// Template-defined query params are already validated by Router.Match()
+	err = endpoint.ValidateQueryParameters(r, result)
+	if err != nil {
+		goto end
+	}
 
 	queryValues, missing, err = endpoint.GetParameterValues(ParameterValuesArgs{
 		ValuesMap:  result.ValuesMap(),
@@ -254,7 +262,7 @@ func (api *API) tryMatchingRequest(args HandlerHelperArgs) (result pathvars.Matc
 			pr = apiresp.InvalidURLParameterErrorPayload(r, apiresp.PayloadArgs{TemplateError: te})
 		}
 		err = pr.NewErr(
-			pathvars.ErrInvalidParameter,
+			pvtypes.ErrInvalidParameter,
 			te.Err, // TODO RESOLVE THIS!
 			err,
 		)

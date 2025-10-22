@@ -4,6 +4,10 @@
    "server": {
       "$schema": "https://schemas.xmlui.org/v1/test-server/server-schema.json",
       "version": 1,
+      "@notes": [
+         "GENERATED FILE: DO NOT EDIT!!!",
+         "Edit ./test/generate_comprehensive_config_test.go instead."
+      ],
       "host": "127.0.0.1",
       "port": 8080,
       "api": {
@@ -11,7 +15,7 @@
          "version": 2,
          "name": "Comprehensive PathVars Integration Test API",
          "base_path": "/api",
-         "webroot": "./webroot",
+         "webroot": "./.xmlui",
          "endpoints": [
             {
                "method": "GET",
@@ -438,7 +442,7 @@
                "method": "GET",
                "path": "/projects/search?{name?:string}&{status?active:string:enum[active,archived,draft]}&{min_budget?0:decimal}",
                "description": "All optional query parameters",
-               "query": "SELECT id, name, status, budget FROM projects WHERE ({name} = '' OR 1=1) AND status = {status} AND budget >= {min_budget};",
+               "query": "SELECT id, name, status, budget FROM projects WHERE ({name} = '' OR name LIKE '%' || {name} || '%') AND status = {status} AND budget >= {min_budget};",
                "query_file": "",
                "cardinality": "many",
                "row_type": "columns",

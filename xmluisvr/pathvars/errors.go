@@ -12,14 +12,11 @@ import (
 // Sentinel errors for various pathvars operations.
 var (
 
-	// ErrInvalidParameter indicates that a parameter is invalid
-	ErrInvalidParameter = pvtypes.ErrInvalidParameter
-
 	// ErrInvalidParameterSyntax indicates that a parameter syntax is malformed.
 	ErrInvalidParameterSyntax = pvtypes.ErrInvalidParameterSyntax
 
 	// ErrInvalidParameterType indicates that an unknown or unsupported parameter type was specified.
-	ErrInvalidParameterType = pvtypes.ErrInvalidParameterSyntax
+	ErrInvalidParameterType = pvtypes.ErrInvalidParameterType
 
 	// ErrParameterValidationFailed indicates that parameter validation failed against its type or constraints.
 	ErrParameterValidationFailed = pvtypes.ErrParameterValidationFailed

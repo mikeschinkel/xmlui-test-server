@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 // ParseTemplate parses a template string like "/users/{id:int}/posts?{limit?10:int}"
@@ -15,7 +17,7 @@ import (
 // Returns an error if the template syntax is invalid.
 func ParseTemplate(template string) (t *ParsedTemplate, err error) {
 	var segments []Segment
-	var params *OrderedMap[Identifier, Parameter]
+	var params *pvtypes.OrderedMap[Identifier, Parameter]
 
 	segments, params, err = parseSegments(template)
 	if err != nil {
@@ -34,13 +36,13 @@ end:
 // parseSegments splits a template into segments and extracts parameters.
 // Handles both path and query portions of the template, parsing each
 // according to their specific syntax rules.
-func parseSegments(template string) (segments []Segment, params *OrderedMap[Identifier, Parameter], err error) {
+func parseSegments(template string) (segments []Segment, params *pvtypes.OrderedMap[Identifier, Parameter], err error) {
 	var pathPart, queryPart string
 	var pathSegments []Segment
 	var pathParams, queryParams map[Identifier]Parameter
 	var position int
 
-	params = NewOrderedMap[Identifier, Parameter](0)
+	params = pvtypes.NewOrderedMap[Identifier, Parameter](0)
 
 	if template == "" {
 		err = NewErr(
@@ -65,7 +67,7 @@ func parseSegments(template string) (segments []Segment, params *OrderedMap[Iden
 	}
 
 	// Set position for path parameters and add to combined params map
-	params = NewOrderedMap[Identifier, Parameter](len(pathParams))
+	params = pvtypes.NewOrderedMap[Identifier, Parameter](len(pathParams))
 	position = 0
 	for name, p := range pathParams {
 		p.SetLocation(PathLocation)
@@ -106,7 +108,7 @@ end:
 // buildParsedTemplate creates a regex pattern from template segments for
 // efficient path matching. Handles both regular parameters and multi-segment
 // parameters that can span multiple path segments.
-func buildParsedTemplate(template string, segments []Segment, params *OrderedMap[Identifier, Parameter]) (pt *ParsedTemplate, err error) {
+func buildParsedTemplate(template string, segments []Segment, params *pvtypes.OrderedMap[Identifier, Parameter]) (pt *ParsedTemplate, err error) {
 	var sb strings.Builder
 	var segment Segment
 	var paramName Identifier
@@ -152,7 +154,7 @@ func buildParsedTemplate(template string, segments []Segment, params *OrderedMap
 		goto end
 	}
 	pt = &ParsedTemplate{
-		raw:      template,
+		original: template,
 		segments: segments,
 		params:   params,
 		regex:    regex,
@@ -202,7 +204,7 @@ func parsePathSegments(template string) (segments []string, err error) {
 			} else {
 				// Unmatched closing brace - this should be an error for consistency
 				err = NewErr(
-					ErrInvalidParameter,
+					pvtypes.ErrInvalidParameter,
 					ErrInvalidParameterSyntax,
 					ErrUnmatchedClosingBrace,
 					"position", i,
@@ -235,7 +237,7 @@ func parsePathSegments(template string) (segments []string, err error) {
 	// Validate that braces are balanced - only error on unmatched opening braces
 	if braceDepth > 0 {
 		err = NewErr(
-			ErrInvalidParameter,
+			pvtypes.ErrInvalidParameter,
 			ErrInvalidParameterSyntax,
 			ErrUnmatchedOpeningBrace,
 			"brace_depth", braceDepth,
@@ -277,7 +279,7 @@ func splitPathAndQuery(template string) (pathPart, queryPart string, err error) 
 				}
 			} else {
 				err = NewErr(
-					ErrInvalidParameter,
+					pvtypes.ErrInvalidParameter,
 					ErrInvalidParameterSyntax,
 					ErrUnmatchedClosingBrace,
 					"position", i,
@@ -298,7 +300,7 @@ func splitPathAndQuery(template string) (pathPart, queryPart string, err error) 
 	// Validate that braces are balanced
 	if braceDepth > 0 {
 		err = NewErr(
-			ErrInvalidParameter,
+			pvtypes.ErrInvalidParameter,
 			ErrInvalidParameterSyntax,
 			ErrUnmatchedOpeningBrace,
 			"brace_depth", braceDepth,
@@ -444,7 +446,7 @@ func parseQueryParameters(queryPart string) (parameters []string, err error) {
 				currentParam.WriteByte(char)
 			} else {
 				err = NewErr(
-					ErrInvalidParameter,
+					pvtypes.ErrInvalidParameter,
 					ErrInvalidParameterSyntax,
 					ErrUnmatchedClosingBrace,
 					"position", i,
@@ -477,7 +479,7 @@ func parseQueryParameters(queryPart string) (parameters []string, err error) {
 	// Validate that braces are balanced
 	if braceDepth > 0 {
 		err = NewErr(
-			ErrInvalidParameter,
+			pvtypes.ErrInvalidParameter,
 			ErrInvalidParameterSyntax,
 			ErrUnmatchedOpeningBrace,
 			"brace_depth", braceDepth,

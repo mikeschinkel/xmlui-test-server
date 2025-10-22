@@ -122,10 +122,16 @@ end:
 
 func (epp *EndpointParam) normalize(pv pathvars.ParamVar) (err error) {
 	var errs []error
-	if epp.Location != pv.Location {
-		// Path var use-type is authoritative so assign the use-type from the path var to
-		// the APIParamV1.
+
+	// Path var use-type is authoritative so assign the use-type from the path var to
+	// the APIParamV1.
+	switch {
+	case pv.Location != "":
+		// Parameter is in path template - use its location
 		epp.Location = pv.Location
+	default:
+		// Parameter is NOT in path template (Params-defined only) - default to QueryLocation
+		epp.Location = pathvars.QueryLocation
 	}
 	errs = AppendErr(errs, epp.normalizeDataType(pv))
 	errs = AppendErr(errs, epp.normalizeConstraints(pv))

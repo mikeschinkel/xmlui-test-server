@@ -1,4 +1,4 @@
-package pathvars
+package pvtypes
 
 import (
 	"fmt"

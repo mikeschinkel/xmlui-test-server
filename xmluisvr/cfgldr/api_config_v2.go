@@ -22,6 +22,7 @@ var _ APIConfig = (*APIConfigV2)(nil)
 type APIConfigV2 struct {
 	Schema     string           `json:"$schema"`
 	Version    int              `json:"version"`
+	Notes      []string         `json:"@notes,omitempty"`
 	Name       string           `json:"name"`
 	BasePath   string           `json:"base_path"`
 	Webroot    string           `json:"webroot"`
@@ -51,6 +52,7 @@ func NewAPIConfigV2(webroot string) *APIConfigV2 {
 	return &APIConfigV2{
 		Schema:     APIConfigV2Schema,
 		Version:    APIConfigV2Version,
+		Notes:      make([]string, 0),
 		Name:       fmt.Sprintf("User-definable %s APIConfig", common.AppName),
 		BasePath:   DefaultAPIBasePath,
 		Webroot:    webroot,

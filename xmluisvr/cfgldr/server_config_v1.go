@@ -19,6 +19,7 @@ var _ ServerConfig = (*ServerConfigV1)(nil)
 type ServerConfigV1 struct {
 	Schema     string       `json:"$schema,omitempty"`
 	Version    int          `json:"version,omitempty"`
+	Notes      []string     `json:"@notes,omitempty"`
 	Host       string       `json:"host,omitempty"`
 	Port       int          `json:"port,omitempty"`
 	APIConfig  *APIConfigV2 `json:"api,omitempty"`
@@ -42,8 +43,9 @@ func (c *ServerConfigV1) Normalize(sourceFile string) {
 }
 
 type ServerConfigV1Args struct {
-	Port int
-	API  *APIConfigV2
+	Port  int
+	API   *APIConfigV2
+	Notes []string
 }
 
 func NewServerConfigV1(host string, args ServerConfigV1Args) *ServerConfigV1 {
@@ -53,5 +55,6 @@ func NewServerConfigV1(host string, args ServerConfigV1Args) *ServerConfigV1 {
 		Host:      host,
 		Port:      args.Port,
 		APIConfig: args.API,
+		Notes:     args.Notes,
 	}
 }

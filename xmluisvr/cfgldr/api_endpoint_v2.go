@@ -24,11 +24,12 @@ type APIEndpointV2 struct {
 
 // APIEndpointBase contains all the non-polymorphic properties for APIEndpointV2
 type APIEndpointBase struct {
-	Method        string `json:"method"`
-	Path          string `json:"path"`
-	Description   string `json:"description"`
-	Query         string `json:"query"`
-	QueryFile     string `json:"query_file"`
+	Notes         []string `json:"@notes,omitempty"`
+	Method        string   `json:"method"`
+	Path          string   `json:"path"`
+	Description   string   `json:"description"`
+	Query         string   `json:"query"`
+	QueryFile     string   `json:"query_file"`
 	configDir     string
 	queryFilepath string
 	Cardinality   string   `json:"cardinality"`  // 'one' or 'many'
@@ -56,6 +57,7 @@ func (ep APIEndpointBase) Endpoint() string {
 }
 
 type APIEndpointV2Args struct {
+	Notes       []string
 	Description string
 	Query       string
 	QueryFile   string
@@ -67,6 +69,9 @@ type APIEndpointV2Args struct {
 }
 
 func NewAPIEndpointV2(method, path string, args APIEndpointV2Args) *APIEndpointV2 {
+	if args.Notes == nil {
+		args.Notes = make([]string, 0)
+	}
 	if args.Params == nil {
 		args.Params = APIParamsV1{}
 	}
@@ -84,6 +89,7 @@ func NewAPIEndpointV2(method, path string, args APIEndpointV2Args) *APIEndpointV
 	}
 	return &APIEndpointV2{
 		APIEndpointBase: APIEndpointBase{
+			Notes:       args.Notes,
 			Method:      method,
 			Path:        path,
 			Description: args.Description,

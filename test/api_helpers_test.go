@@ -473,7 +473,10 @@ func (s *testServer) runTestRequest(req testRequest) {
 }
 
 // makeHTTPRequest creates and executes an HTTP request
-func makeHTTPRequest(baseURL, method, path, body string) (*http.Response, []byte, error) {
+func makeHTTPRequest(baseURL, method, path, body string) (resp *http.Response, respBody []byte, err error) {
+	var httpReq *http.Request
+	var client *http.Client
+
 	url := baseURL + path
 
 	var reqBody io.Reader
@@ -481,28 +484,31 @@ func makeHTTPRequest(baseURL, method, path, body string) (*http.Response, []byte
 		reqBody = strings.NewReader(body)
 	}
 
-	httpReq, err := http.NewRequest(method, url, reqBody)
+	httpReq, err = http.NewRequest(method, url, reqBody)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+		err = fmt.Errorf("failed to create request: %w", err)
+		goto end
 	}
 
 	if body != "" {
 		httpReq.Header.Set("Content-Type", "application/json")
 	}
 
-	client := &http.Client{Timeout: 300 * time.Second}
-	resp, err := client.Do(httpReq)
+	client = &http.Client{Timeout: 300 * time.Second}
+	resp, err = client.Do(httpReq)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to execute request: %w", err)
+		err = fmt.Errorf("failed to execute request: %w", err)
+		goto end
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err = io.ReadAll(resp.Body)
 	if err != nil {
 		common.CloseOrLog(resp.Body)
-		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
+		err = fmt.Errorf("failed to read response body: %w", err)
+		goto end
 	}
-
-	return resp, respBody, nil
+end:
+	return resp, respBody, err
 }
 
 // =============================================================================
@@ -526,11 +532,11 @@ func findAvailablePort() (int, error) {
 	return port, nil
 }
 
-// waitForServerReady polls the server's /api/hello endpoint until it responds or timeout occurs
+// waitForServerReady polls the server's /healthz endpoint until it responds or timeout occurs
 func waitForServerReady(t *testing.T, baseURL string, timeout time.Duration) bool {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
-	healthURL := baseURL + "/api/hello"
+	healthURL := baseURL + "/healthz"
 
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(healthURL)

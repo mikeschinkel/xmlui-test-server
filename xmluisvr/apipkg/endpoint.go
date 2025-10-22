@@ -12,6 +12,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonxtractr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
@@ -108,12 +109,6 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2, basePath common.URLPath, db dbpkg.
 	return ep, err
 }
 
-var (
-	ErrParsingFailed                    = errors.New("parsing failed")
-	ErrEndpointParsingFailed            = errors.New("endpoint parsing failed")
-	ErrParsingOfMultipleEndpointsFailed = errors.New("parsing of multiple endpoints failed")
-)
-
 // EndPointString represents a string representation of an HTTP endpoint (e.g., "GET /users/:id").
 type EndPointString string
 
@@ -157,7 +152,7 @@ end:
 }
 
 type ParameterValuesArgs struct {
-	ValuesMap  pathvars.ValuesMap
+	ValuesMap  pvtypes.ValuesMap
 	BodyReader io.Reader
 	Headers    http.Header // TODO: Not yet supported
 	Database   dbpkg.Database
@@ -173,7 +168,7 @@ func (ep *Endpoint) parameterTypeMap() (tm map[string]pathvars.PVDataType) {
 }
 
 func (ep *Endpoint) GetParameterValues(args ParameterValuesArgs) (queryValues []any, missing []apiresp.MissingParameter, err error) {
-	var pathValuesMap pathvars.ValuesMap
+	var pathValuesMap pvtypes.ValuesMap
 	var namesNotFound []pathvars.Identifier
 	var jsonValuesMap jsonxtractr.ValuesMap
 	var notFound []jsonxtractr.Selector
@@ -248,6 +243,157 @@ func (ep *Endpoint) GetParameterValues(args ParameterValuesArgs) (queryValues []
 	}
 end:
 	return queryValues, missing, err
+}
+
+// getParameterQueryValue retrieves a parameter value from the unified valuesMap.
+// The valuesMap now contains ALL parameters (path, template query, and Params-defined query).
+// Returns the first value if the parameter exists, empty string otherwise.
+func (ep *Endpoint) getParameterQueryValue(epp EndpointParam, valuesMap pvtypes.ValuesMap) (value string) {
+	// Skip path params - already validated by Router.Match()
+	if epp.Location == pathvars.PathLocation {
+		return ""
+	}
+
+	// Skip body params - handled separately by GetParameterValues
+	if epp.Location != pathvars.QueryLocation {
+		return ""
+	}
+
+	// Get value from unified valuesMap (contains path + template query + Params-defined query)
+	// All query params are now stored as strings (first value from HTTP query)
+	rawValue, exists := valuesMap.Get(epp.Props.Name)
+	if !exists {
+		return ""
+	}
+
+	// Convert to string (all query params should be strings)
+	if strValue, ok := rawValue.(string); ok {
+		return strValue
+	}
+
+	return ""
+}
+
+// ValidateQueryParameters validates ALL HTTP query parameters defined in ep.Params against
+// the actual HTTP request query string. This is separate from SQL parameter extraction.
+// Path parameters are already validated by Router.Match() and are skipped here.
+// Returns a TemplateError if validation fails, allowing consistent error handling with
+// template-defined parameter validation.
+func (ep *Endpoint) ValidateQueryParameters(r *http.Request, matchResult pathvars.MatchResult) (err error) {
+	type paramValidationError struct {
+		param    pathvars.Parameter
+		value    string
+		validErr error
+		location pathvars.LocationType
+	}
+	var validationErrors []paramValidationError
+	var parsedTemplate *pathvars.ParsedTemplate
+	var parsedQuery *pathvars.ParsedQuery
+
+	// Get the parsed query from the matched route's template
+	parsedTemplate = matchResult.Route.ParsedTemplate
+	if parsedTemplate != nil {
+		parsedQuery = parsedTemplate.ParsedQuery()
+	}
+
+	// If no parsedQuery, nothing to validate
+	if parsedQuery == nil {
+		return nil
+	}
+
+	valuesMap := matchResult.ValuesMap()
+
+	// Build a ValuesMap with ONLY user-provided parameters per ADR-018
+	// This means: path params + query params the user actually sent (not defaults)
+	// We exclude optional query params that got default values but weren't in the HTTP request
+	userProvidedParams := pvtypes.NewValuesMap(parsedQuery.Len())
+
+	// Add path parameters from valuesMap (these are always user-provided via the URL path)
+	pathParamNames := make(map[pathvars.Identifier]bool)
+	for _, epParam := range ep.Params {
+		if epParam.Location == pathvars.PathLocation {
+			pathParamNames[epParam.Props.Name] = true
+		}
+	}
+
+	for name, value := range valuesMap.Iterator() {
+		if pathParamNames[name] {
+			userProvidedParams.Set(name, value)
+		}
+	}
+
+	// Add ONLY query parameters that were in the HTTP request (not template defaults)
+	// parsedQuery contains exactly what the user sent, so this implements ADR-018's
+	// "only show parameters provided by the user" rule
+	for paramName, values := range parsedQuery.Iterator() {
+		if len(values) > 0 {
+			userProvidedParams.Set(pathvars.Identifier(paramName), values[0])
+		}
+	}
+
+	// Validate ALL query params from ep.Params against the HTTP request query string
+	for _, epParam := range ep.Params {
+		// Skip non-query parameters
+		if epParam.Location != pathvars.QueryLocation {
+			continue
+		}
+
+		// Get the value directly from parsedQuery (HTTP request query string)
+		paramName := string(epParam.Props.Name)
+		values, found := parsedQuery.Get(paramName)
+		if !found || len(values) == 0 {
+			// Parameter not provided in HTTP request - skip validation
+			// (missing required params are handled elsewhere)
+			continue
+		}
+		value := values[0] // Use first value if multiple provided
+
+		// Convert EndpointParam to pathvars.Parameter for validation
+		dt := epParam.Type
+		if dt == pathvars.UnspecifiedDataType {
+			dt, _ = pathvars.ParseParameterDataType(string(epParam.Props.Name), string(epParam.Type.Slug()))
+		}
+
+		param := pathvars.NewParameter(pathvars.ParameterArgs{
+			NameProps:   epParam.Props,
+			Location:    epParam.Location,
+			DataType:    dt,
+			Constraints: epParam.Constraints,
+			Original:    epParam.RawValue(),
+		})
+
+		// Validate the parameter value
+		validErr := param.Validate(value)
+		if validErr != nil {
+			validationErrors = append(validationErrors, paramValidationError{
+				param:    param,
+				value:    value,
+				validErr: validErr,
+				location: epParam.Location,
+			})
+		}
+	}
+
+	// If we have validation errors, wrap them in a TemplateError
+	if len(validationErrors) > 0 {
+		// Return the first error (similar to how ParsedTemplate handles it)
+		ve := validationErrors[0]
+		exampleURL := parsedTemplate.Example(&pvtypes.ExampleArgs{
+			ProblematicParam:   ve.param,
+			UserProvidedParams: &userProvidedParams,
+			ValidationErr:      ve.validErr,
+		})
+		err = pathvars.NewTemplateError(ve.validErr, pathvars.TemplateErrorArgs{
+			Endpoint:   string(ep.path),
+			Example:    exampleURL,
+			Source:     string(ep.path),
+			Location:   ve.location,
+			Parameter:  ve.param,
+			Suggestion: ve.param.ErrorSuggestion(ve.validErr, ve.value, exampleURL),
+		})
+	}
+
+	return err
 }
 
 // ParsePathVarParameters converts endpoint parameters into pathvars.Parameter instances

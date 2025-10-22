@@ -14,7 +14,7 @@ import (
 // This function is called from TestMain() to ensure the config exists before tests run.
 // It can also be called manually via TestGenerateComprehensiveConfig for regeneration.
 func generateComprehensiveConfig(outputPath string) error {
-	api := cfgldr.NewAPIConfigV2("./webroot")
+	api := cfgldr.NewAPIConfigV2("./.xmlui")
 	api.Name = "Comprehensive PathVars Integration Test API"
 
 	// Helper function to create params map
@@ -270,7 +270,7 @@ func generateComprehensiveConfig(outputPath string) error {
 
 	api.AddEndpoint(cfgldr.NewAPIEndpointV2("GET", "/projects/search?{name?:string}&{status?active:string:enum[active,archived,draft]}&{min_budget?0:decimal}", cfgldr.APIEndpointV2Args{
 		Description: "All optional query parameters",
-		Query:       "SELECT id, name, status, budget FROM projects WHERE ({name} = '' OR 1=1) AND status = {status} AND budget >= {min_budget};",
+		Query:       "SELECT id, name, status, budget FROM projects WHERE ({name} = '' OR name LIKE '%' || {name} || '%') AND status = {status} AND budget >= {min_budget};",
 		Params: m(
 			"@note", "All parameters optional with defaults: name defaults to empty string, status to 'active', min_budget to 0.\nTests optional parameter handling and default value application.",
 		),
@@ -314,6 +314,10 @@ func generateComprehensiveConfig(outputPath string) error {
 	server := cfgldr.NewServerConfigV1(common.DefaultServerHost, cfgldr.ServerConfigV1Args{
 		Port: 8080,
 		API:  api,
+		Notes: []string{
+			"GENERATED FILE: DO NOT EDIT!!!",
+			"Edit ./test/generate_comprehensive_config_test.go instead.",
+		},
 	})
 
 	// Create root config
