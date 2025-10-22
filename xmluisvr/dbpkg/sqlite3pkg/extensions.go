@@ -15,6 +15,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 type (
@@ -104,14 +106,14 @@ func (ext *Extension) runOnEventSQL(conn *sqlite3.SQLiteConn, et string, onEvent
 		}
 		_, err = conn.Exec(q, nil)
 		if err != nil {
-			errs = append(errs, errors.Join(ErrInEventQueryForSQLite3Extension,
-				fmt.Errorf("event_query=%s", et),
-				fmt.Errorf("extension=%s", ext.Name()),
+			errs = append(errs, WithErr(ErrInEventQueryForSQLite3Extension,
+				"event_query", et,
+				"extension", ext.Name(),
 				err,
 			))
 		}
 	}
-	return errors.Join(errs...)
+	return CombineErrs(errs)
 }
 
 func (ext *Extension) Name() string {

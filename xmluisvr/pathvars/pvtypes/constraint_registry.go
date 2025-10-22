@@ -1,4 +1,4 @@
-package pathvars
+package pvtypes
 
 import (
 	"fmt"
@@ -15,8 +15,11 @@ type DataTypeAliasMap = map[PVDataTypeSlug]PVDataTypeSlug
 var dataTypeAliasMap = make(DataTypeAliasMap)
 
 func RegisterDataTypeAlias(dataType PVDataType, alias PVDataTypeSlug) {
+	// Make sure data types and constraints have their init() funcs run
 	dtn := dataType.Slug()
 	dataTypeAliasMap[dtn] = alias
+	// Also register the alias in dataTypeMap so FindDataType can find it
+	dataTypeMap[alias] = dataType
 
 	// Now let's check to see if constraints we are aliasing have already been registered.
 	// If they have, let's alias them as well.
@@ -42,8 +45,8 @@ end:
 }
 
 func RegisterConstraint(c Constraint) {
-	c.EnsureBaseConstraint(c)
-	for _, dt := range c.ValidDateTypes() {
+	c.SetOwner(c)
+	for _, dt := range c.ValidDataTypes() {
 		name := dt.Slug()
 		constraintMap[c.MapKey(name)] = c
 		alias, ok := dataTypeAliasMap[name]

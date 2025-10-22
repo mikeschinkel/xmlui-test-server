@@ -307,7 +307,7 @@ func TestEndpointParams_ErrorPropagation(t *testing.T) {
 				}
 			}`,
 			wantErr:   true,
-			errSubstr: "cannot be nested",
+			errSubstr: "cannot unmarshal JSON object into Go cfgldr.APIParamsMap",
 		},
 		{
 			name: "invalid_param_map_array_for_param",
@@ -318,7 +318,7 @@ func TestEndpointParams_ErrorPropagation(t *testing.T) {
 				}
 			}`,
 			wantErr:   true,
-			errSubstr: "cannot contain a JSON array",
+			errSubstr: "cannot unmarshal JSON object into Go cfgldr.APIParamsMap",
 		},
 		{
 			name: "invalid_param_type_in_conversion",

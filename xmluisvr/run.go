@@ -1,13 +1,12 @@
 package xmluisvr
 
 import (
-	"errors"
-
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // Run starts the xmlui-test-server with the provided configuration and context.
@@ -77,7 +76,7 @@ func Run(ctx Context, args *RunArgs) (err error) {
 	server.V2().InfoPrint("Starting server")
 	err = server.ListenAndServe(ctx)
 	if err != nil {
-		err = errors.Join(ErrServerError, err)
+		err = NewErr(ErrServerError, err)
 	}
 end:
 	return err

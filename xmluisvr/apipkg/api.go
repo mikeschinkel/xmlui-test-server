@@ -45,7 +45,6 @@ package apipkg
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -56,6 +55,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // API represents a configured API instance with endpoints, routing, and metadata.
@@ -174,7 +175,7 @@ func (api *API) initializeRouter() (err error) {
 	var errs []error
 	for i, ep := range api.Endpoints {
 		var pp []pathvars.Parameter
-		pp, err = ep.ParsePathVarsParameters()
+		pp, err = ep.ParsePathVarParameters()
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -191,7 +192,7 @@ func (api *API) initializeRouter() (err error) {
 		}
 	}
 	if len(errs) != 0 {
-		err = errors.Join(errs...)
+		err = CombineErrs(errs)
 	}
 	if err == nil {
 		err = api.Router.Compile()

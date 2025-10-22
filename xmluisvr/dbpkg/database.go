@@ -11,6 +11,10 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 //type ConnectStyle string
@@ -48,6 +52,7 @@ type Database interface {
 	LoadExtension(DBExtension) error
 	GetFormatParamFunc() FormatParamFunc
 	Options() common.Options
+	ConvertValue(value any, dt dbqvars.DBDataType) any
 	fmt.Stringer
 }
 
@@ -138,7 +143,7 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 
 	db, err = GetRegisteredDatabase(dt)
 	if db == nil {
-		err = errors.Join(ErrUnsupportedDBType, fmt.Errorf("database_type=%s", dt), err)
+		err = NewErr(ErrUnsupportedDBType, "database_type", dt, err)
 		goto end
 	}
 
@@ -200,13 +205,16 @@ func ParseExtensions(db Database, exts []cfgldr.DBExtensionConfig) (dbExts []DBE
 	for _, ext := range exts {
 		dbExt, err = db.ParseExtension(ext)
 		if err != nil {
-			errs = append(errs, err,
-				fmt.Errorf("database_type=%s", db.Type()),
-				fmt.Errorf("extension=%s", ext),
-			)
+			errs = append(errs, NewErr(
+				pathvars.ErrParseFailed,
+				pathvars.ErrParsingDBExtensionFailed,
+				"database_type", db.Type(),
+				"extension", ext,
+				err,
+			))
 			continue
 		}
 		dbExts = append(dbExts, dbExt)
 	}
-	return dbExts, errors.Join(errs...)
+	return dbExts, doterr.CombineErrs(errs)
 }

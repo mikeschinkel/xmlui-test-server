@@ -1,7 +1,6 @@
 package pathvars
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -29,7 +28,7 @@ func NewDecimalRangeConstraint(min float64, max float64) *DecimalRangeConstraint
 	return c
 }
 
-func (c *DecimalRangeConstraint) ValidDateTypes() []PVDataType {
+func (c *DecimalRangeConstraint) ValidDataTypes() []PVDataType {
 	return []PVDataType{DecimalType, RealType}
 }
 
@@ -69,16 +68,15 @@ func ParseDecimalRangeConstraint(rangeSpec string) (constraint *DecimalRangeCons
 	// Split by ".."
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
-		err = errors.Join(
-			ErrInvalidConstraint, ErrExpectedRangeFormat,
-		)
+		err = NewErr(ErrExpectedRangeFormat)
 		goto end
 	}
 
 	minimum, err = strconv.ParseFloat(parts[0], 64)
 	if err != nil {
-		err = errors.Join(ErrInvalidMinimumValue,
-			fmt.Errorf("minimum=%s", parts[0]),
+		err = NewErr(
+			ErrInvalidMinimumValue,
+			"minimum", parts[0],
 			err,
 		)
 		goto end
@@ -86,16 +84,17 @@ func ParseDecimalRangeConstraint(rangeSpec string) (constraint *DecimalRangeCons
 
 	maximum, err = strconv.ParseFloat(parts[1], 64)
 	if err != nil {
-		err = errors.Join(ErrInvalidMaximumValue,
-			fmt.Errorf("maximum=%s", parts[1]),
+		err = NewErr(
+			ErrInvalidMaximumValue,
+			"maximum", parts[1],
 			err,
 		)
 		goto end
 	}
 
 	if minimum > maximum {
-		err = errors.Join(
-			ErrInvalidConstraint, ErrInvalidMinMaxValue,
+		err = NewErr(
+			ErrInvalidMinMaxValue,
 			fmt.Errorf("minimum=%g", minimum),
 			fmt.Errorf("maximum=%g", maximum),
 		)
@@ -106,18 +105,10 @@ func ParseDecimalRangeConstraint(rangeSpec string) (constraint *DecimalRangeCons
 
 end:
 	if err != nil {
-		err = errors.Join(
-			fmt.Errorf("range=%s", rangeSpec),
-			err,
+		err = WithErr(err,
+			ErrInvalidRangeValue,
+			"range_spec", rangeSpec,
 		)
 	}
 	return constraint, err
 }
-
-var (
-	ErrInvalidMinimumValue = errors.New("invalid minimum value")
-	ErrInvalidMaximumValue = errors.New("invalid maximum value")
-	ErrInvalidMinMaxValue  = errors.New("minimum value cannot be less than maximum value")
-	ErrInvalidMinMaxDate   = errors.New("minimum date cannot be less than maximum date")
-	ErrInvalidDateFormat   = errors.New("invalid date format")
-)

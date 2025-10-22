@@ -1,7 +1,6 @@
 package pathvars
 
 import (
-	"errors"
 	"regexp"
 	"strings"
 )
@@ -53,6 +52,10 @@ func ParseParamsInTemplate(path Template) (vars []ParamVar, err error) {
 		if dt == UnspecifiedDataType {
 			dt = StringType
 		}
+		if props.DataType == nil {
+			props.DataType = new(PVDataType)
+			*props.DataType = dt
+		}
 		if matches[i][0] > qPos {
 			location = QueryLocation
 		}
@@ -70,5 +73,5 @@ func ParseParamsInTemplate(path Template) (vars []ParamVar, err error) {
 			Constraints:   cs,
 		})
 	}
-	return vars, errors.Join(errs...)
+	return vars, CombineErrs(errs)
 }

@@ -230,6 +230,111 @@ Directory structure at schema.xmlui.org:
 - Professional polish and attention to developer experience
 - Discoverable: HTML page links to JSON example
 
+### 2.6 Extension Architecture Pattern
+
+The RFC 9457 implementation uses a polymorphic extension pattern to maintain clean separation between generic RFC 9457 functionality and project-specific validation details.
+
+**Standard fields in `rfc9457.Response`:**
+- `type`, `title`, `status`, `detail`, `instance` (RFC 9457 required fields)
+
+**Custom validation fields in `apiresp.RFC9457Extension`:**
+- `parameter`, `expected_type`, `received_value`, `location`, `constraint`, `suggestion`, `validation_errors`
+
+**Architecture:**
+```go
+// Generic RFC 9457 package (reusable)
+package rfc9457
+
+type Response struct {
+    Type       string      `json:"type"`
+    Title      string      `json:"title"`
+    Status     int         `json:"status"`
+    Detail     string      `json:"detail"`
+    Instance   string      `json:"instance"`
+    Extensions []Extension `json:"-"` // Polymorphic extensions
+}
+
+type Extension interface {
+    ExtensionFields() map[string]interface{}
+}
+
+// Custom UnmarshalJSON handles polymorphic unmarshaling
+func (r *Response) UnmarshalJSON(data []byte) error {
+    // ... unmarshals standard fields + registered extensions
+}
+```
+
+```go
+// Project-specific extension (in apiresp package)
+package apiresp
+
+type RFC9457Extension struct {
+    Parameter        string            `json:"parameter,omitempty"`
+    ExpectedType     string            `json:"expected_type,omitempty"`
+    ReceivedValue    string            `json:"received_value,omitempty"`
+    Location         LocationType      `json:"location,omitempty"`
+    Constraint       any               `json:"constraint,omitempty"`
+    Suggestion       string            `json:"suggestion,omitempty"`
+    ValidationErrors []ValidationError `json:"validation_errors,omitempty"`
+}
+
+func init() {
+    rfc9457.RegisterExtension("validation", RFC9457Extension{})
+}
+```
+
+**Rationale:**
+- **Package independence**: The `rfc9457` package remains generic and reusable across projects
+- **Type safety**: Extensions use Go interfaces for polymorphic behavior
+- **JSON flexibility**: Custom `UnmarshalJSON` merges standard fields with extension fields in output
+- **Extensibility**: Multiple extension types supported via registration pattern
+- **Clean architecture**: Project-specific logic stays in project packages (apiresp), not in generic packages (rfc9457)
+
+### 2.7 Type Validation as Constraint Tie-Breaker
+
+When format constraints validate type (like `format[yyyy-mm-dd]` for dates), the system uses a "tie-breaker" pattern to provide better user experience.
+
+**Validation Flow:**
+
+1. Format constraints that validate type defer upfront type validation
+2. If constraint fails, system checks if value passes type validation
+3. **If type validation also fails** → return type error (more fundamental issue)
+4. **If type validation passes** → return constraint error (valid type, wrong format)
+
+**Example:** Value `15-01-1990` for `{birth_date:date:format[yyyy-mm-dd]}`:
+- Format constraint fails (not yyyy-mm-dd format)
+- Type validation also fails (not a valid date in any format)
+- → Returns **type error**: "Parameter 'birth_date' expected a date type but got '15-01-1990'"
+
+**Counter-example:** Value `1990-13-15` for same parameter:
+- Format constraint fails (invalid month 13)
+- Type validation passes (yyyy-mm-dd format recognized)
+- → Returns **constraint error**: "Parameter 'birth_date' violates constraint format[yyyy-mm-dd]"
+
+**Rationale:**
+- **Better UX**: Identifies the most fundamental problem first
+- **Actionable feedback**: If user provides completely invalid date, telling them about format constraint is misleading
+- **Progressive validation**: Fix the type first, then worry about format constraints
+- **Avoids confusion**: "Wrong format" implies the value is almost correct; type error correctly signals fundamental invalidity
+
+**Implementation:** See `xmluisvr/pathvars/parsed_template.go` lines 277-334:
+```go
+// validateParameter returns an error with detailed context if validation fails.
+// If a constraint validates type (like format constraints), it defers type validation.
+// When such constraints fail, we use type validation as a fallback to determine
+// if the error is a type error (invalid type) or constraint error (valid type, wrong format).
+func (t *ParsedTemplate) validateParameter(args validationArgs) (err error) {
+    // Only validate type upfront if no constraint handles type validation
+    if !args.param.ConstraintValidatesType() {
+        err = args.param.validateDataType(args.value, args.param.dataType)
+        // ... handle error
+    }
+
+    err = t.validateConstraints(args)
+    // ... validateConstraints uses type validation as tie-breaker
+}
+```
+
 ---
 
 ## 3. Implementation

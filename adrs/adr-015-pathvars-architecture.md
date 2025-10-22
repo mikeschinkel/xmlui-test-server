@@ -1,4 +1,9 @@
-# PathVars Package Architecture & Design Document
+# ADR-015: PathVars Package Architecture & Design
+
+- **Status**: Active
+- **Date**: 2025-10-15
+- **Authors**: Mike Schinkel, Claude (Anthropic)
+- **Related ADRs**: ADR-009 (RFC 9457 Error Handling), ADR-010 (Error Handling Implementation)
 
 ## Executive Summary
 
@@ -164,11 +169,11 @@ These changes improve reliability and consistency but require updating existing 
     - `errors.Join()` provides rich context without custom types
 - **Example**:
   ```go
-  errors.Join(
+  doterr.NewErr(
     ErrValidationFailed,
-    fmt.Errorf("parameter=%s", "score"),
-    fmt.Errorf("value=%s", "999"),
-    fmt.Errorf("expected=%s", "integer between 0 and 100")
+    "parameter", "score",
+    "value", "999",
+    "expected", "integer between 0 and 100"
   )
   ```
 
@@ -249,7 +254,7 @@ These changes improve reliability and consistency but require updating existing 
 2. **Length constraints**: `length[5..50]` for string length
 3. **Regex constraints**: `regex[regex]` for custom patterns
 4. **Enum constraints**: `enum[val1,val2,val3]` for fixed values
-5. **Format constraints**: `format[iso8601]`, `format[yyyy-mm-dd]` for date/time formats, `format[v4]`, `format[ulid]` for UUID formats
+5. **Format constraints**: Built-in aliases (`format[dateonly]`, `format[utc]`, `format[local]`, `format[datetime]`) or custom token-based formats (`format[yyyy-mm-dd]`) for date/time, and version formats (`format[v4]`, `format[ulid]`) for UUIDs
 6. **Notempty constraints**: `notempty` to ensure values are not empty
 
 **Architecture**: Self-contained constraint system with improved error handling
@@ -269,8 +274,19 @@ These changes improve reliability and consistency but require updating existing 
 
 The date type supports extensive format constraints using the `format[...]` syntax:
 
-**Date Formats**:
-- `format[iso8601]` - RFC 3339 format: `2023-12-25T10:30:00Z`
+**Built-in Format Aliases**:
+- `format[dateonly]` - Date only (yyyy-mm-dd): `2023-12-25`
+- `format[utc]` - Strict UTC timestamps (yyyy-mm-ddThh:mm:ssZ, Z required): `2023-12-25T10:30:00Z`
+- `format[local]` - Timezone-naive timestamps (yyyy-mm-ddThh:mm:ss, Z forbidden): `2023-12-25T10:30:00`
+- `format[datetime]` - Flexible timestamps (yyyy-mm-ddThh:mm:ss with optional Z, defaults to UTC): `2023-12-25T10:30:00` or `2023-12-25T10:30:00Z`
+
+**Choosing the Right Format**:
+- Use `dateonly` for pure dates without time information (birthdays, event dates)
+- Use `utc` when you need strict UTC enforcement (distributed systems, logging)
+- Use `local` for timezone-naive timestamps (like SQL's `timestamp without time zone`)
+- Use `datetime` for flexible APIs that accept both formats (convenience for API consumers)
+
+**Custom Date Formats** (using token-based parsing):
 - `format[yyyy-mm-dd]` - ISO date: `2023-12-25`
 - `format[mm-dd-yyyy]` - US format: `12-25-2023`
 - `format[dd-mm-yyyy]` - European format: `25-12-2023`
@@ -543,8 +559,12 @@ HTTP Request → Router.Match() → MatchResult → Execute SQL
       "sql": "INSERT INTO follows (user_id, target_id) VALUES (:id, :target)"
     },
     {
-      "path": "GET /posts/date/{post_date:date:format[yyyy-mm-dd]}",
+      "path": "GET /posts/date/{post_date:date:format[dateonly]}",
       "sql": "SELECT * FROM posts WHERE DATE(created) = :post_date"
+    },
+    {
+      "path": "GET /events/{timestamp:date:format[utc]}",
+      "sql": "SELECT * FROM events WHERE timestamp = :timestamp"
     },
     {
       "path": "GET /logs/time/{log_time:date:format[hh:mm:ss]}",

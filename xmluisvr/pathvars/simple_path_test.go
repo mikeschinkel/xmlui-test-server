@@ -28,8 +28,8 @@ func TestSimplePathWithoutParameters(t *testing.T) {
 			if tt.expectMatch && !matched {
 				t.Errorf("Expected '%s' to match template '/users', but it didn't", tt.path)
 			}
-			if len(vars) != 0 {
-				t.Errorf("Expected no variables for simple path, got %d: %v", len(vars), vars)
+			if vars.Len() != 0 {
+				t.Errorf("Expected no variables for simple path, got %d: %v", vars.Len(), vars)
 			}
 		})
 	}
@@ -55,7 +55,7 @@ func TestSimplePathWithoutParametersVerbose(t *testing.T) {
 		path     string
 		expected bool
 		name     string
-		vm       ValuesMap
+		vm       *ValuesMap
 	}{
 		{"/users", true, "exact match", nil},
 		{"/posts", false, "different path", nil},
@@ -74,12 +74,14 @@ func TestSimplePathWithoutParametersVerbose(t *testing.T) {
 			t.Errorf("Path error: %v", err)
 		}
 
-		if !reflect.DeepEqual(valuesMap, test.vm) {
-			t.Errorf("Path expected: valuesMap=%v, got valuesMap=%v", test.vm, valuesMap)
+		if test.vm == nil && valuesMap.Len() != 0 {
+			t.Errorf("Path %s expected: no parameters, got valuesMap=%v=%v", test.path, valuesMap.Keys(), valuesMap.Values())
+		} else if test.vm != nil && reflect.DeepEqual(*test.vm, valuesMap) {
+			t.Errorf("Path %s expected: valuesMap=%v, got valuesMap=%v", test.path, test.vm, valuesMap)
 		}
 
 		if matched != test.expected {
-			t.Errorf("Path expected: match=%v, got match=%v", test.expected, matched)
+			t.Errorf("Path %s expected: match=%v, got match=%v", test.path, test.expected, matched)
 		}
 	}
 }

@@ -11,6 +11,8 @@ import (
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // APIEndpointV2 is the main endpoint struct using JSONV2 inline to flatten the JSON
@@ -147,8 +149,8 @@ func (ep *APIEndpointV2) MarshalJSON() (json []byte, err error) {
 	// Convert params to original format based on paramsType
 	apiParams, ok = ep.Params.(APIParamsV1)
 	if !ok {
-		err = errors.Join(ErrAPIParamsIsAnInvalidDataType,
-			fmt.Errorf("endpoint=%s", ep.Endpoint()),
+		err = NewErr(ErrAPIParamsIsAnInvalidDataType,
+			"endpoint", ep.Endpoint(),
 			fmt.Errorf("data_type=%T", ep.Params),
 		)
 		goto end
@@ -214,7 +216,7 @@ func (ep *APIEndpointV2) UnmarshalJSON(data []byte) (err error) {
 	}
 	ep.Params = APIParamsV1(params)
 	ep.paramsType = reflect.TypeOf((*APIParamsMap)(nil))
-	err = errors.Join(errs...)
+	err = CombineErrs(errs)
 
 end:
 	return err
@@ -230,10 +232,10 @@ func (ep *APIEndpointV2) GetQuery() (q string, err error) {
 	q = ep.Query
 
 	if q != "" && ep.QueryFile != "" {
-		err = errors.Join(ErrEitherQueryOrQueryFile,
-			fmt.Errorf("endpoint=%s", ep.Endpoint()),
-			fmt.Errorf("query=%s", leftN(ep.QueryFile, 50)),
-			fmt.Errorf("query_file=%s", ep.QueryFile),
+		err = NewErr(ErrEitherQueryOrQueryFile,
+			"endpoint", ep.Endpoint(),
+			"query", leftN(ep.QueryFile, 50),
+			"query_file", ep.QueryFile,
 		)
 	}
 	// Check if SQL should be loaded from a file
@@ -249,10 +251,10 @@ func (ep *APIEndpointV2) GetQuery() (q string, err error) {
 	// Read the SQL file
 	queryBytes, err = os.ReadFile(ep.queryFilepath)
 	if err != nil {
-		err = errors.Join(ErrFailedToReadQueryFile,
-			fmt.Errorf("endpoint=%s", ep.Endpoint()),
-			fmt.Errorf("query=%s", leftN(ep.QueryFile, 50)),
-			fmt.Errorf("query_file=%s", ep.QueryFile),
+		err = NewErr(ErrFailedToReadQueryFile,
+			"endpoint", ep.Endpoint(),
+			"query", leftN(ep.QueryFile, 50),
+			"query_file", ep.QueryFile,
 			err,
 		)
 		goto end

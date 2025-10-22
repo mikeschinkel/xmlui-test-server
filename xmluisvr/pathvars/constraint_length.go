@@ -1,7 +1,6 @@
 package pathvars
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,7 +25,7 @@ func NewLengthConstraint(min int, max int) *LengthConstraint {
 	return c
 }
 
-func (c *LengthConstraint) ValidDateTypes() []PVDataType {
+func (c *LengthConstraint) ValidDataTypes() []PVDataType {
 	return []PVDataType{
 		StringType,
 		IdentifierType,
@@ -57,23 +56,21 @@ func (c *LengthConstraint) Rule() string {
 }
 
 // ParseLengthConstraint parses min..max format
-func ParseLengthConstraint(rangeSpec string) (constraint *LengthConstraint, err error) {
+func ParseLengthConstraint(lengthSpec string) (constraint *LengthConstraint, err error) {
 	var parts []string
 	var minimum, maximum int
 
 	// Split by ".."
-	parts = strings.Split(rangeSpec, "..")
+	parts = strings.Split(lengthSpec, "..")
 	if len(parts) != 2 {
-		err = errors.Join(
-			ErrInvalidConstraint, ErrExpectedRangeFormat,
-		)
+		err = NewErr(ErrExpectedLengthFormat)
 		goto end
 	}
 
 	minimum, err = strconv.Atoi(parts[0])
 	if err != nil {
-		err = errors.Join(ErrInvalidMinimumValue,
-			fmt.Errorf("minimum=%s", parts[0]),
+		err = NewErr(ErrInvalidMinimumValue,
+			"minimum", parts[0],
 			err,
 		)
 		goto end
@@ -81,28 +78,26 @@ func ParseLengthConstraint(rangeSpec string) (constraint *LengthConstraint, err 
 
 	maximum, err = strconv.Atoi(parts[1])
 	if err != nil {
-		err = errors.Join(ErrInvalidMaximumValue,
-			fmt.Errorf("maximum=%s", parts[1]),
+		err = NewErr(ErrInvalidMaximumValue,
+			"maximum", parts[1],
 			err,
 		)
 		goto end
 	}
 
 	if minimum > maximum {
-		err = errors.Join(
-			ErrInvalidConstraint,
+		err = NewErr(
 			ErrInvalidLengthRangeMinGreaterThanMax,
-			fmt.Errorf("minimum=%d", minimum),
-			fmt.Errorf("maximum=%d", maximum),
+			"minimum", minimum,
+			"maximum", maximum,
 		)
 		goto end
 	}
 
 	if minimum < 0 {
-		err = errors.Join(
-			ErrInvalidConstraint,
+		err = NewErr(
 			ErrInvalidLengthRangeNegativeMin,
-			fmt.Errorf("minimum=%d", minimum),
+			"minimum", minimum,
 		)
 		goto end
 	}
@@ -111,9 +106,8 @@ func ParseLengthConstraint(rangeSpec string) (constraint *LengthConstraint, err 
 
 end:
 	if err != nil {
-		err = errors.Join(
-			fmt.Errorf("range=%s", rangeSpec),
-			err,
+		err = WithErr(err,
+			"length_spec", lengthSpec,
 		)
 	}
 	return constraint, err

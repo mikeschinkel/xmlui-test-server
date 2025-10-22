@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // launchBrowser attempts to open a URL in the default web browser.
@@ -49,7 +51,7 @@ func checkFileExists(path string) error {
 		goto end
 	}
 	if info.IsDir() {
-		err = errors.Join(ErrPathIsDir, err)
+		err = NewErr(ErrPathIsDir, err)
 	}
 end:
 	return err

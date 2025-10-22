@@ -8,6 +8,8 @@ import (
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 type BaseDatabase struct {
@@ -27,6 +29,10 @@ type BaseDatabase struct {
 
 func (db *BaseDatabase) Options() common.Options {
 	return *db.options
+}
+
+func (db *BaseDatabase) ConvertValue(value any, dt dbqvars.DBDataType) any {
+	return value
 }
 
 func (db *BaseDatabase) String() string {
@@ -74,19 +80,19 @@ func (db *BaseDatabase) LoadExtensions() error {
 	for _, ext := range db.Extensions() {
 		errs = append(errs, db.parent.LoadExtension(ext))
 	}
-	return errors.Join(errs...)
+	return CombineErrs(errs)
 }
 
 func (db *BaseDatabase) LoadExtension(_ DBExtension) error {
 	db.checkForExtensions()
 	// Stub for those databases for which we do not current support extensions.
-	return errors.Join(ErrExtensionsUnsupportedForDBType, fmt.Errorf("database_type=%s", db.dbType))
+	return NewErr(ErrExtensionsUnsupportedForDBType, "database_type", db.dbType)
 }
 
 func (db *BaseDatabase) ParseExtension(_ DBExtensionConfig) (DBExtension, error) {
 	db.checkForExtensions()
 	// Stub for those databases for which we do not current support extensions.
-	return nil, errors.Join(ErrExtensionsUnsupportedForDBType, fmt.Errorf("database_type=%s", db.dbType))
+	return nil, NewErr(ErrExtensionsUnsupportedForDBType, "database_type", db.dbType)
 }
 
 func (db *BaseDatabase) checkForExtensions() {

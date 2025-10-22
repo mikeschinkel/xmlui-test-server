@@ -1,7 +1,6 @@
 package pathvars
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -44,7 +43,7 @@ func (c *EnumConstraint) Rule() string {
 	return strings.Join(c.list, ",")
 }
 
-func (c *EnumConstraint) ValidDateTypes() []PVDataType {
+func (c *EnumConstraint) ValidDataTypes() []PVDataType {
 	return []PVDataType{
 		IntegerType,
 		BooleanType,
@@ -64,9 +63,9 @@ func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error
 	var errs []error
 
 	enumError := func() error {
-		return errors.Join(
-			ErrInvalidConstraint, ErrEnumValueIsEmpty,
-			fmt.Errorf("enum=%s", enumSpec),
+		return NewErr(
+			ErrEnumValueIsEmpty,
+			"enum", enumSpec,
 		)
 	}
 
@@ -85,11 +84,22 @@ func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error
 			errs = append(errs, enumError())
 			continue
 		}
+		// TODO Ensure value is a valid identifier
 		valueMap[value] = true
+	}
+	err = CombineErrs(errs)
+	if err != nil {
+		goto end
 	}
 
 	constraint = NewEnumConstraint(valueMap, values)
 
 end:
+	if err != nil {
+		err = WithErr(err,
+			ErrInvalidEnumConstraint,
+			"enum_spec", enumSpec,
+		)
+	}
 	return constraint, err
 }

@@ -161,7 +161,7 @@ func (c *SQLite3ConfigV1) Normalize(sourceFile string, opts *Options) {
 		c.AccessMode = opts.DBAccessMode
 	}
 	if c.AccessMode == int(dbqvars.UnspecifiedDBAccessMode) {
-		c.AccessMode = int(DefaultDBAccessMode)
+		c.AccessMode = DefaultDBAccessMode
 	}
 	c.normalizeExtensions(sourceFile, opts)
 	return

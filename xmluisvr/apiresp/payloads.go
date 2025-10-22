@@ -10,7 +10,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
 )
 
-func NoResultsPayload(req *http.Request, args PayloadArgs) (rp ResponsePayload) {
+func NoResultsPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
 		Type:     rfc9457.NoResultsErrorType,
@@ -31,7 +31,7 @@ func NoResultsPayload(req *http.Request, args PayloadArgs) (rp ResponsePayload) 
 	}))
 }
 
-func UnauthorizedPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func UnauthorizedPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
 		Type:     rfc9457.UnauthorizedErrorType,
@@ -52,7 +52,7 @@ func UnauthorizedPayload(req *http.Request, args PayloadArgs) ResponsePayload {
 	}))
 }
 
-func CardinalityMismatchPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func CardinalityMismatchPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 
 	suggest := ""
@@ -87,7 +87,7 @@ func CardinalityMismatchPayload(req *http.Request, args PayloadArgs) ResponsePay
 	}))
 }
 
-func EndpointNotMatchedPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func EndpointNotMatchedPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
 		Type:     rfc9457.EndpointNotMatchedErrorType,
@@ -108,18 +108,18 @@ func EndpointNotMatchedPayload(req *http.Request, args PayloadArgs) ResponsePayl
 	}))
 }
 
-func UnprocessableEntityPayload(req *http.Request, args PayloadArgs) (rp ResponsePayload) {
+func UnprocessableEntityPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 	if args.RFC9457 == nil {
-		rp = InternalServerErrorPayload(req, args)
+		pr = InternalServerErrorPayload(req, args)
 		goto end
 	}
-	rp = use.checkUsage(args.RFC9457)
+	pr = use.checkUsage(args.RFC9457)
 end:
-	return rp
+	return pr
 }
 
-func CurrentlyUnhandledErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func CurrentlyUnhandledErrorPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 
 	if use.HTTPStatus == 0 {
@@ -144,7 +144,7 @@ func CurrentlyUnhandledErrorPayload(req *http.Request, args PayloadArgs) Respons
 	}))
 }
 
-func InternalServerErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func InternalServerErrorPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
 		Type:     rfc9457.InternalServerErrorType,
@@ -154,23 +154,23 @@ func InternalServerErrorPayload(req *http.Request, args PayloadArgs) ResponsePay
 		Instance: req.RequestURI,
 		Extensions: []rfc9457.Extension{
 			RFC9457Extension{
-				Location:      use.GetLocation(),
-				Suggestion:    use.GetSuggestion(),
-				Parameter:     "",  // TODO: Can we populate this?
-				ExpectedType:  "",  // TODO: Can we populate this?
-				ReceivedValue: "",  // TODO: Can we populate this?
-				Constraint:    nil, // TODO: Can we populate this?
+				Location:      use.Location,   // Optional: Use directly, don't call getter
+				Suggestion:    use.Suggestion, // Optional: Use directly, don't call getter
+				Parameter:     "",             // TODO: Can we populate this?
+				ExpectedType:  "",             // TODO: Can we populate this?
+				ReceivedValue: "",             // TODO: Can we populate this?
+				Constraint:    nil,            // TODO: Can we populate this?
 			},
 		},
 	}))
 }
 
-func QueryFailedPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func QueryFailedPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 	detail := "Database or API configuration error"
-	switch args.ErrorStyle {
+	switch use.GetErrorStyle() {
 	case common.DevelopmentStyle:
-		detail = fmt.Sprintf("%s; %s", detail, args.Error.Error())
+		detail = fmt.Sprintf("%s; %s", detail, use.GetError().Error())
 	case common.PresentationStyle:
 		detail = fmt.Sprintf("%s; check logs if you have server access.", detail)
 	}
@@ -194,7 +194,7 @@ func QueryFailedPayload(req *http.Request, args PayloadArgs) ResponsePayload {
 	}))
 }
 
-func InvalidBodyFormatErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func InvalidBodyFormatErrorPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
@@ -216,7 +216,7 @@ func InvalidBodyFormatErrorPayload(req *http.Request, args PayloadArgs) Response
 	}))
 }
 
-func InvalidDBQueryErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func InvalidDBQueryErrorPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
@@ -246,7 +246,9 @@ type MissingParameter struct {
 	Message  string
 }
 
-func MissingParametersPayload(req *http.Request, args PayloadArgs) (rp ResponsePayload) {
+func MissingParametersPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
+	var rp ResponsePayload
+
 	use := args.clone()
 	missing := use.GetMissingParameters()
 
@@ -272,7 +274,7 @@ func MissingParametersPayload(req *http.Request, args PayloadArgs) (rp ResponseP
 		suggest := fmt.Sprintf("MissingParametersPayload() was called with no missing parameters. This is a bug; please submit an issue or a PR at %s",
 			GitHubRepoURL(),
 		)
-		rp = InternalServerErrorPayload(req, PayloadArgs{
+		pr = InternalServerErrorPayload(req, PayloadArgs{
 			Suggestion: suggest,
 		})
 		goto end
@@ -308,7 +310,7 @@ end:
 	return use.checkUsage(rp)
 }
 
-func InvalidURLFormatErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func InvalidURLFormatErrorPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
 
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
@@ -330,23 +332,45 @@ func InvalidURLFormatErrorPayload(req *http.Request, args PayloadArgs) ResponseP
 	}))
 }
 
-func InvalidURLParameterErrorPayload(req *http.Request, args PayloadArgs) ResponsePayload {
+func InvalidURLParameterErrorPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
 	use := args.clone()
-	pve := use.GetPVE()
+	te := use.GetTemplateError()
 	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
 		Type:     rfc9457.InvalidURLParameterErrorType,
 		Title:    "Invalid URL Parameter",
 		Instance: req.RequestURI,
-		Status:   pve.HTTPStatus,
-		Detail:   pve.Detail,
+		Status:   getHTTPStatusFromFaultSource(te.FaultSource()),
+		Detail:   te.Detail(),
 		Extensions: []rfc9457.Extension{
 			RFC9457Extension{
-				Suggestion:    pve.Suggestion,
-				Location:      LocationType(pve.Location),
-				Parameter:     pve.Parameter,
-				ExpectedType:  pve.ExpectedType,
-				ReceivedValue: pve.ReceivedValue,
-				Constraint:    nil, // TODO: Can we populate this?
+				Suggestion:    te.Suggestion,
+				Location:      LocationType(te.Location),
+				Parameter:     te.Parameter(),
+				ExpectedType:  te.ExpectedType(),
+				ReceivedValue: te.ReceivedValue(),
+				Constraint:    nil,
+			},
+		},
+	}))
+}
+
+func ConstraintViolationErrorPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {
+	use := args.clone()
+	te := use.GetTemplateError()
+	return use.checkUsage(rfc9457.NewResponse(rfc9457.ResponseArgs{
+		Type:     rfc9457.ConstraintViolationErrorType,
+		Title:    "Constraint Violation",
+		Instance: req.RequestURI,
+		Status:   getHTTPStatusFromFaultSource(te.FaultSource()),
+		Detail:   te.Detail(),
+		Extensions: []rfc9457.Extension{
+			RFC9457Extension{
+				Suggestion:    te.Suggestion,
+				Location:      LocationType(te.Location),
+				Parameter:     te.Parameter(),
+				ExpectedType:  te.ExpectedType(),
+				ReceivedValue: te.ReceivedValue(),
+				Constraint:    te.ConstraintType(),
 			},
 		},
 	}))

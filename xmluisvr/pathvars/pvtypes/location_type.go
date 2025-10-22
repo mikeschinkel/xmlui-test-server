@@ -1,4 +1,4 @@
-package pathvars
+package pvtypes
 
 import (
 	"strings"
@@ -33,3 +33,5 @@ const (
 	PathLocation  LocationType = "path"
 	QueryLocation LocationType = "query"
 )
+
+const IrrelevantLocationType LocationType = "irrelevant"

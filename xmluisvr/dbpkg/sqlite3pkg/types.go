@@ -1,10 +1,11 @@
 package sqlite3pkg
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // Mode Durability  Performance  Journal Notes
@@ -83,7 +84,7 @@ func ParseAutoCheckpoint(value int) (cp int, err error) {
 		goto end
 	}
 	if value < 0 {
-		err = errors.Join(ErrInvalidWALAutocheckpointValue, fmt.Errorf("wal_autocheckpoint=%d", value), err)
+		err = NewErr(ErrInvalidWALAutocheckpointValue, "wal_autocheckpoint", value, err)
 		goto end
 	}
 	cp = value
@@ -97,7 +98,7 @@ func ParseBusyTimeout(value int) (bt time.Duration, err error) {
 		goto end
 	}
 	if value < 0 {
-		err = errors.Join(ErrInvalidBusyTimeoutValue, fmt.Errorf("busy_timeout=%d", value), err)
+		err = NewErr(ErrInvalidBusyTimeoutValue, "busy_timeout", value, err)
 		goto end
 	}
 	bt = time.Duration(value) * time.Second / time.Millisecond

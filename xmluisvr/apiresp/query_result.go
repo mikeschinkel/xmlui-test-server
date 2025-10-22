@@ -1,13 +1,14 @@
 package apiresp
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 var _ ResponsePayload = (*QueryResult)(nil)
@@ -39,9 +40,9 @@ func (qr QueryResult) GetByCardinality(c dbqvars.Cardinality) (content any, err 
 			goto end
 		}
 		if len(qr) > 1 {
-			err = errors.Join(
+			err = NewErr(
 				dbpkg.ErrOneRowExpectedManyReturned,
-				fmt.Errorf("row_count=%d", len(qr)),
+				"row_count", len(qr),
 			)
 			goto end
 		}
@@ -53,7 +54,7 @@ func (qr QueryResult) GetByCardinality(c dbqvars.Cardinality) (content any, err 
 
 end:
 	if err != nil {
-		err = errors.Join(dbpkg.ErrInvalidCardinality, err)
+		err = WithErr(err, dbpkg.ErrInvalidCardinality)
 	}
 	return qr, err
 }

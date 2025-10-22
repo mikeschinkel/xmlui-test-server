@@ -2,8 +2,6 @@ package jsonxtractr
 
 import (
 	"encoding/json/jsontext"
-	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -51,20 +49,20 @@ func (s *extractState) navigateArrayIndex(targetIdx int, segment string) (err er
 
 	// Check for negative index
 	if targetIdx < 0 {
-		err = s.joinErrors(nil,
+		err = s.enrichError(
 			ErrJSONPathTraversalFailed,
 			ErrJSONIndexOutOfRange,
-			fmt.Errorf("target_index=%d", targetIdx),
+			"target_index", targetIdx,
 		)
 		goto end
 	}
 
 	if kind != '[' {
-		err = s.joinErrors(nil,
+		err = s.enrichError(
 			ErrJSONPathTraversalFailed,
 			ErrJSONPathExpectedArrayAtSegment,
-			fmt.Errorf("expected_type=%s", "array"),
-			fmt.Errorf("actual_type=%s", kind.String()),
+			"expected_type", "array",
+			"actual_type", kind.String(),
 		)
 		goto end
 	}
@@ -72,10 +70,11 @@ func (s *extractState) navigateArrayIndex(targetIdx int, segment string) (err er
 	// Read array start token '['
 	_, err = s.decoder.ReadToken()
 	if err != nil {
-		err = s.joinErrors(err,
+		err = s.enrichError(
 			ErrJSONPathTraversalFailed,
 			ErrJSONTokenReadFailed,
-			fmt.Errorf("expected_token=%s", "array_start"),
+			"expected_token", "array_start",
+			err,
 		)
 		goto end
 	}
@@ -84,20 +83,21 @@ func (s *extractState) navigateArrayIndex(targetIdx int, segment string) (err er
 	currentIdx = 0
 	for currentIdx < targetIdx {
 		if s.decoder.PeekKind() == ']' {
-			err = s.joinErrors(nil,
+			err = s.enrichError(
 				ErrJSONPathTraversalFailed,
 				ErrJSONIndexOutOfRange,
-				fmt.Errorf("target_index=%d", targetIdx),
-				fmt.Errorf("array_length=%d", currentIdx),
+				"target_index", targetIdx,
+				"array_length", currentIdx,
 			)
 			goto end
 		}
 		err = s.decoder.SkipValue()
 		if err != nil {
-			err = s.joinErrors(err,
+			err = s.enrichError(
 				ErrJSONPathTraversalFailed,
 				ErrJSONTokenReadFailed,
-				fmt.Errorf("skip_index=%d", currentIdx),
+				"skip_index", currentIdx,
+				err,
 			)
 			goto end
 		}
@@ -106,11 +106,11 @@ func (s *extractState) navigateArrayIndex(targetIdx int, segment string) (err er
 
 	// Check if we're at the end of array before target index
 	if s.decoder.PeekKind() == ']' {
-		err = s.joinErrors(nil,
+		err = s.enrichError(
 			ErrJSONPathTraversalFailed,
 			ErrJSONIndexOutOfRange,
-			fmt.Errorf("target_index=%d", targetIdx),
-			fmt.Errorf("array_length=%d", currentIdx),
+			"target_index", targetIdx,
+			"array_length", currentIdx,
 		)
 		goto end
 	}
@@ -125,11 +125,11 @@ func (s *extractState) navigateObjectKey(targetKey string) (err error) {
 	var kind jsontext.Kind = s.decoder.PeekKind()
 
 	if kind != '{' {
-		err = s.joinErrors(nil,
+		err = s.enrichError(
 			ErrJSONPathTraversalFailed,
 			ErrJSONPathExpectedObjectAtSegment,
-			fmt.Errorf("expected_type=%s", "object"),
-			fmt.Errorf("actual_type=%s", kind.String()),
+			"expected_type", "object",
+			"actual_type", kind.String(),
 		)
 		goto end
 	}
@@ -137,10 +137,11 @@ func (s *extractState) navigateObjectKey(targetKey string) (err error) {
 	// Read object start token '{'
 	_, err = s.decoder.ReadToken()
 	if err != nil {
-		err = s.joinErrors(err,
+		err = s.enrichError(
 			ErrJSONPathTraversalFailed,
 			ErrJSONTokenReadFailed,
-			fmt.Errorf("expected_token=%s", "object_start"),
+			"expected_token", "object_start",
+			err,
 		)
 		goto end
 	}
@@ -153,10 +154,11 @@ func (s *extractState) navigateObjectKey(targetKey string) (err error) {
 		// Read the key
 		keyToken, err = s.decoder.ReadToken()
 		if err != nil {
-			err = s.joinErrors(err,
+			err = s.enrichError(
 				ErrJSONPathTraversalFailed,
 				ErrJSONTokenReadFailed,
-				fmt.Errorf("reading=%s", "object_key"),
+				"reading", "object_key",
+				err,
 			)
 			goto end
 		}
@@ -176,21 +178,22 @@ func (s *extractState) navigateObjectKey(targetKey string) (err error) {
 		// Skip the value for this key
 		err = s.decoder.SkipValue()
 		if err != nil {
-			err = s.joinErrors(err,
+			err = s.enrichError(
 				ErrJSONPathTraversalFailed,
 				ErrJSONTokenReadFailed,
-				fmt.Errorf("skipping_key=%s", key),
+				"skipping_key", key,
+				err,
 			)
 			goto end
 		}
 	}
 
 	// Key not found
-	err = s.joinErrors(nil,
+	err = s.enrichError(
 		ErrJSONPathTraversalFailed,
 		ErrJSONPathSegmentNotFound,
-		fmt.Errorf("missing_key=%s", targetKey),
-		fmt.Errorf("available_keys=%v", availableKeys),
+		"missing_key", targetKey,
+		"available_keys", availableKeys,
 	)
 end:
 	return err
@@ -287,32 +290,50 @@ end:
 	return result
 }
 
-// joinErrors expects an original error (or nil) then a list of other errors,
-// adds state-specific errors of its own, and then joins them with the original
-// error at the end.
-func (s *extractState) joinErrors(baseErr error, errsIn ...error) error {
-	var errsOut []error
+// enrichError takes sentinel errors and/or key-value pairs, adds state-specific
+// context metadata, and optionally joins with a trailing cause error.
+// Usage patterns:
+//   - s.enrichError(ErrSentinel1, ErrSentinel2, "key", value)
+//   - s.enrichError(ErrSentinel, "key", value, causeErr)
+//   - s.enrichError(nil, ErrSentinel1, ErrSentinel2, "key", value)
+func (s *extractState) enrichError(parts ...any) error {
+	// Build a parts list: sentinels, then state context KVs, then remaining parts
+	var allParts []any
 
-	// Always include basic context
-	errsOut = append(errsIn, fmt.Errorf("json_path=%s", s.selector))
+	// Separate sentinels at the beginning from the rest
+	sentinelCount := 0
+	for i, part := range parts {
+		if _, ok := part.(error); ok && i == sentinelCount {
+			sentinelCount++
+		} else {
+			break
+		}
+	}
+
+	// Start with the sentinels
+	allParts = append(allParts, parts[:sentinelCount]...)
+
+	// Add state-specific context metadata
+	allParts = append(allParts,
+		"json_path", s.selector,
+	)
 
 	if s.position < len(s.segments) {
-		errsOut = append(errsOut,
-			fmt.Errorf("segment=%s", s.segments[s.position]),
-			fmt.Errorf("segment_position=%d", s.position),
+		allParts = append(allParts,
+			"segment", s.segments[s.position],
+			"segment_position", s.position,
 		)
 	}
 
 	if len(s.pathProgress) > 0 {
-		errsOut = append(errsOut, fmt.Errorf("path_progress=%v", s.pathProgress))
+		allParts = append(allParts, "path_progress", s.pathProgress)
 	}
 
 	// Include readable JSON context for debugging
-	errsOut = append(errsOut, fmt.Errorf("condensed_json=%s", s.condensedJSON()))
+	allParts = append(allParts, "condensed_json", s.condensedJSON())
 
-	// Add the original error if provided
-	if baseErr != nil {
-		errsOut = append(errsOut, baseErr)
-	}
-	return errors.Join(errsOut...)
+	// Append remaining parts (KV pairs and optional trailing cause error)
+	allParts = append(allParts, parts[sentinelCount:]...)
+
+	return NewErr(allParts...)
 }

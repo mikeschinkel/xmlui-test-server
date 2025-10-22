@@ -32,14 +32,14 @@ func LogOnError(err error) {
 func CheckFileExists(path Filepath) error {
 	info, err := os.Stat(string(path))
 	if errors.Is(err, os.ErrNotExist) {
-		err = errors.Join(ErrFileDoesNotExist, err)
+		err = NewErr(ErrFileDoesNotExist, err)
 		goto end
 	}
 	if err != nil {
 		goto end
 	}
 	if info.IsDir() {
-		err = errors.Join(ErrPathIsDir, err)
+		err = NewErr(ErrPathIsDir, err)
 	}
 	err = ErrFileExists
 end:
@@ -59,7 +59,7 @@ func EnsureDirExists(path DirPath) (err error) {
 		goto end
 	}
 	if !info.IsDir() {
-		err = errors.Join(ErrPathIsFile, err)
+		err = NewErr(ErrPathIsFile, err)
 	}
 end:
 	return err

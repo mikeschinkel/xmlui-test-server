@@ -31,12 +31,13 @@
 		"$schema": "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json",
 		"version": 1,
 		"type": "sqlite3",
-		"filepath": "./dbroot/data.db",
+		"filepath": "./data.db",
 		"on_open_sql": [],
 		"busy_timeout": 0,
 		"journal_mode": "",
 		"synchronous": "",
 		"foreign_keys": "",
-		"wal_autocheckpoint": 0
+		"wal_autocheckpoint": 0,
+		"access_mode": 0
 	}
 }

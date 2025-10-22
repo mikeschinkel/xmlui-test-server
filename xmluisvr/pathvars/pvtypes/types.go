@@ -1,4 +1,4 @@
-package pathvars
+package pvtypes
 
 type Selector string
 type Identifier string

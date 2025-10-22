@@ -16,6 +16,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 func init() {
@@ -35,7 +36,6 @@ type SQLite3 struct {
 	ForeignKeyMode ForeignKeyMode // default ignore foreign keys
 	BusyTimeout    time.Duration  // default 5s
 	AutoCheckpoint int            // default 1000 pages (WAL mode only)
-	AccessMode     dbpkg.AccessMode
 }
 
 func (s *SQLite3) allowVTable(extName string) (allow bool) {
@@ -70,7 +70,6 @@ type SQLite3Args struct {
 	ForeignKeyMode ForeignKeyMode // default ignore foreign keys
 	BusyTimeout    time.Duration  // default 5s
 	AutoCheckpoint int            // default 1000 pages (WAL mode only)
-	AccessMode     dbpkg.AccessMode
 }
 
 func NewSQLite3(args SQLite3Args) *SQLite3 {
@@ -86,7 +85,6 @@ func NewSQLite3(args SQLite3Args) *SQLite3 {
 		ForeignKeyMode: args.ForeignKeyMode,
 		BusyTimeout:    args.BusyTimeout,
 		AutoCheckpoint: args.AutoCheckpoint,
-		AccessMode:     args.AccessMode,
 	}
 	db.database = dbpkg.NewBaseDatabase(db, dbArgs)
 	return db
@@ -113,10 +111,10 @@ func (*SQLite3) CreateNew(args dbpkg.DatabaseArgs) (ndb dbpkg.Database, err erro
 	errs = append(errs, err)
 	db.BusyTimeout, err = ParseBusyTimeout(slCfg.BusyTimeout)
 	errs = append(errs, err)
-	db.AccessMode, err = dbpkg.ParseAccessMode(slCfg.AccessMode)
+	args.AccessMode, err = dbpkg.ParseAccessMode(slCfg.AccessMode)
 	errs = append(errs, err)
 
-	err = errors.Join(errs...)
+	err = CombineErrs(errs)
 	if err != nil {
 		db = nil
 		goto end
@@ -127,7 +125,6 @@ func (*SQLite3) CreateNew(args dbpkg.DatabaseArgs) (ndb dbpkg.Database, err erro
 		Synchronous:    db.Synchronous,
 		ForeignKeyMode: db.ForeignKeyMode,
 		AutoCheckpoint: db.AutoCheckpoint,
-		AccessMode:     db.AccessMode,
 		BusyTimeout:    db.BusyTimeout,
 	})
 end:
@@ -150,7 +147,10 @@ func (s *SQLite3) ParseExtension(dbExtCfg dbpkg.DBExtensionConfig) (dbExt dbpkg.
 	var fp common.Filepath
 	sExtCfg, ok := dbExtCfg.(*cfgldr.SQLite3ExtensionConfigV1)
 	if !ok {
-		err = errors.Join(dbpkg.ErrFailedToTypeAssertToExtensionType, errors.New("expected_type=*cfgldr.SQLite3ExtensionConfigV1"))
+		err = NewErr(
+			dbpkg.ErrFailedToTypeAssertToExtensionType,
+			"expected_type", fmt.Sprintf("%T", (*cfgldr.SQLite3ExtensionConfigV1)(nil)),
+		)
 		goto end
 	}
 	fp, err = common.ParseFilepath(sExtCfg.Filepath)
@@ -202,7 +202,7 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 	// Simple connection string with extension loading enabled
 	s.DB, err = sql.Open("sqlite3_ext", s.ConnectString()+"?_allow_load_extension=1")
 	if err != nil {
-		err = errors.Join(dbpkg.ErrConnFailed, err)
+		err = WithErr(dbpkg.ErrConnectFailed, err)
 		goto end
 	}
 
@@ -305,7 +305,7 @@ func (s *SQLite3) ConnectHook() func(*sqlite3.SQLiteConn) error {
 		}
 
 	end:
-		return errors.Join(errs...)
+		return CombineErrs(errs)
 	}
 }
 
@@ -356,7 +356,7 @@ func (s *SQLite3) LoadExtension(dbExt dbpkg.DBExtension) (err error) {
 
 	ext, ok := dbExt.(*Extension)
 	if !ok {
-		err = errors.Join(ErrFailedToTypeAssertToSQLite3Extension, fmt.Errorf("extension_name=%s", dbExt.Name()))
+		err = NewErr(ErrFailedToTypeAssertToSQLite3Extension, "extension_name", dbExt.Name())
 		goto end
 	}
 
@@ -406,7 +406,7 @@ func (s *SQLite3) IsAuthorizedSQLite3Operation(op int, funcName string) (allowed
 	var deniedOpMode dbpkg.AccessMode
 	// Test these special cases first
 	if op == sqlite3.SQLITE_FUNCTION &&
-		s.AccessMode < dbpkg.SuperAdminMode &&
+		s.database.AccessMode < dbpkg.SuperAdminMode &&
 		strings.EqualFold(funcName, "load_extension") {
 		goto end
 	}
@@ -414,7 +414,27 @@ func (s *SQLite3) IsAuthorizedSQLite3Operation(op int, funcName string) (allowed
 	if !ok {
 		goto end
 	}
-	allowed = s.AccessMode > deniedOpMode
+	allowed = s.database.AccessMode > deniedOpMode
 end:
 	return allowed
+}
+
+func (s *SQLite3) ConvertValue(value any, dt dbqvars.DBDataType) any {
+	switch dt {
+	case dbqvars.IntegerDBDataType:
+		s, ok := value.(string)
+		if !ok {
+			goto end
+		}
+		switch strings.ToLower(s) {
+		case "true":
+			value = 1
+		case "false":
+			value = 0
+		default:
+			// Keep original value if it's not a recognized boolean string
+		}
+	}
+end:
+	return value
 }

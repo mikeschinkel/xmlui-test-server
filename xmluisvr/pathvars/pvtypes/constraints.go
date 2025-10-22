@@ -1,11 +1,10 @@
-// Package pathvars/constraints defines the constraint system for parameter validation.
+// Package pvtypes/constraints defines the constraint system for parameter validation.
 // Constraints provide additional validation rules beyond basic data type checking,
 // such as ranges, formats, enums, and regular expressions.
-package pathvars
+package pvtypes
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -66,42 +65,36 @@ type Constraint interface {
 	// Parse creates a new instance of this constraint from a string specification.
 	Parse(value string, dataType PVDataType) (Constraint, error)
 
-	// ValidDateTypes returns the data types that this constraint can be applied to.
-	ValidDateTypes() []PVDataType
+	// ValidDataTypes returns the data types that this constraint can be applied to.
+	ValidDataTypes() []PVDataType
 
 	// MapKey generates a unique key for constraint registry lookup.
 	MapKey(dt PVDataTypeSlug) ConstraintMapKey
 
-	// EnsureBaseConstraint sets up the base constraint relationship for proper functioning.
-	EnsureBaseConstraint(Constraint)
-}
+	// ValidatesType returns true if this constraint performs type validation,
+	// allowing it to replace default data type validation for its parameter.
+	ValidatesType() bool
 
-// baseConstraint provides common functionality for all constraint implementations.
-// It maintains a reference to the owning constraint for proper method delegation.
-type baseConstraint struct {
-	// owner holds a reference to the constraint that embeds this base.
-	owner Constraint
-}
+	// Example returns an example value that satisfies this constraint.
+	// The error parameter provides context about what failed validation, allowing
+	// the constraint to return a more appropriate example (e.g., midpoint for ranges).
+	// Returns nil if no specific example is available (use data type example instead).
+	// This is particularly important for format constraints that validate specific
+	// formats (e.g., UUID v4 vs v1, ISO8601 dates, etc.).
+	Example(err error) any
 
-// newBaseConstraint creates a new base constraint with the specified owner.
-func newBaseConstraint(owner Constraint) baseConstraint {
-	return baseConstraint{
-		owner: owner,
-	}
-}
+	// ErrorDetail returns a detailed error message explaining why validation failed.
+	// The parameter provides context about the parameter being validated.
+	ErrorDetail(param *Parameter, value string) string
 
-func (c *baseConstraint) String() string {
-	return fmt.Sprintf("%s[%s]", c.owner.Type(), c.owner.Rule())
-}
+	// ErrorSuggestion returns a helpful suggestion for fixing the validation error.
+	// The parameter provides context about the parameter being validated.
+	ErrorSuggestion(param *Parameter, value, example string) string
 
-// EnsureBaseConstraint sets the owner reference for proper constraint operation.
-func (c *baseConstraint) EnsureBaseConstraint(owner Constraint) {
-	c.owner = owner
-}
+	// SetOwner sets owner for constraints that do not do it on instantiation.
+	SetOwner(Constraint)
 
-// MapKey generates a constraint registry key using the owner's type and data type.
-func (c *baseConstraint) MapKey(dt PVDataTypeSlug) ConstraintMapKey {
-	return GetConstraintMapKey(c.owner.Type(), dt)
+	CreateError(string) *ConstraintError
 }
 
 // ParseConstraints parses constraint specifications from a string.
@@ -161,10 +154,10 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				constraint, ok = ctm[key]
 				if !ok {
 					errs = append(errs,
-						errors.Join(ErrUnknownConstraintType,
-							fmt.Errorf("constraint_spec=%s", spec),
-							fmt.Errorf("constraint_type=%s", ct),
-							fmt.Errorf("data_type=%s", typeName),
+						NewErr(ErrUnknownConstraintType,
+							"constraint_spec", spec,
+							"constraint_type", ct,
+							"data_type", typeName,
 						),
 					)
 					continue
@@ -184,10 +177,10 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				constraint, ok = ctm[key]
 				if !ok {
 					errs = append(errs,
-						errors.Join(ErrUnknownConstraintType,
-							fmt.Errorf("constraint_spec=%s", spec),
-							fmt.Errorf("constraint_type=%s", ct),
-							fmt.Errorf("data_type=%s", typeName),
+						NewErr(ErrUnknownConstraintType,
+							"constraint_spec", spec,
+							"constraint_type", ct,
+							"data_type", typeName,
 						),
 					)
 					continue
@@ -196,11 +189,11 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				constraint, err = constraint.Parse("", dataType)
 				if err != nil {
 					errs = append(errs,
-						errors.Join(ErrParseFailed,
-							fmt.Errorf("constraint_value=%s", ""),
-							fmt.Errorf("constraint_type=%s", ct),
-							fmt.Errorf("constraint_spec=%s", spec),
-							fmt.Errorf("data_type=%s", typeName),
+						NewErr(ErrParseFailed,
+							"constraint_value", "",
+							"constraint_type", ct,
+							"constraint_spec", spec,
+							"data_type", typeName,
 							err,
 						),
 					)
@@ -220,13 +213,13 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 			}
 			if !isConstraintTypeChar(ch) {
 				errs = append(errs,
-					errors.Join(ErrInvalidSyntax,
+					NewErr(ErrInvalidSyntax,
 						ErrInvalidConstraintTypeCharacter,
-						fmt.Errorf("position=%d", pos),
-						fmt.Errorf("character=%s", string(ch)),
-						fmt.Errorf("constraint_type=%s", ct),
-						fmt.Errorf("constraint_spec=%s", spec),
-						fmt.Errorf("data_type=%s", typeName),
+						"position", pos,
+						"character", string(ch),
+						"constraint_type", ct,
+						"constraint_spec", spec,
+						"data_type", typeName,
 					),
 				)
 				continue
@@ -241,13 +234,13 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 				constraint, err = constraint.Parse(value, dataType)
 				if err != nil {
 					errs = append(errs,
-						errors.Join(ErrParseFailed,
-							fmt.Errorf("constraint_value=%s", value),
-							fmt.Errorf("constraint_type=%s", ct),
-							fmt.Errorf("constraint_spec=%s", spec),
-							fmt.Errorf("data_type=%s", dataType.Slug()),
-							fmt.Errorf("start_pos=%d", valueStart),
-							fmt.Errorf("end_pos=%d", regexEnd),
+						NewErr(ErrParseFailed,
+							"constraint_value", value,
+							"constraint_type", ct,
+							"constraint_spec", spec,
+							"data_type", dataType.Slug(),
+							"start_pos", valueStart,
+							"end_pos", regexEnd,
 							err,
 						),
 					)
@@ -292,13 +285,13 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 					constraint, err = constraint.Parse(value, dataType)
 					if err != nil {
 						errs = append(errs,
-							errors.Join(ErrParseFailed,
-								fmt.Errorf("constraint_value=%s", value),
-								fmt.Errorf("constraint_type=%s", ct),
-								fmt.Errorf("constraint_spec=%s", spec),
-								fmt.Errorf("data_type=%s", dataType.Slug()),
-								fmt.Errorf("start_pos=%d", valueStart),
-								fmt.Errorf("end_pos=%d", pos-1),
+							NewErr(ErrParseFailed,
+								"constraint_value", value,
+								"constraint_type", ct,
+								"constraint_spec", spec,
+								"data_type", dataType.Slug(),
+								"start_pos", valueStart,
+								"end_pos", pos-1,
 								err,
 							),
 						)
@@ -323,11 +316,11 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 			if pos == last {
 				// End of string without closing bracket - malformed
 				errs = append(errs,
-					errors.Join(ErrInvalidSyntax,
-						fmt.Errorf("position=%d", pos),
-						fmt.Errorf("constraint_type=%s", ct),
-						fmt.Errorf("constraint_spec=%s", spec),
-						fmt.Errorf("data_type=%s", dataType.Slug()),
+					NewErr(ErrInvalidSyntax,
+						"position", pos,
+						"constraint_type", ct,
+						"constraint_spec", spec,
+						"data_type", dataType.Slug(),
 						errors.New("constraint value not properly closed"),
 					),
 				)
@@ -338,7 +331,12 @@ func ParseConstraints(spec string, dataType PVDataType) (constraints []Constrain
 
 end:
 	if len(errs) > 0 {
-		err = errors.Join(errs...)
+		err = CombineErrs(errs)
+	}
+	for _, c := range constraints {
+		// Do this in case the constraint parser did not do this itself
+		// If we add properties to baseConstraint we'll need to do the same for those properties here.
+		c.SetOwner(c)
 	}
 	return constraints, err
 }

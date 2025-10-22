@@ -39,7 +39,6 @@ package pathvars
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 )
 
@@ -99,11 +98,11 @@ func (r *Router) AddRoute(method HTTPMethod, path Template, args *RouteArgs) (er
 
 	pt, err = ParseTemplate(string(path))
 	if err != nil {
-		err = errors.Join(
+		err = WithErr(
 			err,
-			fmt.Errorf("path_spec=%s", path),
-			fmt.Errorf("method=%s", method),
-			fmt.Errorf("path=%s", path),
+			"path_spec", path,
+			"method", method,
+			"path", path,
 		)
 		goto end
 	}
@@ -115,9 +114,23 @@ func (r *Router) AddRoute(method HTTPMethod, path Template, args *RouteArgs) (er
 		goto end
 	}
 
-	if len(pt.params) != 0 {
+	// Merge provided parameters into the parsed template's params map
+	// This ensures query parameters (not in the path string) are available for validation
+	// Only add parameters that don't already exist to avoid overwriting path parameters
+	if len(args.Parameters) != 0 {
+		for _, param := range args.Parameters {
+			// Only add if not already present (don't overwrite path parameters)
+			_, exists := pt.params.Get(param.Name)
+			if exists {
+				continue
+			}
+			pt.params.Set(param.Name, param)
+		}
+	}
+
+	paramCount = pt.params.Len()
+	if paramCount != 0 {
 		// Track max params for optimization
-		paramCount = len(pt.params)
 		if paramCount > r.maxParams {
 			r.maxParams = paramCount
 		}
@@ -142,16 +155,16 @@ end:
 // Compile pre-compiles all routes for efficient matching.
 // This must be called before using Match() method.
 func (r *Router) Compile() (err error) {
-	// Validate all routes are properly configured
-	// Set compiled flag
-	//panic("IMPLEMENT ME!")
+	// Routes match in the order they were added (i.e., the order
+	// they appear in the configuration file). This gives users
+	// control over matching priority.
 	r.compiled = true
 	return err
 }
 
 // Match matches an HTTP request against the compiled routes and returns
 // the first matching route along with extracted parameter values.
-// Returns ErrAPIRouterNotCompiled if the router hasn't been compiled,
+// Returns ErrRouterNotCompiled if the router hasn't been compiled,
 // or ErrNoMatch if no route matches the request.
 func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 	var valuesMap ValuesMap
@@ -160,14 +173,9 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 	u := req.URL
 
 	if !r.compiled {
-		err = errors.Join(
-			ErrAPIRouterNotCompiled,
+		err = NewErr(
 			ErrRouterNotCompiled,
-			fmt.Errorf("method=%s", req.Method),
-			fmt.Errorf("path=%s", u.Path),
-			fmt.Errorf("query_string=%s", u.RawQuery),
-			fmt.Errorf("route_count=%d", len(r.routes)),
-			fmt.Errorf("http_status=%d", http.StatusInternalServerError),
+			"fault_source", ServerFaultSource.Slug(),
 		)
 		goto end
 	}
@@ -197,17 +205,20 @@ func (r *Router) Match(req *http.Request) (result MatchResult, err error) {
 		}
 	}
 
-	err = errors.Join(
-		ErrNoMatch,
+	err = NewErr(
 		ErrNoRouteMatched,
-		fmt.Errorf("method=%s", req.Method),
-		fmt.Errorf("path=%s", u.Path),
-		fmt.Errorf("query_string=%s", u.RawQuery),
-		fmt.Errorf("htto_status=%d", http.StatusNotFound),
-		fmt.Errorf("route_count=%d", len(r.routes)),
-		err,
+		"fault_source", ClientFaultSource.Slug(),
 	)
 
 end:
+	if err != nil {
+		err = WithErr(err,
+			ErrNoMatch,
+			"route_count", len(r.routes),
+			"method", req.Method,
+			"path", u.Path,
+			"query_string", u.RawQuery,
+		)
+	}
 	return result, err
 }

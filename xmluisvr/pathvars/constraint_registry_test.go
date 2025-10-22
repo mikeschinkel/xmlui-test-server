@@ -76,14 +76,14 @@ func TestUUIDConstraintRegistry(t *testing.T) {
 
 	t.Run("constraint-map-key-generation", func(t *testing.T) {
 		// Test the new constraint map key generation
-		key := pathvars.GetConstraintMapKey(pathvars.FormatConstraintType, pathvars.UUIDTypeName)
+		key := pathvars.GetConstraintMapKey(pathvars.FormatConstraintType, pathvars.UUIDTypeSlug)
 		var expectedKey pathvars.ConstraintMapKey = "uuid_format"
 		if key != expectedKey {
 			t.Errorf("Expected constraint map key %q, got %q", expectedKey, key)
 		}
 		t.Logf("UUID format constraint map key: %s", key)
 
-		key = pathvars.GetConstraintMapKey(pathvars.FormatConstraintType, pathvars.StringTypeName)
+		key = pathvars.GetConstraintMapKey(pathvars.FormatConstraintType, pathvars.StringTypeSlug)
 		expectedKey = "string_format"
 		if key != expectedKey {
 			t.Errorf("Expected constraint map key %q, got %q", expectedKey, key)

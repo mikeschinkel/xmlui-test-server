@@ -6,118 +6,192 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+)
+
+var (
+	ErrInvalidParameter                = errors.New("invalid parameter")
+	ErrInvalidParameterDataType        = errors.New("invalid parameter data type")
+	ErrUnspecifiedParameterDataType    = errors.New("unspecified parameter data type")
+	ErrParameterHasNoLeadingIdentifier = errors.New("parameter has no leading identifier")
+
+	ErrInvalidEndpointParam           = errors.New("invalid endpoint param")
+	ErrFailedToNormalizeEndpointParam = errors.New("failed to normalize endpoint param")
+
+	// ErrMismatchedParameterDataType occurs when parameter type is defined in path and
+	// also in params but they are not the same.
+	ErrMismatchedParameterDataType = errors.New("mismatched parameter data type")
+
+	// ErrMismatchedParameterConstraints occurs when constraints are defined in path and
+	// also in params but they are not the same.
+	ErrMismatchedParameterConstraints = errors.New("mismatched parameter constraint ")
 )
 
 // ParseEndpointParams converts configuration parameters into EndpointParam structs.
 // It handles type conversion and validation for each parameter definition.
 func ParseEndpointParams(cfgParams cfgldr.APIParamsMapper, epPath pathvars.Template) (epParams []EndpointParam, err error) {
 	var errs []error
+	var apiParams cfgldr.APIParamsV1
 	var pathVars []pathvars.ParamVar
-	var pathValuesMap map[pathvars.Identifier]pathvars.ParamVar
-	var paramsMap map[string]cfgldr.APIParamV1
+	var pvLookup map[pathvars.Identifier]pathvars.ParamVar
+	var ok bool
 
-	apiParams, ok := cfgParams.(cfgldr.APIParamsV1)
-	if !ok {
-		err = errors.Join(ErrInvalidAPIEndpointParameters, ErrCannotTypeAssert,
-			fmt.Errorf("from_type=%T", cfgParams),
-			fmt.Errorf("to_type=%T", (cfgldr.APIParamsV1)(nil)),
-			fmt.Errorf("parameter_value=%v", cfgParams),
-		)
-		goto end
-	}
 	// Add any parameters that are defined ih the URL path but not lists in the array
 	// of params.
 	pathVars, err = pathvars.ParseParamsInTemplate(epPath)
 	if err != nil {
-		err = errors.Join(
+		errs = append(errs, NewErr(
+			"url_template", epPath,
 			err,
-			fmt.Errorf("url_template=%s", epPath),
-		)
+		))
+	}
+
+	apiParams, ok = cfgParams.(cfgldr.APIParamsV1)
+	if !ok {
+		errs = append(errs, NewErr(
+			ErrInvalidEndpointParam,
+			ErrCannotTypeAssert,
+			"from_type", fmt.Sprintf("%T", cfgParams),
+			"to_type", fmt.Sprintf("%T", (cfgldr.APIParamsV1)(nil)),
+			"parameter_value", cfgParams,
+		))
+	}
+	if len(errs) != 0 {
+		// Convert those two errors causes into a single cause, and bail
+		err = CombineErrs(errs)
 		goto end
 	}
+	epParams = make([]EndpointParam, 0, len(pathVars)+len(apiParams))
 
-	// Loop through all the APIParamsV1 and see if there are any vars from the Path string
-	// that need to be have their Location or Constraints updated. Also check to make sure that
-	// there are not conflicting types nor conflicting constraints
-	pathValuesMap = pathvars.ParamVars(pathVars).Map()
-	for i, p := range apiParams {
-		name, err := pathvars.ParseLeadingIdentifier(p.NameSpec)
-		if err != nil {
-			// TODO Add regular error handling
-			panic("Invalid identifier")
-		}
-		pv, ok := pathValuesMap[name]
-		if !ok {
-			apiParams[i].Location = string(apiresp.QueryLocation)
-			continue
-		}
-		// Path var use-type is authoritative so assign the use-type from the path var to
-		// the APIParamV1.
-		apiParams[i].Location = string(pv.Location)
-		dt, err := pathvars.ParsePVDataType(p.Type)
-		if err != nil {
-			// TODO Add regular error handling
-			panic("Invalid type")
-		}
-		if dt != pv.Type {
-			// TODO Add regular error handling
-			panic("Type mismatch")
-		}
-		switch {
-		case len(pv.Constraints) != 0 && p.Constraints == "":
-			// If path var has constraints and APIParamV1 had no, transfer to APIParamV1
-			apiParams[i].Constraints = pathvars.Constraints(pv.Constraints).String()
-		case len(pv.Constraints) != 0 && p.Constraints != "":
-			// If both path var has constraints and APIParamV1 has constraints, make sure
-			// they are the same, otherwise error.
-			pvConstraints := pathvars.Constraints(pv.Constraints).String()
-			if pvConstraints != p.Constraints {
-				// TODO Add regular error handling
-				panic(fmt.Sprintf("Constraints mismatch: %s != %s", pvConstraints, p.Constraints))
-			}
-		}
-	}
-	// Now loop through all the path vars to see if we need to add any from the path
+	// First loop through all the path vars to see if we need to add any from the path
 	// vars to the slice of APIParamV1.
-	paramsMap = apiParams.Map()
+	//paramsMap = apiParams.Map()
+	pvLookup = make(map[pathvars.Identifier]pathvars.ParamVar, len(pathVars))
 	for _, pv := range pathVars {
-		_, ok := paramsMap[string(pv.Name)]
-		if ok {
-			continue
-		}
-		apiParam := cfgldr.NewAPIParamV1(cfgldr.APIParamV1Args{
-			NameSpec:    pv.String(),
-			Type:        string(pv.Type.Slug()),
-			Constraints: pathvars.Constraints(pv.Constraints).String(),
+		epParams = append(epParams, EndpointParam{
+			Props:       pv.NameSpecProps,
+			Type:        pv.Type,
+			Location:    pv.Location,
+			Constraints: pv.Constraints,
 		})
-		apiParams = append(apiParams, apiParam)
+		pvLookup[pv.Name] = pv
 	}
 
-	// Finally now loop through to collected and updated slice of APIParamV1 and
-	// parse to convert to an Endpoint Param.
-	for _, apiParam := range apiParams {
-		var p EndpointParam
-		p, err = ParseEndpointParam(apiParam.NameSpec, apiParam.Location, apiParam)
+	// Now loop through all the APIParamsV1 and see if there are any vars not in the
+	// path string, update their Location and/or Constraints, then add them to the
+	// epParams. Also check to make sure that there are not conflicting types nor
+	// conflicting constraints
+	for _, p := range apiParams {
+		var pv pathvars.ParamVar
+
+		// Path var use-type is authoritative so assign the use-type from the path var to
+		var epp EndpointParam
+		epp, err = ParseEndpointParam(p.NameSpec, p)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		epParams = append(epParams, p)
+
+		pv, ok = pvLookup[epp.Name]
+		if ok {
+			// "We already got that one"
+			// (said with a French accent)
+			continue
+		}
+
+		err = epp.normalize(pv)
+		if err != nil {
+			errs = append(errs, NewErr(
+				ErrInvalidEndpointParam,
+				ErrFailedToNormalizeEndpointParam,
+				"type_in_param_list", p.Type,
+			))
+			continue
+		}
+		epParams = append(epParams, epp)
 	}
 
-	err = errors.Join(errs...)
+	err = CombineErrs(errs)
 
 end:
 	return epParams, err
 }
 
+func (epp *EndpointParam) normalize(pv pathvars.ParamVar) (err error) {
+	var errs []error
+	if epp.Location != pv.Location {
+		// Path var use-type is authoritative so assign the use-type from the path var to
+		// the APIParamV1.
+		epp.Location = pv.Location
+	}
+	errs = AppendErr(errs, epp.normalizeDataType(pv))
+	errs = AppendErr(errs, epp.normalizeConstraints(pv))
+	err = CombineErrs(errs)
+	if err != nil {
+		err = WithErr(err,
+			ErrFailedToNormalizeEndpointParam,
+			"parameter_name", pv.Name,
+		)
+	}
+	return err
+}
+
+func (epp *EndpointParam) normalizeConstraints(pv pathvars.ParamVar) (err error) {
+	eppConstraints := pathvars.Constraints(epp.Constraints).String()
+	switch {
+	case len(pv.Constraints) != 0 && eppConstraints == "":
+		// If path var has constraints and APIParamV1 had no, transfer to APIParamV1
+		epp.Constraints = pv.Constraints
+	case len(pv.Constraints) != 0 && eppConstraints != "":
+		// If both path var has constraints and APIParamV1 has constraints, make sure
+		// they are the same, otherwise error.
+		pvConstraints := pathvars.Constraints(pv.Constraints).String()
+		if pvConstraints != eppConstraints {
+			err = NewErr(
+				ErrMismatchedParameterConstraints,
+				"path_constraints", pvConstraints,
+				"param_constraints", eppConstraints,
+			)
+			goto end
+		}
+		epp.Constraints = pv.Constraints
+	}
+end:
+	return err
+}
+
+func (epp *EndpointParam) normalizeDataType(pv pathvars.ParamVar) (err error) {
+	switch {
+	case epp.Type == pathvars.UnspecifiedDataType:
+		if pv.Type == epp.Type {
+			// Type not available anywhere
+			err = NewErr(ErrUnspecifiedParameterDataType)
+			goto end
+		}
+		epp.Type = pv.Type
+
+	case pv.Type == pathvars.UnspecifiedDataType:
+		// epp.Type already has a type so do nothing
+
+	case pv.Type != epp.Type:
+		// Both pv.Type and epp.Type specified, but they are mismatched
+		// User provided inconsistent types
+		err = NewErr(
+			ErrMismatchedParameterDataType,
+			"type_in_path", pv.Type,
+		)
+	}
+end:
+	return err
+}
+
 // ParseEndpointParam converts a configuration parameter into a validated
 // EndpointParam. It handles both APIParamV1 and APIParamsMapValue formats,
 // parsing the parameter specification and validating all constraints.
-func ParseEndpointParam(nameSpec string, location string, cfg cfgldr.APIParam) (p EndpointParam, err error) {
+func ParseEndpointParam(nameSpec string, cfg cfgldr.APIParam) (p EndpointParam, err error) {
 	var props *pathvars.NameSpecProps
 	var cc []pathvars.Constraint
 	var dt pathvars.PVDataType
@@ -125,10 +199,10 @@ func ParseEndpointParam(nameSpec string, location string, cfg cfgldr.APIParam) (
 	if !ok {
 		paramSpec, ok := cfg.(cfgldr.APIParamsMapValue)
 		if !ok {
-			err = errors.Join(ErrInvalidAPIEndpointParameter, ErrCannotTypeAssert,
-				fmt.Errorf("from_type=%T", cfg),
-				fmt.Errorf("to_type=%T", (*cfgldr.APIParamV1)(nil)),
-				fmt.Errorf("parameter_value=%v", cfg),
+			err = NewErr(ErrInvalidAPIEndpointParameter, ErrCannotTypeAssert,
+				"from_type=", fmt.Sprintf("%T", cfg),
+				"to_type", fmt.Sprintf("%T", (*cfgldr.APIParamV1)(nil)),
+				"parameter_value", cfg,
 			)
 			goto end
 		}
@@ -159,10 +233,8 @@ func ParseEndpointParam(nameSpec string, location string, cfg cfgldr.APIParam) (
 			goto end
 		}
 		p = NewEndpointParam(EndpointParamArgs{
-			Props: *props,
-
+			Props:       *props,
 			Type:        dt,
-			Location:    pathvars.LocationType(location),
 			Constraints: cc,
 			RawValue:    param.String(),
 		})
@@ -203,35 +275,38 @@ type EndpointParam struct {
 	nameSpec    pathvars.PVNameSpec
 }
 
-func (p EndpointParam) NameSpec() (ns pathvars.PVNameSpec) {
-	if p.nameSpec == "" {
-		p.nameSpec = pathvars.PVNameSpec(p.Props.String())
+func (epp *EndpointParam) NameSpec() (ns pathvars.PVNameSpec) {
+	if epp.nameSpec == "" {
+		epp.nameSpec = pathvars.PVNameSpec(epp.Props.String())
 	}
-	return p.nameSpec
+	return epp.nameSpec
 }
 
-func (p EndpointParam) RawValue() (s string) {
-	return p.Props.RawValue
+func (epp *EndpointParam) RawValue() (s string) {
+	return epp.Props.RawValue
 }
-func (p EndpointParam) HasProps() bool {
-	props := p.Props
+func (epp *EndpointParam) HasProps() bool {
+	props := epp.Props
 	return props.Name != "" && props.RawValue != ""
 }
 
-func (p EndpointParam) String() (s string) {
+func (epp *EndpointParam) DebugString() string {
+	return string(epp.Props.Name)
+}
+func (epp *EndpointParam) String() (s string) {
 	var sb strings.Builder
 	var cs string
-	if len(p.Constraints) != 0 {
+	if len(epp.Constraints) != 0 {
 		sb.WriteByte(':')
-		for _, c := range p.Constraints {
+		for _, c := range epp.Constraints {
 			sb.WriteString(c.String())
 			sb.WriteByte(',')
 		}
 		cs = sb.String()
 		cs = cs[:len(cs)-1]
 	}
-	name := string(p.Props.Name)
-	typ := string(p.Type.Slug())
+	name := string(epp.Props.Name)
+	typ := string(epp.Type.Slug())
 	if cs == "" && name == typ {
 		s = fmt.Sprintf("{%s}", name)
 		goto end

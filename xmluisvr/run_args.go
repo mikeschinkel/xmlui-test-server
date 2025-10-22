@@ -1,7 +1,6 @@
 package xmluisvr
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -11,6 +10,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // RunArgs contains all the configuration and dependencies needed to run the server.
@@ -50,7 +51,7 @@ func ParseOptions(rawOpts *cfgldr.Options) (opts *common.Options, err error) {
 	opts.ErrorStyle, err = common.ParseErrorStyle(rawOpts.ErrorStype)
 	errs = append(errs, err)
 
-	return opts, errors.Join(errs...)
+	return opts, CombineErrs(errs)
 }
 
 // parseAPI loads and creates the API configuration from either a file or the root config.

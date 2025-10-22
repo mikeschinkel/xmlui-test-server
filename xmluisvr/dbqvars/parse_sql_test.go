@@ -1,8 +1,8 @@
 package dbqvars_test
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
@@ -216,8 +216,8 @@ ORDER BY u.created_at DESC`,
 				if err == nil {
 					t.Fatalf("expected error but got none")
 				}
-				if tt.expectedError != nil && !strings.Contains(err.Error(), tt.expectedError.Error()) {
-					t.Errorf("expected error containing %q, got %q", tt.expectedError.Error(), err.Error())
+				if tt.expectedError != nil && !errors.Is(err, tt.expectedError) {
+					t.Errorf("expected error %v, got %v", tt.expectedError, err)
 				}
 				return
 			}

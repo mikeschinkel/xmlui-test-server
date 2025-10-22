@@ -99,3 +99,9 @@ clean:
 deps:
 	cd xmluisvr && go mod download && go mod tidy
 	cd cmd && go mod download && go mod tidy
+
+## doterr: Sync doterr
+.PHONY: doterr
+doterr:
+	@./xmluisvr/doterr/sync.sh
+

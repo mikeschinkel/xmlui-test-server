@@ -48,10 +48,10 @@ Domain packages create RFC9457Response and wrap in errors.Join():
 
 ```go
 // In pathvars/template.go validateParameter()
-err = errors.Join(
+err = doterr.NewErr(
     ErrInvalidParameter,
     ErrInvalidParameterValue,
-    fmt.Errorf("template=%s", t.raw),
+    "template", t.raw,
     common.NewRFC9457Response(common.RFC9457ResponseArgs{
         Type:          common.InvalidParameterErrorType,
         Title:         "Invalid Parameter Type",

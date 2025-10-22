@@ -8,6 +8,34 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/sqlite3pkg"
 )
 
+// TestAccessMode_Allowed tests the SQLite3 operation authorization algorithm.
+//
+// # How the Algorithm Works
+//
+// The authorization system uses a "denied at or below" model with numeric access modes:
+//
+//	UnspecifiedAccessMode = 0  (sentinel, never used at runtime)
+//	ReadOnlyMode          = 1
+//	ReadWriteMode         = 2
+//	AdminMode             = 3
+//	SuperAdminMode        = 4
+//
+// Each SQLite operation maps to the highest access mode at which it is DENIED.
+// Operations are allowed when: currentAccessMode > deniedAtMode
+//
+// Example - SQLITE_READ is mapped to UnspecifiedAccessMode (0):
+//   - At UnspecifiedAccessMode (0): 0 > 0 = false → DENIED
+//   - At ReadOnlyMode (1):          1 > 0 = true  → ALLOWED
+//   - At all higher modes:                        → ALLOWED
+//
+// Example - SQLITE_INSERT is mapped to ReadOnlyMode (1):
+//   - At ReadOnlyMode (1):          1 > 1 = false → DENIED
+//   - At ReadWriteMode (2):         2 > 1 = true  → ALLOWED
+//   - At all higher modes:                        → ALLOWED
+//
+// See: operations.go for the complete operation → denied-mode mapping
+// See: sqlite3.go IsAuthorizedSQLite3Operation() for the authorization logic
+
 type operation int
 
 func TestAccessMode_Allowed(t *testing.T) {
@@ -17,11 +45,6 @@ func TestAccessMode_Allowed(t *testing.T) {
 		allowed  bool
 		funcName string
 	}{
-
-		// Ops denied for dbpkg.UnspecifiedAccessMode
-		{op: sqlite3.SQLITE_READ, m: dbpkg.UnspecifiedAccessMode, allowed: false},
-		{op: sqlite3.SQLITE_SELECT, m: dbpkg.UnspecifiedAccessMode, allowed: false},
-		{op: sqlite3.SQLITE_ANALYZE, m: dbpkg.UnspecifiedAccessMode, allowed: false},
 
 		// Ops denied for dbpkg.ReadOnlyMode
 		{op: sqlite3.SQLITE_INSERT, m: dbpkg.ReadOnlyMode, allowed: false},

@@ -1,9 +1,10 @@
 package common
 
 import (
-	"errors"
 	"strconv"
 	"time"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 func ParseHost(h string) (_ Host, err error) {
@@ -65,7 +66,7 @@ func ParseFilepaths(files []string) (fps []Filepath, _ error) {
 		}
 		fps = append(fps, fp)
 	}
-	return fps, errors.Join(errs...)
+	return fps, doterr.CombineErrs(errs)
 }
 
 func ParseConnectString(s string) (cs ConnectString, err error) {
@@ -102,5 +103,5 @@ func ParseTimeDurationEx(s string) (td time.Duration, err error) {
 	errs = append(errs, err)
 
 end:
-	return td, errors.Join(errs...)
+	return td, doterr.CombineErrs(errs)
 }

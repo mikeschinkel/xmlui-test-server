@@ -67,9 +67,9 @@ func TestUUIDFormatConstraintParsing(t *testing.T) {
 				t.Errorf("Expected FormatConstraintType, got %v", constraint.Type())
 			}
 
-			validTypes := constraint.ValidDateTypes()
+			validTypes := constraint.ValidDataTypes()
 			if len(validTypes) != 1 || validTypes[0] != UUIDType {
-				t.Errorf("Expected ValidDateTypes to return [UUIDType], got %v", validTypes)
+				t.Errorf("Expected ValidDataTypes to return [UUIDType], got %v", validTypes)
 			}
 		})
 	}
@@ -174,10 +174,10 @@ func TestUUIDFormatConstraintInterface(t *testing.T) {
 		t.Errorf("Expected Type() to return FormatConstraintType, got %v", constraint.Type())
 	}
 
-	// Test ValidDateTypes method
-	validTypes := constraint.ValidDateTypes()
+	// Test ValidDataTypes method
+	validTypes := constraint.ValidDataTypes()
 	if len(validTypes) != 1 || validTypes[0] != UUIDType {
-		t.Errorf("Expected ValidDateTypes() to return [UUIDType], got %v", validTypes)
+		t.Errorf("Expected ValidDataTypes() to return [UUIDType], got %v", validTypes)
 	}
 
 	// Test String method

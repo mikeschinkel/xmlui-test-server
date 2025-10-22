@@ -1,462 +1,559 @@
 {
-   "$schema":  "https://schemas.xmlui.org/v2/test-server/api-schema.json",
-   "version":  2,
-   "server":   {
+   "$schema": "https://schemas.xmlui.org/v1/test-server/root-schema.json",
+   "version": 1,
+   "server": {
+      "$schema": "https://schemas.xmlui.org/v1/test-server/server-schema.json",
+      "version": 1,
+      "host": "127.0.0.1",
+      "port": 8080,
       "api": {
-         "name":      "Comprehensive PathVars Integration Test API",
+         "$schema": "https://schemas.xmlui.org/v2/test-server/api-schema.json",
+         "version": 2,
+         "name": "Comprehensive PathVars Integration Test API",
          "base_path": "/api",
-         "webroot":   "./webroot",
+         "webroot": "./webroot",
          "endpoints": [
             {
-               "method":       "GET",
-               "path":         "tasks/by-estimate/{estimate:real}?{min_priority?1:int:range[1..5]}&{status?todo:string:enum[todo,doing,done]}",
-               "description":  "Real path parameter with optional query parameters with defaults",
-               "query":        "SELECT id, title, status, priority, estimate FROM tasks WHERE estimate >={estimate} AND priority >={min_priority} AND status = {status};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/tasks/by-estimate/{estimate:real}?{min_priority?1:int:range[1..5]}&{status?todo:string:enum[todo,doing,done]}",
+               "description": "Real path parameter with optional query parameters with defaults",
+               "query": "SELECT id, title, status, priority, estimate FROM tasks WHERE estimate >={estimate} AND priority >={min_priority} AND status = {status};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "integer",
                   "real"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/by-score/{score:int:range[0..100]}",
-               "description":  "Integer range constraint",
-               "query":        "SELECT id, email, name, score FROM users WHERE score = {score};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-score/{score:int:range[0..100]}",
+               "description": "Integer range constraint",
+               "query": "SELECT id, email, name, score FROM users WHERE score = {score};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "integer"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "logs/by-path/{file_path*}",
-               "description":  "Multi-segment path parameter for file paths",
-               "query":        "SELECT id, level, message, file_path, line_number FROM logs WHERE file_path LIKE {file_path} || '%';",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/logs/by-path/{file_path*}",
+               "description": "Multi-segment path parameter for file paths",
+               "query": "SELECT id, level, message, file_path, line_number FROM logs WHERE file_path LIKE {file_path} || '%';",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "string",
                   "integer"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "hello",
-               "description":  "Simple endpoint with no parameters",
-               "query":        "SELECT 'Hello World' as message;",
-               "params":       [],
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/hello",
+               "description": "Simple endpoint with no parameters",
+               "query": "SELECT 'Hello World' as message;",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/{id:int}",
-               "description":  "Basic integer path parameter",
-               "query":        "SELECT id, email, name, slug FROM users WHERE id = {id};",
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/search?{email:string:notempty}&{active?true:boolean}&{min_score?0:int}&{limit?10:int:range[1..100]}",
+               "description": "Query-only endpoint with notempty constraint and defaults",
+               "query": "SELECT id, email, name, score, active FROM users WHERE email LIKE '%' ||{email} || '%' AND active ={active} AND score >={min_score} ORDER BY score DESC LIMIT {limit};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
+               "column_types": [
+                  "integer",
+                  "string",
+                  "string",
+                  "integer",
+                  "integer"
+               ],
+               "params": {
+                  "@note": "email uses generic 'string' type (not 'email' type) to allow partial matching with LIKE query.\nTests explicit type declaration vs implicit type inference.\nactive parameter is boolean but maps to INTEGER column (SQLite stores booleans as 0/1).\nTests Database.ConvertValue() interface for type compatibility."
+               }
+            },
+            {
+               "method": "GET",
+               "path": "/users/{id:int}",
+               "description": "Basic integer path parameter",
+               "query": "SELECT id, email, name, slug FROM users WHERE id = {id};",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/by-uuid/{uuid:uuid:format[v4]}",
-               "description":  "UUID v4 format constraint",
-               "query":        "SELECT id, email, name FROM users WHERE uuid = {uuid};",
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-uuid/{uuid:uuid:format[v4]}",
+               "description": "UUID v4 format constraint",
+               "query": "SELECT id, email, name FROM users WHERE uuid = {uuid};",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/by-slug/{slug:slug:length[5..50]}",
-               "description":  "Slug parameter with length constraint",
-               "query":        "SELECT id, email, name FROM users WHERE slug = {slug};",
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-slug/{slug:slug:length[5..50]}",
+               "description": "Slug parameter with length constraint",
+               "query": "SELECT id, email, name FROM users WHERE slug = {slug};",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/by-rating/{rating:real:range[0.0..5.0]}",
-               "description":  "Real number with decimal range constraint",
-               "query":        "SELECT id, email, name, rating FROM users WHERE rating >= {rating};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-rating/{rating:real:range[0.0..5.0]}",
+               "description": "Real number with decimal range constraint",
+               "query": "SELECT id, email, name, rating FROM users WHERE rating >= {rating};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "real"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/by-status/{active:boolean}",
-               "description":  "Boolean parameter",
-               "query":        "SELECT id, email, name, active FROM users WHERE active = {active};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-status/{active:boolean}",
+               "description": "Boolean parameter",
+               "query": "SELECT id, email, name, active FROM users WHERE active = {active};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "integer"
-               ]
+               ],
+               "params": {
+                  "@note": "Boolean path parameter maps to INTEGER column in SQLite.\nTests automatic conversion via Database.ConvertValue() (true→1, false→0)."
+               }
             },
             {
-               "method":       "GET",
-               "path":         "users/by-birth-date/{birth_date:date:format[yyyy-mm-dd]}",
-               "description":  "Date parameter with ISO format",
-               "query":        "SELECT id, email, name, birth_date FROM users WHERE birth_date = {birth_date};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-birth-date/{birth_date:date:format[yyyy-mm-dd]}",
+               "description": "Date parameter with ISO format",
+               "query": "SELECT id, email, name, birth_date FROM users WHERE birth_date = {birth_date};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/by-login-time/{login_time:date:format[hh:mm:ss]}",
-               "description":  "Time parameter",
-               "query":        "SELECT id, email, name, login_time FROM users WHERE login_time = {login_time};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-login-time/{login_time:date:format[hh:mm:ss]}",
+               "description": "Time parameter",
+               "query": "SELECT id, email, name, login_time FROM users WHERE login_time = {login_time};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/by-name/{name:string}",
-               "description":  "Name parameter",
-               "query":        "SELECT id, email, name FROM users WHERE name = {name};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/users/by-name/{name:string}",
+               "description": "Name parameter",
+               "query": "SELECT id, email, name FROM users WHERE name = {name};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "implicit/{int}",
-               "description":  "Implicit type inference for int",
-               "query":        "SELECT id, email, name FROM users WHERE id = {int};",
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/implicit/{int}",
+               "description": "Implicit type inference for int",
+               "query": "SELECT id, email, name FROM users WHERE id = {int};",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string"
-               ]
+               ],
+               "params": {
+                  "@note": "Tests implicit type inference: parameter name 'int' is recognized as integer type.\nNo explicit :type declaration needed."
+               }
             },
             {
-               "method":       "GET",
-               "path":         "implicit/{slug}",
-               "description":  "Implicit type inference for slug",
-               "query":        "SELECT id, email, name FROM users WHERE slug = {slug};",
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/implicit/{slug}",
+               "description": "Implicit type inference for slug",
+               "query": "SELECT id, email, name FROM users WHERE slug = {slug};",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "implicit/{uuid}",
-               "description":  "Implicit type inference for uuid",
-               "query":        "SELECT id, email, name FROM users WHERE uuid = {uuid};",
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/implicit/{uuid}",
+               "description": "Implicit type inference for uuid",
+               "query": "SELECT id, email, name FROM users WHERE uuid = {uuid};",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "implicit/{decimal::range[0.0..1000.0]}",
-               "description":  "Implicit decimal type with double colon constraint syntax",
-               "query":        "SELECT sensor_id, value, unit FROM measurements WHERE precision_val = {decimal};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/implicit/{decimal::range[0.0..1000.0]}",
+               "description": "Implicit decimal type with double colon constraint syntax",
+               "query": "SELECT sensor_id, value, unit FROM measurements WHERE precision_val = {decimal};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "string",
                   "real",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "projects/by-status/{status:string:enum[active,archived,draft]}",
-               "description":  "String with enum constraint",
-               "query":        "SELECT id, name, status, priority FROM projects WHERE status = {status};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/projects/by-status/{status:string:enum[active,archived,draft]}",
+               "description": "String with enum constraint",
+               "query": "SELECT id, name, status, priority FROM projects WHERE status = {status};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "integer"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "projects/by-priority/{priority:int:range[1..5]}",
-               "description":  "Integer range constraint for priority",
-               "query":        "SELECT id, name, status, priority, budget FROM projects WHERE priority = {priority};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/projects/by-priority/{priority:int:range[1..5]}",
+               "description": "Integer range constraint for priority",
+               "query": "SELECT id, name, status, priority, budget FROM projects WHERE priority = {priority};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "integer",
                   "real"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "projects/by-budget/{budget:decimal:range[1000.0..50000.0]}",
-               "description":  "Decimal parameter with range constraint",
-               "query":        "SELECT id, name, budget FROM projects WHERE budget >= {budget};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/projects/by-budget/{budget:decimal:range[1000.0..50000.0]}",
+               "description": "Decimal parameter with range constraint",
+               "query": "SELECT id, name, budget FROM projects WHERE budget >= {budget};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "real"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "tasks/search/{project_id:int}",
-               "description":  "Path parameter with query parameters",
-               "query":        "SELECT t.id, t.title, t.status, t.priority, IFNULL(u.email,'') AS assignee_email FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id WHERE t.project_id ={project_id} AND (LOWER(t.title) LIKE LOWER('%' ||{q} || '%') OR LOWER(t.details) LIKE LOWER('%' ||{q} || '%')) ORDER BY t.priority DESC LIMIT {limit} OFFSET {offset};",
-               "params":       {
-                  "q":      "string",
-                  "limit":  "int:range[1..100]",
+               "method": "GET",
+               "path": "/tasks/search/{project_id:int}",
+               "description": "Path parameter with query parameters",
+               "query": "SELECT t.id, t.title, t.status, t.priority, IFNULL(u.email,'') AS assignee_email FROM tasks t LEFT JOIN users u ON u.id = t.assignee_id WHERE t.project_id ={project_id} AND (LOWER(t.title) LIKE LOWER('%' ||{q} || '%') OR LOWER(t.details) LIKE LOWER('%' ||{q} || '%')) ORDER BY t.priority DESC LIMIT {limit} OFFSET {offset};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
+               "column_types": [
+                  "integer",
+                  "string",
+                  "string",
+                  "integer",
+                  "string"
+               ],
+               "params": {
+                  "q": "string",
+                  "limit": "int:range[1..100]",
                   "offset": "int:range[0..1000]",
-                  "sort":   "string:enum[asc,desc]",
-                  "@note":  [
-                     "Query parameter testing",
-                     "with path parameter combination"
-                  ]
-               },
-               "cardinality":  "many",
-               "row_type":     "columns",
-               "column_types": [
-                  "integer",
-                  "string",
-                  "string",
-                  "integer",
-                  "string"
-               ]
+                  "sort": "string:enum[asc,desc]",
+                  "@note": "Query parameter testing\nwith path parameter combination"
+               }
             },
             {
-               "method":       "GET",
-               "path":         "logs/by-level/{level:string:enum[DEBUG,INFO,WARN,ERROR]}",
-               "description":  "String enum for log levels",
-               "query":        "SELECT id, level, message, file_path FROM logs WHERE level = {level};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/logs/by-level/{level:string:enum[DEBUG,INFO,WARN,ERROR]}",
+               "description": "String enum for log levels",
+               "query": "SELECT id, level, message, file_path FROM logs WHERE level = {level};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "archive/by-date/{archive_date*:date:format[yyyy/mm/dd]}",
-               "description":  "Multi-segment date parameter with slash format",
-               "query":        "SELECT id, archive_date, content, format_type FROM archive WHERE archive_date LIKE {archive_date} || '%';",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/archive/by-date/{archive_date*:date:format[yyyy/mm/dd]}",
+               "description": "Multi-segment date parameter with slash format",
+               "query": "SELECT id, archive_date, content, format_type FROM archive WHERE archive_date LIKE {archive_date} || '%';",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "archive/by-datetime/{datetime:date:format[yyyy-mm-dd_hh:mm:ss]}",
-               "description":  "Combined date-time format",
-               "query":        "SELECT id, archive_date, archive_time, content FROM archive WHERE archive_date || '_' || archive_time = {datetime};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/archive/by-datetime/{datetime:date:format[yyyy-mm-dd_hh:mm:ss]}",
+               "description": "Combined date-time format",
+               "query": "SELECT id, archive_date, archive_time, content FROM archive WHERE archive_date || '_' || archive_time = {datetime};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "measurements/by-sensor/{sensor_id:alphanumeric:length[4..10]}",
-               "description":  "Alphanumeric parameter with length constraint",
-               "query":        "SELECT sensor_id, value, unit, precision_val FROM measurements WHERE sensor_id = {sensor_id};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/measurements/by-sensor/{sensor_id:alphanumeric:length[4..10]}",
+               "description": "Alphanumeric parameter with length constraint",
+               "query": "SELECT sensor_id, value, unit, precision_val FROM measurements WHERE sensor_id = {sensor_id};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "string",
                   "real",
                   "string",
                   "real"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "measurements/by-value/{value:real:range[0.0..1000.5]}",
-               "description":  "Real parameter with decimal range constraint",
-               "query":        "SELECT sensor_id, value, unit FROM measurements WHERE value = {value};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/measurements/by-value/{value:real:range[0.0..1000.5]}",
+               "description": "Real parameter with decimal range constraint",
+               "query": "SELECT sensor_id, value, unit FROM measurements WHERE value = {value};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "string",
                   "real",
                   "string"
-               ]
+               ],
+               "params": []
             },
             {
-               "method":       "GET",
-               "path":         "users/search?{email:string:notempty}&{active?true:boolean}&{min_score?0:int}&{limit?10:int:range[1..100]}",
-               "description":  "Query-only endpoint with notempty constraint and defaults",
-               "query":        "SELECT id, email, name, score, active FROM users WHERE email LIKE '%' ||{email} || '%' AND active ={active} AND score >={min_score} ORDER BY score DESC LIMIT {limit};",
-               "cardinality":  "many",
-               "row_type":     "columns",
-               "column_types": [
-                  "integer",
-                  "string",
-                  "string",
-                  "integer",
-                  "integer"
-               ]
-            },
-            {
-               "method":       "GET",
-               "path":         "projects/search?{name?:string}&{status?active:string:enum[active,archived,draft]}&{min_budget?0:decimal}",
-               "description":  "All optional query parameters",
-               "query":        "SELECT id, name, status, budget FROM projects WHERE (:name = '' OR name LIKE '%' ||{name} || '%') AND status = {status} AND budget >= {min_budget};",
-               "cardinality":  "many",
-               "row_type":     "columns",
+               "method": "GET",
+               "path": "/projects/search?{name?:string}&{status?active:string:enum[active,archived,draft]}&{min_budget?0:decimal}",
+               "description": "All optional query parameters",
+               "query": "SELECT id, name, status, budget FROM projects WHERE ({name} = '' OR 1=1) AND status = {status} AND budget >= {min_budget};",
+               "query_file": "",
+               "cardinality": "many",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string",
                   "real"
-               ]
+               ],
+               "params": {
+                  "@note": "All parameters optional with defaults: name defaults to empty string, status to 'active', min_budget to 0.\nTests optional parameter handling and default value application."
+               }
             },
             {
-               "method":       "POST",
-               "path":         "users/{id:int}/update",
-               "description":  "POST endpoint with path parameter and JSON body",
-               "query":        "UPDATE users SET name = {name}, email = {email} WHERE id = {id}; SELECT id, name, email FROM users WHERE id = {id};",
-               "params":       [
-                  {
-                     "name":        "name",
-                     "type":        "string",
-                     "constraints": "length[1..100]"
-                  },
-                  {
-                     "name":        "email",
-                     "type":        "string",
-                     "constraints": "regex[^[^@]+@[^@]+\\.[^@]+$]"
-                  }
-               ],
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "POST",
+               "path": "/users/{id:int}/update",
+               "description": "POST endpoint with path parameter and JSON body",
+               "query": "UPDATE users SET name = {name}, email = {email} WHERE id = {id}; SELECT id, name, email FROM users WHERE id = {id};",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer",
                   "string",
                   "string"
+               ],
+               "params": [
+                  {
+                     "name": "name",
+                     "type": "string",
+                     "constraints": "length[1..100]",
+                     "multi_segment": false,
+                     "optional": false,
+                     "default": ""
+                  },
+                  {
+                     "name": "email",
+                     "type": "string",
+                     "constraints": "regex[[^@]+@[^@]+\\.[^@]+]",
+                     "multi_segment": false,
+                     "optional": false,
+                     "default": ""
+                  }
                ]
             },
             {
-               "method":       "PUT",
-               "path":         "projects/{project_id:int}/tasks",
-               "description":  "PUT endpoint with nested JSON body parameters",
-               "query":        "INSERT INTO tasks (project_id, title, details, status, priority, estimate) VALUES (:project_id, {task.title}, {task.details}, {task.status}, {task.priority}, {task.estimate}); SELECT last_insert_rowid() as id;",
-               "params":       [
-                  {
-                     "name":        "task.title",
-                     "type":        "string",
-                     "constraints": "length[1..200]"
-                  },
-                  {
-                     "name":        "task.details",
-                     "type":        "string",
-                     "constraints": ""
-                  },
-                  {
-                     "name":        "task.status",
-                     "type":        "string",
-                     "constraints": "enum[todo,doing,done]"
-                  },
-                  {
-                     "name":        "task.priority",
-                     "type":        "int",
-                     "constraints": "range[1..5]"
-                  },
-                  {
-                     "name":        "task.estimate",
-                     "type":        "real",
-                     "constraints": "range[0.0..100.0]"
-                  }
-               ],
-               "cardinality":  "one",
-               "row_type":     "columns",
+               "method": "PUT",
+               "path": "/projects/{project_id:int}/tasks",
+               "description": "PUT endpoint with nested JSON body parameters",
+               "query": "INSERT INTO tasks (project_id, title, details, status, priority, estimate) VALUES ({project_id}, {task.title}, {task.details}, {task.status}, {task.priority}, {task.estimate}); SELECT last_insert_rowid() as id;",
+               "query_file": "",
+               "cardinality": "one",
+               "row_type": "columns",
                "column_types": [
                   "integer"
+               ],
+               "params": [
+                  {
+                     "name": "task.title",
+                     "type": "string",
+                     "constraints": "length[1..200]",
+                     "multi_segment": false,
+                     "optional": false,
+                     "default": ""
+                  },
+                  {
+                     "name": "task.details",
+                     "type": "string",
+                     "constraints": "",
+                     "multi_segment": false,
+                     "optional": false,
+                     "default": ""
+                  },
+                  {
+                     "name": "task.status",
+                     "type": "string",
+                     "constraints": "enum[todo,doing,done]",
+                     "multi_segment": false,
+                     "optional": false,
+                     "default": ""
+                  },
+                  {
+                     "name": "task.priority",
+                     "type": "int",
+                     "constraints": "range[1..5]",
+                     "multi_segment": false,
+                     "optional": false,
+                     "default": ""
+                  },
+                  {
+                     "name": "task.estimate",
+                     "type": "real",
+                     "constraints": "range[0.0..100.0]",
+                     "multi_segment": false,
+                     "optional": false,
+                     "default": ""
+                  }
                ]
             }
          ]
       }
    },
    "database": {
+      "$schema": "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json",
+      "version": 1,
       "type": "sqlite3",
-      "path": "./dbroot/data.db"
+      "filepath": "./test.db",
+      "on_open_sql": [
+         "PRAGMA foreign_keys = OFF;"
+      ],
+      "busy_timeout": 0,
+      "journal_mode": "",
+      "synchronous": "",
+      "foreign_keys": "",
+      "wal_autocheckpoint": 0,
+      "access_mode": 0
    }
 }

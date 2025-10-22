@@ -8,27 +8,45 @@ import (
 	"slices"
 )
 
-// ValuesMap is a map of parameter names to their extracted string values.
-type ValuesMap map[Identifier]any
+// ValuesMap is an ordered map of parameter names to their extracted values.
+// Order preservation is critical for:
+//   - Error suggestion URLs that match the user's request parameter order (ADR-018)
+//   - Deterministic test behavior (no map iteration randomness)
+//   - Debug output that reflects actual HTTP request structure
+type ValuesMap struct {
+	*OrderedMap[Identifier, any]
+}
+
+func (vm ValuesMap) SetNil() {
+	vm.OrderedMap = nil
+}
+
+func (vm ValuesMap) IsNil() bool {
+	return vm.OrderedMap == nil
+}
+
+func NewValuesMap(cap int) ValuesMap {
+	return ValuesMap{
+		OrderedMap: NewOrderedMap[Identifier, any](cap),
+	}
+}
 
 func (vm ValuesMap) GetValues(names []Identifier) (values ValuesMap, notFound []Identifier) {
 	n := len(names)
-	values = make(ValuesMap, n)
-	notFound = make([]Identifier, n)
+	values = NewValuesMap(n)
+	notFound = make([]Identifier, 0, n)
 
-	i := 0
 	notFoundMap := make(map[Identifier]struct{}, len(names))
 	for _, name := range names {
 		notFoundMap[name] = struct{}{}
 	}
 	for _, name := range names {
-		value, ok := vm[name]
+		value, ok := vm.Get(name)
 		if !ok {
 			continue
 		}
-		values[name] = value
+		values.Set(name, value)
 		delete(notFoundMap, name)
-		i++
 	}
 	notFound = slices.Collect(maps.Keys(notFoundMap))
 	return values, notFound
@@ -63,8 +81,8 @@ func (m MatchResult) GetValues(names []Identifier) (ValuesMap, []Identifier) {
 // ValuesMap returns the map of extracted parameter values.
 // If the internal map is nil, it initializes an empty map to prevent nil pointer issues.
 func (m MatchResult) ValuesMap() ValuesMap {
-	if m.valuesMap == nil {
-		m.valuesMap = make(ValuesMap)
+	if m.valuesMap.IsNil() {
+		m.valuesMap = NewValuesMap(0)
 	}
 	return m.valuesMap
 }
@@ -72,25 +90,25 @@ func (m MatchResult) ValuesMap() ValuesMap {
 // GetValue returns the value of a named parameter and whether it was found.
 // Returns the parameter value and true if the parameter exists, or empty string and false otherwise.
 func (m MatchResult) GetValue(name Identifier) (value any, found bool) {
-	value, found = m.valuesMap[name]
+	value, found = m.valuesMap.Get(name)
 	return value, found
 }
 
 // VarCount returns the number of extracted parameters.
 func (m MatchResult) VarCount() int {
-	return len(m.valuesMap)
+	return m.valuesMap.Len()
 }
 
 // HasVars returns true if any parameters were extracted from the request.
 func (m MatchResult) HasVars() bool {
-	return len(m.valuesMap) > 0
+	return m.valuesMap.Len() > 0
 }
 
 // ForEachVar iterates over all extracted parameters, calling the provided function
 // for each name-value pair. If the function returns true, iteration continues;
 // if it returns false, iteration stops early.
 func (m MatchResult) ForEachVar(fn func(name Identifier, value any) bool) {
-	for name, value := range m.valuesMap {
+	for name, value := range m.valuesMap.Iterator() {
 		if fn(name, value) {
 			continue
 		}

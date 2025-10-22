@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
-	"errors"
-	"fmt"
 	"strings"
 	"unicode"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 type APIParamsMapKey string
@@ -101,9 +101,9 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 	dec = jsontext.NewDecoder(bytes.NewReader(b))
 
 	if dec.PeekKind() != '{' {
-		err = errors.Join(
+		err = NewErr(
 			ErrAPIParamsMapExpectedObject,
-			fmt.Errorf("token_kind=%s", dec.PeekKind()),
+			"token_kind", dec.PeekKind(),
 		)
 		goto end
 	}
@@ -132,33 +132,33 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 		switch k {
 		case '{':
 			// Nested object is forbidden for real params; for comments we also forbid objects.
-			err = errors.Join(
+			err = NewErr(
 				ErrAPIParamsMapCannotBeNested,
-				fmt.Errorf("key=%s", name),
-				fmt.Errorf("value=%s", previewNextValue(name, dec)),
-				fmt.Errorf("offset=%d", valOffset),
+				"key", name,
+				"value", previewNextValue(name, dec),
+				"offset", valOffset,
 			)
 			goto end
 
 		case '[':
 			var ss []string
 			if !isComment {
-				err = errors.Join(
+				err = NewErr(
 					ErrAPIParamsMapCannotContainArray,
-					fmt.Errorf("key=%s", name),
-					fmt.Errorf("value=%s", previewNextValue(name, dec)),
-					fmt.Errorf("offset=%d", valOffset),
+					"key", name,
+					"value", previewNextValue(name, dec),
+					"offset", valOffset,
 				)
 				goto end
 			}
 			// For @comments, allow array of strings.
 			ss, err = readStringArray(name, dec)
 			if err != nil {
-				err = errors.Join(
+				err = NewErr(
 					ErrAPIParamsMapCannotContainArray,
-					fmt.Errorf("key=%s", name),
-					fmt.Errorf("value=%s", previewBytesArray(ss)),
-					fmt.Errorf("offset=%d", valOffset),
+					"key", name,
+					"value", previewBytesArray(ss),
+					"offset", valOffset,
 					err,
 				)
 				goto end
@@ -168,12 +168,12 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			joined := joinWithNewlines(ss)
 			// Duplicate check
 			if prev, dup := pm.Get(APIParamsMapKey(name)); dup {
-				err = errors.Join(
+				err = NewErr(
 					ErrAPIParamsMapDuplicateKey,
-					fmt.Errorf("key=%s", name),
-					fmt.Errorf("new_value=%s", joined),
-					fmt.Errorf("prev_value=%s", prev),
-					fmt.Errorf("offset=%d", valOffset),
+					"key", name,
+					"new_value", joined,
+					"prev_value", prev,
+					"offset", valOffset,
 				)
 				goto end
 			}
@@ -189,12 +189,12 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 			}
 			prev, dup := pm.Get(APIParamsMapKey(name))
 			if dup {
-				err = errors.Join(
+				err = NewErr(
 					ErrAPIParamsMapDuplicateKey,
-					fmt.Errorf("key=%s", name),
-					fmt.Errorf("new_value=%s", s),
-					fmt.Errorf("prev_value=%s", prev),
-					fmt.Errorf("offset=%d", valOffset),
+					"key", name,
+					"new_value", s,
+					"prev_value", prev,
+					"offset", valOffset,
 				)
 				goto end
 			}
@@ -202,21 +202,21 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 		case 'n', 't', 'f': // null / true / false
 			// Decode to capture a printable preview for the error message.
 			raw, _ := readRawValue(name, dec)
-			err = errors.Join(
+			err = NewErr(
 				ErrAPIParamsMapStringsOnly,
-				fmt.Errorf("key=%s", name),
-				fmt.Errorf("value=%s", string(raw)),
-				fmt.Errorf("offset=%d", valOffset),
+				"key", name,
+				"value", string(raw),
+				"offset", valOffset,
 			)
 			goto end
 		default:
 			// numbers or any other invalid token
 			raw, _ := readRawValue(name, dec)
-			err = errors.Join(
+			err = NewErr(
 				ErrAPIParamsMapStringsOnly,
-				fmt.Errorf("key=%s", name),
-				fmt.Errorf("value=%s", string(raw)),
-				fmt.Errorf("offset=%d", valOffset),
+				"key", name,
+				"value", string(raw),
+				"offset", valOffset,
 			)
 			goto end
 		}
@@ -232,10 +232,10 @@ func (pm *APIParamsMap) UnmarshalJSON(b []byte) (err error) {
 	offset = int(dec.InputOffset())
 	if hasNonSpace(b[offset:]) {
 		tr := trimLeadingSpace(b[offset:])
-		err = errors.Join(
+		err = NewErr(
 			ErrAPIParamsMapTrailingData,
-			fmt.Errorf("offset=%d", offset+leadingSpaceCount(b[offset:])),
-			fmt.Errorf("trailing=%s", previewBytes(tr, 120)),
+			"offset", offset+leadingSpaceCount(b[offset:]),
+			"trailing", previewBytes(tr, 120),
 		)
 		goto end
 	}
@@ -284,12 +284,10 @@ func readRawValue(name string, dec *jsontext.Decoder) (_ []byte, err error) {
 	var rm jsontext.Value
 	err = jsonv2.UnmarshalDecode(dec, &rm)
 	if err != nil {
-		err = errors.Join(err,
-			fmt.Errorf("varname=%s", name),
+		err = WithErr(err,
+			"var_name", name,
 		)
-		goto end
 	}
-end:
 	return rm, err
 }
 
@@ -321,9 +319,9 @@ func readStringArray(name string, dec *jsontext.Decoder) (arr []string, err erro
 		default:
 			// Invalid element: consume and report error with offending raw value.
 			raw, _ := readRawValue(name, dec)
-			err = errors.Join(ErrAPIParamsMapCannotContainArray,
-				fmt.Errorf("comment_name=%s", name),
-				fmt.Errorf("comment_value=%s", string(raw)),
+			err = NewErr(ErrAPIParamsMapCannotContainArray,
+				"comment_name", name,
+				"comment_value", string(raw),
 			)
 			goto end
 		}

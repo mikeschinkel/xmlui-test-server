@@ -4,8 +4,6 @@
 package pathvars
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -39,10 +37,9 @@ func (s *Segment) Parse(raw string) (err error) {
 
 	p, err = ParseParameter(spec, PathLocation)
 	if err != nil {
-		err = errors.Join(
-			fmt.Errorf("segment=%s", s.Raw),
-			fmt.Errorf("position=%d", len(s.Parameters)),
-			err,
+		err = WithErr(err,
+			"segment", s.Raw,
+			"position", len(s.Parameters),
 		)
 		goto end
 	}
@@ -70,14 +67,14 @@ func ExtractParameterSpec(segment string) (prefix, spec, suffix string, err erro
 	}
 	end = strings.LastIndex(segment, "}")
 	if end == -1 {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidParameterSyntax,
 			ErrUnmatchedOpeningBrace,
 		)
 		goto end
 	}
 	if begin >= end {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidParameterSyntax,
 			ErrMalformedBraces,
 		)
@@ -94,7 +91,7 @@ func ExtractParameterSpec(segment string) (prefix, spec, suffix string, err erro
 
 end:
 	if err != nil {
-		err = errors.Join(err, fmt.Errorf("url_segment=%s", segment))
+		err = WithErr(err, "url_segment", segment)
 	}
 	return prefix, spec, suffix, err
 }

@@ -5,9 +5,9 @@ import (
 )
 
 var (
-	ErrConnFailed                        = errors.New("failed to connect to database")
-	ErrInvalidConnString                 = errors.New("invalid connection string")
+	ErrConnectFailed                     = errors.New("failed to connect to database")
 	ErrConnectStringNotSupported         = errors.New("connection string is not valid for any supported database")
+	ErrInvalidConnectString              = errors.New("invalid connection string")
 	ErrFailedToTypeAssertToExtensionType = errors.New("failed to type assert to expected type for database extension")
 	ErrUnsupportedDBType                 = errors.New("unsupported database type")
 	ErrExtensionsUnsupportedForDBType    = errors.New("extensions unsupported for database type")

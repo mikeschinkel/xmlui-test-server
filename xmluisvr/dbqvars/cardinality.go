@@ -1,8 +1,6 @@
 package dbqvars
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -30,7 +28,7 @@ func ParseCardinality(s string) (re Cardinality, err error) {
 
 		// Nothing to do
 	default:
-		err = errors.Join(ErrInvalidCardinalityType, fmt.Errorf("cardinality=%s", s))
+		err = NewErr(ErrInvalidCardinalityType, "cardinality", s)
 		re = ""
 	}
 end:

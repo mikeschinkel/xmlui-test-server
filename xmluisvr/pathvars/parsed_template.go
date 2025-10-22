@@ -4,10 +4,7 @@
 package pathvars
 
 import (
-	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 )
@@ -24,10 +21,7 @@ type ParsedTemplate struct {
 	segments []Segment
 
 	// params maps parameter names to their definitions for validation and extraction.
-	params map[Identifier]Parameter
-
-	// paramNames contain parameter names in order they occur in the path
-	paramNames []Identifier
+	params *OrderedMap[Identifier, Parameter]
 
 	// regex is the compiled regular expression used for efficient path matching.
 	regex *regexp.Regexp
@@ -53,6 +47,12 @@ func (t *ParsedTemplate) String() string {
 	return t.raw
 }
 
+func (t *ParsedTemplate) Normalize() {
+	if len(t.raw) != 0 && t.raw[0] == '/' {
+		t.raw = t.raw[1:]
+	}
+}
+
 // Match attempts to match a path and query string against this template.
 // Returns a ValuesMap containing extracted parameter values and a boolean indicating
 // whether the match was successful. Both path parameters (from URL segments) and
@@ -60,6 +60,8 @@ func (t *ParsedTemplate) String() string {
 func (t *ParsedTemplate) Match(path, query string) (valuesMap ValuesMap, matched bool, err error) {
 	var errs []error
 	var matchedPath, matchedQuery bool
+
+	valuesMap = NewValuesMap(0)
 
 	// First, match path parameters using regex
 	matchedPath, err = t.matchPathParameters(path, &valuesMap)
@@ -70,10 +72,10 @@ func (t *ParsedTemplate) Match(path, query string) (valuesMap ValuesMap, matched
 	if err != nil {
 		errs = append(errs, err)
 	}
-	if len(valuesMap) == 0 {
-		valuesMap = nil
+	if valuesMap.Len() == 0 {
+		valuesMap.SetNil()
 	}
-	return valuesMap, matchedPath && matchedQuery, errors.Join(errs...)
+	return valuesMap, matchedPath && matchedQuery, CombineErrs(errs)
 }
 
 // matchPathParameters matches path parameters using regex and adds them to vars.
@@ -86,6 +88,7 @@ func (t *ParsedTemplate) matchPathParameters(path string, valuesMap *ValuesMap) 
 	var param Parameter
 	var exists bool
 	var errs []error
+	var validationErrors []paramValidationError
 
 	if t.regex == nil {
 		// No path regex means no path parameters
@@ -117,195 +120,233 @@ func (t *ParsedTemplate) matchPathParameters(path string, valuesMap *ValuesMap) 
 		value = matches[n]
 
 		// Validate parameter type and constraints
-		param, exists = t.params[name]
-		if exists && param.location == PathLocation {
-			err = t.validateParameter(param, value, path, PathLocation)
+		param, exists = t.params.Get(name)
+		if exists && param.Location() == PathLocation {
+			err = param.Validate(value)
 			if err != nil {
-				errs = append(errs, err)
+				// Collect error metadata - delay full error construction until
+				// after loop completes so SuggestionURL sees complete valuesMap
+				validationErrors = append(validationErrors, paramValidationError{
+					param:    param,
+					value:    value,
+					validErr: err,
+					location: PathLocation,
+				})
 			}
 		}
-		if len(*valuesMap) == 0 {
-			*valuesMap = make(ValuesMap)
+		if valuesMap.IsNil() {
+			*valuesMap = NewValuesMap(0)
 		}
-		(*valuesMap)[name] = value
+		(*valuesMap).Set(name, value)
+
+		// Decompose multi-segment parameters into component values
+		if param.MultiSegment {
+			t.decomposeValue(*valuesMap, name, value, param.DataType())
+		}
+
 		n++
 	}
-	err = errors.Join(errs...)
+
+	// Now that valuesMap is complete, construct validation errors with proper suggestion URLs
+	for _, ve := range validationErrors {
+		errs = append(errs, newTemplateError(t, ve.validErr, TemplateErrorArgs{
+			Source:   path,
+			Location: ve.location,
+			Suggestion: ve.param.ErrorSuggestion(ve.validErr, ve.value, t.SuggestionURL(SuggestionURLArgs{
+				ProblematicParam:   ve.param,
+				UserProvidedParams: valuesMap,
+				ValidationErr:      ve.validErr,
+			})),
+			Parameter: ve.param,
+		}))
+	}
+
+	err = CombineErrs(errs)
 end:
 	return matched, err
+}
+
+// paramValidationError holds error metadata collected during parameter validation.
+// We delay error construction until after all parameters are processed so that
+// suggestion URLs can include the complete set of user-provided parameters.
+type paramValidationError struct {
+	param    Parameter
+	value    string
+	validErr error
+	location LocationType
+}
+
+// SuggestionURLArgs contains parameters for building suggestion URLs.
+type SuggestionURLArgs struct {
+	ProblematicParam   Parameter
+	UserProvidedParams *ValuesMap
+	ValidationErr      error
 }
 
 // matchQueryParameters matches query parameters and adds them to vars.
 // Returns false if required parameters are missing or if validation fails.
 // Optional parameters are handled gracefully with default values when provided.
 func (t *ParsedTemplate) matchQueryParameters(query string, valuesMap *ValuesMap) (matched bool, err error) {
-	var queryValues url.Values
-	var param Parameter
-	var name Identifier
+	var queryValues *OrderedMap[string, []string]
+	var p Parameter
 	var value string
 	var values []string
 	var found bool
 	var errs []error
-	var addValue func(any)
+	var addValue func(Identifier, any)
+	var validationErrors []paramValidationError
 
 	// ParseBytes query string
-	if query != "" {
-		queryValues, err = url.ParseQuery(query)
+	if query == "" {
+		matched = true
+		goto end
+	}
 
-		if err != nil {
-			err = errors.Join(ErrInvalidURLQueryString, fmt.Errorf("url_query=%s", query), err)
-			goto end
-		}
+	queryValues, err = ParseQuery(query)
 
-		if queryValues == nil {
-			queryValues = make(url.Values)
-		}
+	if err != nil {
+		err = WithErr(err, ErrInvalidURLQueryString, "url_query", query)
+		goto end
+	}
+
+	if queryValues == nil {
+		goto end
 	}
 
 	matched = true
 
-	addValue = func(value any) {
-		if len(*valuesMap) == 0 {
-			*valuesMap = make(ValuesMap)
+	addValue = func(name Identifier, value any) {
+		if valuesMap.IsNil() {
+			*valuesMap = NewValuesMap(0)
 		}
-		(*valuesMap)[name] = value
+		(*valuesMap).Set(name, value)
 	}
 
 	// Check each query parameter in the template
-	for name, param = range t.params {
-		if param.location != QueryLocation {
+	for p = range t.params.Values() {
+		if p.Location() != QueryLocation {
 			continue
 		}
 
 		// Check if parameter is present in query string
-		values, found = queryValues[string(name)]
+		values, found = queryValues.Get(string(p.Name))
 		switch {
 		case found && len(values) > 0:
 			// Use the first value if multiple are provided
 			value = values[0]
 
 			// Validate matched parameter
-			err = t.validateParameter(param, value, query, QueryLocation)
+			err = p.Validate(value)
+			if err != nil {
+				// Collect error metadata - delay full error construction until
+				// after loop completes so SuggestionURL sees complete valuesMap
+				validationErrors = append(validationErrors, paramValidationError{
+					param:    p,
+					value:    value,
+					validErr: err,
+					location: QueryLocation,
+				})
+				// Still add to valuesMap even if invalid - needed for complete error suggestions
+			}
+			addValue(p.Name, value)
+
+		case p.Optional:
+			// Optional parameter not provided
+			if p.DefaultValue != nil {
+				// Use explicit default value
+				addValue(p.Name, *p.DefaultValue)
+				continue
+			}
+			// No explicit default - use type-specific implicit default
+			classifier, err := GetDataTypeClassifier(p.DataType())
 			if err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			addValue(value)
-
-		case param.Optional:
-			// Optional parameter not provided
-			if param.DefaultValue != nil {
-				// Use default value
-				addValue(*param.DefaultValue)
+			implicitDefault := classifier.DefaultValue()
+			if implicitDefault == nil {
+				// Type requires explicit default - this should be caught at parse time
+				continue
 			}
+			addValue(p.Name, *implicitDefault)
 
 		default:
 			// If no default value, simply omit from valuesMap (empty string behavior)
 			matched = false
 			// Required parameter not provided
-			errs = append(errs, errors.Join(ErrRequiredParameterNotProvided,
-				fmt.Errorf("parameter_name=%s", name),
-				fmt.Errorf("data_type=%s", param.dataType.Slug()),
-				fmt.Errorf("http_status=%d", http.StatusUnprocessableEntity),
-				fmt.Errorf("parameter_location=%s", param.location),
+			errs = append(errs, NewErr(ErrRequiredParameterNotProvided,
+				"parameter_name", p.Name,
+				"data_type", p.DataTypeSlug(),
+				"fault_source", ClientFaultSource.Slug(),
+				"parameter_location", p.Location(),
 			))
 			continue
 		}
 	}
-	err = errors.Join(errs...)
+
+	// Now that valuesMap is complete, construct validation errors with proper suggestion URLs
+	for _, ve := range validationErrors {
+		errs = append(errs, newTemplateError(t, ve.validErr, TemplateErrorArgs{
+			Source:   query,
+			Location: ve.location,
+			Suggestion: ve.param.ErrorSuggestion(ve.validErr, ve.value, t.SuggestionURL(SuggestionURLArgs{
+				ProblematicParam:   ve.param,
+				UserProvidedParams: valuesMap,
+				ValidationErr:      ve.validErr,
+			})),
+			Parameter: ve.param,
+		}))
+	}
+
+	err = CombineErrs(errs)
 end:
 	return matched, err
 }
 
-// validateParameter validates a parameter value against its type and constraints.
-// Returns an error with detailed context if validation fails.
-func (t *ParsedTemplate) validateParameter(param Parameter, value, source string, location LocationType) (err error) {
-	var errs []error
+// decomposeValue decomposes a multi-segment value into its component parts and adds them
+// to the values map with suffixed keys. For dates, creates param_year, param_month, param_day.
+// For other types, creates param_1, param_2, param_3, etc.
+func (t *ParsedTemplate) decomposeValue(valuesMap ValuesMap, name Identifier, value string, dataType PVDataType) {
+	// Split by the appropriate separator
+	var parts []string
+	var separator string
 
-	// Validate data type
-	err = validateDataType(value, param.dataType)
-	if err != nil {
-		err = errors.Join(ErrInvalidDataType, err)
-		goto end
-	}
+	switch dataType {
+	case DateType:
+		// Date type uses slash separator
+		separator = "/"
+		parts = strings.Split(value, separator)
 
-	// Validate constraints
-	for _, constraint := range param.constraints {
-		err = constraint.Validate(value)
-		if err != nil {
-			errs = append(errs, errors.Join(ErrConstraintValidationFailed, err))
+		// Add decomposed date components with semantic names
+		if len(parts) >= 1 && parts[0] != "" {
+			valuesMap.Set(Identifier(string(name)+"_year"), parts[0])
 		}
-	}
-	err = errors.Join(errs...)
-end:
-	if err != nil {
-		paramType := param.dataType.WithIndefiniteArticle()
-
-		detail := fmt.Sprintf("Parameter '%s' expected %s type but got '%s'",
-			param.Name,
-			paramType,
-			value,
-		)
-
-		suggestion := fmt.Sprintf("Use %s for '%s' like %v, for example: %s",
-			paramType,
-			param.Name,
-			param.dataType.Example(),
-			t.Example(),
-		)
-
-		// Create RFC 9457 response with extension
-		pve := ParameterValidationError{
-			Err:              ErrInvalidParameterValue,
-			HTTPStatus:       http.StatusUnprocessableEntity,
-			Detail:           detail,
-			Instance:         source,
-			Parameter:        string(param.Name),
-			ExpectedType:     string(param.dataType.Slug()),
-			ReceivedValue:    value,
-			Location:         location.Slug(),
-			Suggestion:       suggestion,
-			EndpointTemplate: t.raw,
+		if len(parts) >= 2 && parts[1] != "" {
+			valuesMap.Set(Identifier(string(name)+"_month"), parts[1])
+		}
+		if len(parts) >= 3 && parts[2] != "" {
+			valuesMap.Set(Identifier(string(name)+"_day"), parts[2])
 		}
 
-		err = errors.Join(ErrInvalidParameter, pve, err)
+	default:
+		// For all other types, use slash separator and numeric suffixes
+		separator = "/"
+		parts = strings.Split(value, separator)
+
+		// Add decomposed components with numeric suffixes
+		for i, part := range parts {
+			if part == "" {
+				continue
+			}
+			key := Identifier(fmt.Sprintf("%s_%d", name, i+1))
+			valuesMap.Set(key, part)
+		}
 	}
-	return err
 }
 
-type ParameterValidationError struct {
-	Err              error
-	HTTPStatus       int
-	Instance         string
-	Detail           string
-	Parameter        string
-	ExpectedType     string
-	ReceivedValue    string
-	Location         string
-	Suggestion       string
-	EndpointTemplate string
-}
-
-func (e ParameterValidationError) Error() string {
-	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", e.Err.Error(),
-		fmt.Sprintf("http_status=%d", e.HTTPStatus),
-		fmt.Sprintf("instance=%s", e.Instance),
-		fmt.Sprintf("detail=%s", e.Detail),
-		fmt.Sprintf("parameter=%s", e.Parameter),
-		fmt.Sprintf("expected_type=%s", e.ExpectedType),
-		fmt.Sprintf("received_value=%s", e.ReceivedValue),
-		fmt.Sprintf("location=%s", e.Location),
-		fmt.Sprintf("suggestion=%s", e.Suggestion),
-		fmt.Sprintf("endpoint_template=%s", e.EndpointTemplate),
-	)
-}
-
-// Parameters returns all parameters in the template.
-// TODO: Implementation needed - should return parameters in order of appearance.
-func (t *ParsedTemplate) Parameters() (params []Parameter) {
-	// Return parameters in order of appearance
-	panic("IMPLEMENT ME")
-	return params
+// Parameters returns the Ordered Map of parameters
+func (t *ParsedTemplate) Parameters() *OrderedMap[Identifier, Parameter] {
+	return t.params
 }
 
 // Validate checks parameter values against the template requirements.
@@ -318,49 +359,233 @@ func (t *ParsedTemplate) Validate(params map[Identifier]any) (err error) {
 
 // Substitute builds a path from parameter values by replacing template placeholders.
 // TODO: Implementation needed - should build path by substituting values.
-func (t *ParsedTemplate) Substitute(values map[Identifier]any) (result string, err error) {
+func (t *ParsedTemplate) Substitute(values *OrderedMap[Identifier, any]) (result string, err error) {
 	var errs []error
-	sb := strings.Builder{}
+	var query string
+
+	sbp := strings.Builder{}
 	n := 0
 	for _, seg := range t.segments {
-		sb.WriteByte('/')
+		sbp.WriteByte('/')
 		if seg.IsLiteral() {
-			sb.WriteString(seg.Raw)
+			sbp.WriteString(seg.Raw)
 			continue
 		}
 		if seg.Prefix != "" {
-			sb.WriteString(seg.Prefix)
+			sbp.WriteString(seg.Prefix)
 		}
 		// We currently only support one parameter per segment
 		paramName := seg.Parameters[0].Name
-		value, ok := values[paramName]
+		value, ok := values.Get(paramName)
 		if !ok {
-			errs = append(errs, errors.Join(ErrParameterNotFoundInValuesMap,
-				fmt.Errorf("parameter_name=%s", paramName),
-				fmt.Errorf("values_map=%v", values),
+			errs = append(errs, NewErr(
+				ErrParameterNotFoundInValuesMap,
+				ErrPathParameterNotFoundInValuesMap,
+				"parameter_name", paramName,
+				"values_map", values,
 			))
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("%v", value))
+		sbp.WriteString(fmt.Sprintf("%v", value))
 		if seg.Suffix != "" {
-			sb.WriteString(seg.Suffix)
+			sbp.WriteString(seg.Suffix)
 		}
 		n++
 	}
+	sbq := strings.Builder{}
+	for name, value := range values.Iterator() {
+		p, ok := t.params.Get(name)
+		if !ok {
+			errs = append(errs, NewErr(
+				ErrParameterNotFoundInValuesMap,
+				ErrQueryParameterNotFoundInValuesMap,
+				"parameter_name", p.Name,
+				"values_map", values,
+			))
+			continue
+		}
+		if p.Location() != QueryLocation {
+			continue
+		}
+		sbq.WriteString(fmt.Sprintf("%s=%v&", p.Name, value))
+	}
 	if len(errs) > 0 {
-		err = errors.Join(errs...)
+		err = CombineErrs(errs)
 		goto end
 	}
-	result = sb.String()
+	result = sbp.String()
+	query = sbq.String()
+	if len(query) != 0 {
+		result += "?" + query[:len(query)-1]
+	}
 end:
 	return result, err
 }
 
-func (t *ParsedTemplate) Example() (result string) {
-	params := make(map[Identifier]any, len(t.params))
-	for name, param := range t.params {
-		params[name] = param.dataType.Example()
+func (t *ParsedTemplate) Example(p Parameter) (result string) {
+	params := NewOrderedMap[Identifier, any](t.params.Len())
+	for param := range t.params.Values() {
+		if param.Optional && param.Name != p.Name {
+			continue
+		}
+		params.Set(param.Name, param.Example(nil))
 	}
 	result, _ = t.Substitute(params)
+	return result
+}
+
+// SuggestionURL builds a suggestion URL following ADR-018 guidelines:
+// - Only includes required parameters OR parameters user actually provided
+// - Correct parameters shown as {PLACEHOLDER}
+// - Problematic parameter shown with Example() value (using constraint's example if available)
+// - Problematic parameter positioned LAST in query string
+// - Query parameters appear in the order user provided them (preserving request structure)
+func (t *ParsedTemplate) SuggestionURL(args SuggestionURLArgs) (result string) {
+	// Build separate maps for path and query parameters
+	pathParams := NewOrderedMap[Identifier, any](t.params.Len())
+	correctQueryParams := NewOrderedMap[Identifier, any](t.params.Len())
+	problematicQueryParams := NewOrderedMap[Identifier, any](1)
+
+	// Track which parameters we've already added
+	addedParams := make(map[Identifier]bool, t.params.Len())
+
+	if args.UserProvidedParams == nil {
+		vm := NewValuesMap(0)
+		args.UserProvidedParams = &vm
+	}
+
+	// First pass: Add user-provided parameters in request order
+	for name := range args.UserProvidedParams.Keys() {
+		param, ok := t.params.Get(name)
+		if !ok {
+			continue // Skip parameters not in template
+		}
+
+		isProblematic := param.Name == args.ProblematicParam.Name
+
+		// Determine the value to show
+		var value any
+		if isProblematic {
+			// Problematic parameter: use Example() value with validation error context
+			value = param.Example(args.ValidationErr)
+		} else {
+			// Correct parameter: use {PLACEHOLDER} format
+			value = fmt.Sprintf("{%s}", strings.ToUpper(string(param.Name)))
+		}
+
+		// Add to appropriate map based on location and whether it's problematic
+		if param.Location() == PathLocation {
+			// Path parameters must stay in position, can't move to end
+			pathParams.Set(param.Name, value)
+		} else if isProblematic {
+			// Problematic query parameter goes in separate map (for positioning last)
+			problematicQueryParams.Set(param.Name, value)
+		} else {
+			// Correct query parameters go first (in request order)
+			correctQueryParams.Set(param.Name, value)
+		}
+
+		addedParams[param.Name] = true
+	}
+
+	// Second pass: Add required parameters that weren't user-provided (in API definition order)
+	for param := range t.params.Values() {
+
+		// Determine if this parameter should be included
+		isRequired := !param.Optional
+		value, ok := args.UserProvidedParams.Get(param.Name)
+		isUserProvided := ok && value != nil
+		isProblematic := param.Name == args.ProblematicParam.Name
+
+		// Skip optional parameters user didn't provide (unless it's the problematic one)
+		if !isRequired && !isUserProvided && !isProblematic {
+			continue
+		}
+
+		// Determine the value to show
+		if isProblematic {
+			// Problematic parameter: use Example() value with validation error context
+			value = param.Example(args.ValidationErr)
+		} else {
+			// Correct parameter: use {PLACEHOLDER} format
+			value = fmt.Sprintf("{%s}", strings.ToUpper(string(param.Name)))
+		}
+
+		// Add to appropriate map based on location and whether it's problematic
+		if param.Location() == PathLocation {
+			// Path parameters must stay in position, can't move to end
+			pathParams.Set(param.Name, value)
+		} else if isProblematic {
+			// Problematic query parameter goes in separate map (for positioning last)
+			problematicQueryParams.Set(param.Name, value)
+		} else {
+			// Correct query parameters go first
+			correctQueryParams.Set(param.Name, value)
+		}
+	}
+
+	// Build the URL by combining path params, correct query params, then problematic query params
+	result = t.buildSuggestionURL(pathParams, correctQueryParams, problematicQueryParams)
+	return result
+}
+
+// buildSuggestionURL constructs the final URL with path params and query params in correct order
+func (t *ParsedTemplate) buildSuggestionURL(pathParams, correctQueryParams, problematicQueryParams *OrderedMap[Identifier, any]) string {
+	var errs []error
+
+	// Build path portion
+	sbp := strings.Builder{}
+	for _, seg := range t.segments {
+		sbp.WriteByte('/')
+		if seg.IsLiteral() {
+			sbp.WriteString(seg.Raw)
+			continue
+		}
+		if seg.Prefix != "" {
+			sbp.WriteString(seg.Prefix)
+		}
+		// We currently only support one parameter per segment
+		paramName := seg.Parameters[0].Name
+		value, ok := pathParams.Get(paramName)
+		if !ok {
+			// This shouldn't happen if logic is correct
+			errs = append(errs, NewErr(
+				ErrParameterNotFoundInValuesMap,
+				ErrPathParameterNotFoundInValuesMap,
+				"parameter_name", paramName,
+			))
+			continue
+		}
+		sbp.WriteString(fmt.Sprintf("%v", value))
+		if seg.Suffix != "" {
+			sbp.WriteString(seg.Suffix)
+		}
+	}
+
+	// Build query string: correct params first, then problematic params last
+	sbq := strings.Builder{}
+
+	// Add correct query parameters
+	for name, value := range correctQueryParams.Iterator() {
+		sbq.WriteString(fmt.Sprintf("%s=%v&", name, value))
+	}
+
+	// Add problematic query parameters (last)
+	for name, value := range problematicQueryParams.Iterator() {
+		sbq.WriteString(fmt.Sprintf("%s=%v&", name, value))
+	}
+
+	if len(errs) > 0 {
+		// In case of errors, fall back to original Example() method
+		return t.Example(Parameter{})
+	}
+
+	result := sbp.String()
+	query := sbq.String()
+	if len(query) > 0 {
+		// Remove trailing '&'
+		result += "?" + query[:len(query)-1]
+	}
+
 	return result
 }

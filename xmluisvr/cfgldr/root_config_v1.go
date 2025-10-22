@@ -3,13 +3,13 @@ package cfgldr
 import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
-	"errors"
-	"fmt"
 	"os"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // TODO — Convince Gent that we should publish schemas on schemas.xmlui.org
@@ -334,48 +334,50 @@ func LoadRootConfigV1FromConfigStoreMap(stores cfgstore.ConfigStoresMap, opts *O
 	if err != nil {
 		goto end
 	}
-	if apiConfig != nil {
+	if rc != nil && apiConfig != nil {
 		rc.ServerConfig.APIConfig = apiConfig
 	}
 
 	schemaBytes, err = cfgstore.ReadFileIfExists(opts.DBBootstrapFile)
 	if err != nil {
-		err = errors.Join(ErrFailedToLoadDBSchemaFile, fmt.Errorf("dbschema_file=%s", opts.DBBootstrapFile), err)
+		err = NewErr(ErrFailedToLoadDBSchemaFile, "dbschema_file", opts.DBBootstrapFile, err)
 		goto end
 	}
-	if len(schemaBytes) != 0 {
+	if rc != nil && len(schemaBytes) != 0 {
 		rc.DBConfig.SetBootstrapQueries([]string{string(schemaBytes)})
 	}
 
 end:
 	if err != nil {
 		fp, _ := cs.GetFilepath()
-		err = errors.Join(err, fmt.Errorf("filepath=%s", fp))
+		err = WithErr(err,
+			"filepath", fp,
+		)
 	}
 	return rc, err
 }
 
 func loadAPIFileIfExists(apiFile string) (api *APIConfigV2, err error) {
-	var errs [2]error
 	var apiBytes []byte
 	if apiFile == "" {
 		goto end
 	}
 	apiBytes, err = cfgstore.ReadFileIfExists(apiFile)
 	if err != nil {
-		errs = [2]error{ErrFailedToLoadAPIConfigFile, err}
+		err = NewErr(ErrFailedToLoadAPIConfigFile, err)
 		goto end
 	}
 	api = &APIConfigV2{}
 	err = jsonv2.Unmarshal(apiBytes, &api)
 	if err != nil {
-		errs = [2]error{ErrFailedToUnmarshalAPIConfigFile, err}
+		err = NewErr(ErrFailedToUnmarshalAPIConfigFile, err)
 		goto end
 	}
 end:
-	err = nil
-	if errs[0] != nil {
-		err = errors.Join(errs[0], fmt.Errorf("api_file=%s", apiFile), errs[1])
+	if err != nil {
+		err = WithErr(err,
+			"api_file", apiFile,
+		)
 	}
 	return api, err
 }

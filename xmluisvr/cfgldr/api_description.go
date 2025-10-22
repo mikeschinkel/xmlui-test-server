@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 type Context = context.Context
@@ -89,14 +91,14 @@ func LoadAPIDescriptionFromFile(file string) (d *APIDescription, err error) {
 		goto end
 	}
 	if err != nil {
-		err = errors.Join(ErrReadFailed, err)
+		err = NewErr(ErrReadFailed, err)
 		goto end
 	}
 	d = &APIDescription{}
 	err = jsonv2.Unmarshal(data, &d)
 	if err != nil {
 		d = nil
-		err = errors.Join(ErrParseFailed, err)
+		err = NewErr(ErrParseFailed, err)
 		goto end
 	}
 

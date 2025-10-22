@@ -20,7 +20,7 @@ type Writer interface {
 
 var _ Writer = (*cliWriter)(nil)
 
-// outputWriter writes to stdout/stderr for normal CLI usage
+// outputWriter writes to stdout/doterr for normal CLI usage
 type cliWriter struct {
 	stdout    io.Writer
 	stderr    io.Writer
@@ -104,7 +104,7 @@ end:
 	return
 }
 
-// Errorf writes formatted error writer to stderr
+// Errorf writes formatted error writer to doterr
 func (c *cliWriter) Errorf(format string, args ...any) {
 	for i, arg := range args {
 		err, ok := arg.(error)

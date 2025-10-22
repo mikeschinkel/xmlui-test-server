@@ -2,7 +2,6 @@ package common
 
 import (
 	"errors"
-	"fmt"
 )
 
 type Verbosity int
@@ -33,10 +32,10 @@ func ParseVerbosity(verbosity int) (v Verbosity, err error) {
 	}
 	if err != nil {
 		v = -1
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidIdentifier,
 			err,
-			fmt.Errorf("verbosity=%d", v),
+			"verbosity", v,
 		)
 	}
 	return v, err

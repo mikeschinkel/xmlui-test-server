@@ -1,7 +1,6 @@
 package pathvars
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,7 +25,7 @@ func NewIntRangeConstraint(min int64, max int64) *IntegerRangeConstraint {
 	return c
 }
 
-func (c *IntegerRangeConstraint) ValidDateTypes() []PVDataType {
+func (c *IntegerRangeConstraint) ValidDataTypes() []PVDataType {
 	return []PVDataType{IntegerType}
 }
 
@@ -58,6 +57,36 @@ func (c *IntegerRangeConstraint) Rule() string {
 	return fmt.Sprintf("%d..%d", c.min, c.max)
 }
 
+func (c *IntegerRangeConstraint) ErrorDetail(param *Parameter, value string) string {
+	var n int64
+	var err error
+	n, err = strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		goto end
+	}
+	if n < c.min || n > c.max {
+		return fmt.Sprintf("Parameter '%s' with value '%s' failed constraint validation: value %d is outside the allowed range of %d..%d",
+			param.Name,
+			value,
+			n,
+			c.min,
+			c.max,
+		)
+	}
+end:
+	return c.baseConstraint.ErrorDetail(param, value)
+}
+
+func (c *IntegerRangeConstraint) ErrorSuggestion(param *Parameter, value, example string) string {
+	return fmt.Sprintf("Ensure parameter '%s' satisfies the constraint: %s, for example: %s", param.Name, c.String(), example)
+}
+
+// Example returns the midpoint of the range as a representative example value.
+// The error parameter is currently unused but allows for future context-aware examples.
+func (c *IntegerRangeConstraint) Example(err error) any {
+	return (c.min + c.max) / 2
+}
+
 // ParseIntRangeConstraint parses min..max format for integers
 func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstraint, err error) {
 	var parts []string
@@ -67,10 +96,7 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 	// Split by ".."
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
-		err = errors.Join(
-			ErrExpectedRangeFormat,
-			fmt.Errorf("range=%s", rangeSpec),
-		)
+		err = NewErr(ErrExpectedRangeFormat)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -78,9 +104,9 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 
 	minimum, err = strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidMinimumValue,
-			fmt.Errorf("minimum=%s", parts[0]),
+			"minimum", parts[0],
 			err,
 		)
 		if err != nil {
@@ -88,15 +114,15 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 		}
 	}
 	if len(parts) == 1 {
-		err = errors.Join(errs...)
+		err = CombineErrs(errs)
 		goto end
 	}
 
 	maximum, err = strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidMaximumValue,
-			fmt.Errorf("maximum=%s", parts[1]),
+			"maximum", parts[1],
 			err,
 		)
 		if err != nil {
@@ -105,10 +131,10 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 	}
 
 	if minimum > maximum {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidMinMaxValue,
-			fmt.Errorf("minimum=%d", minimum),
-			fmt.Errorf("maximum=%d", maximum),
+			"minimum", minimum,
+			"maximum", maximum,
 		)
 		if err != nil {
 			errs = append(errs, err)
@@ -116,16 +142,18 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 	}
 
 	if len(errs) != 0 {
-		err = errors.Join(
-			ErrInvalidConstraint,
-			fmt.Errorf("range=%s", rangeSpec),
-			errors.Join(errs...),
-		)
+		err = CombineErrs(errs)
 		goto end
 	}
 
 	constraint = NewIntRangeConstraint(minimum, maximum)
 
 end:
+	if err != nil {
+		err = WithErr(err,
+			ErrInvalidRangeConstraint,
+			"range_spec", rangeSpec,
+		)
+	}
 	return constraint, err
 }

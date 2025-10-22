@@ -2,11 +2,10 @@ package apiresp
 
 import (
 	"encoding/json/jsontext"
-	"fmt"
-	"os"
+	"net/http"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 // Format JSON is a pretty manner
@@ -24,8 +23,13 @@ end:
 	return prettyJSON
 }
 
-func stderrf(format string, a ...any) {
-	msg := fmt.Sprintf(format, a...)
-	_, _ = fmt.Fprint(os.Stderr, msg)
-	common.Logger().Error(msg)
+func getHTTPStatusFromFaultSource(fs pathvars.FaultSource) int {
+	switch fs {
+	case pathvars.ClientFaultSource:
+		return http.StatusUnprocessableEntity
+	case pathvars.ServerFaultSource:
+		fallthrough
+	default:
+		return http.StatusServiceUnavailable
+	}
 }

@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
-	"errors"
-	"fmt"
 	"io"
 )
 
@@ -21,16 +19,16 @@ func ExtractValuesFromReader(reader io.Reader, selectors []Selector) (valuesMap 
 	var rawBytes []byte
 
 	if reader == nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONPathTraversalFailed,
 			ErrJSONBodyCannotBeEmpty,
-			fmt.Errorf("selectors=%v", selectors),
+			"selectors", selectors,
 		)
 		goto end
 	}
 
 	if len(selectors) == 0 {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONPathTraversalFailed,
 			ErrJSONValueSelectorCannotBeEmpty,
 		)
@@ -41,7 +39,7 @@ func ExtractValuesFromReader(reader io.Reader, selectors []Selector) (valuesMap 
 	teeReader = io.TeeReader(reader, &buffer)
 	rawBytes, err = readAllBytes(teeReader)
 	if err != nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONStreamingParseFailed,
 			ErrJSONReadFailed,
 			err,
@@ -70,7 +68,7 @@ func ExtractValuesFromReader(reader io.Reader, selectors []Selector) (valuesMap 
 
 	// Join all collected errors
 	if len(errs) > 0 {
-		err = errors.Join(errs...)
+		err = CombineErrs(errs)
 	}
 
 	// Not create the list of selectors not found.
@@ -89,10 +87,10 @@ end:
 // ExtractValuesFromBytes is a convenience wrapper for ExtractValuesFromReader
 func ExtractValuesFromBytes(jsonBytes []byte, selectors []Selector) (valuesMap ValuesMap, found []Selector, err error) {
 	if len(jsonBytes) == 0 {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONPathTraversalFailed,
 			ErrJSONBodyCannotBeEmpty,
-			fmt.Errorf("selectors=%v", selectors),
+			"selectors", selectors,
 		)
 		goto end
 	}
@@ -111,29 +109,29 @@ func ExtractValueFromReader(reader io.Reader, selector Selector) (value any, err
 
 	valuesMap, notFound, err = ExtractValuesFromReader(reader, []Selector{selector})
 	if err != nil {
-		err = errors.Join(
+		err = WithErr(
 			ErrFailedToExtractValueFromJSON,
 			ErrExtractingFromJSONByReader,
-			fmt.Errorf("selector=%s", selector),
+			"selector", selector,
 			err,
 		)
 		goto end
 	}
 
 	if len(notFound) > 0 {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONSelectorNotFound,
 			ErrExtractingFromJSONByReader,
-			fmt.Errorf("selector=%s", selector))
+			"selector", selector)
 		goto end
 	}
 
 	value, ok = valuesMap[selector]
 	if !ok {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONSelectorNotFound,
 			ErrExtractingFromJSONByReader,
-			fmt.Errorf("selector=%s", selector))
+			"selector", selector)
 		goto end
 	}
 
@@ -149,29 +147,29 @@ func ExtractValueFromBytes(jsonBytes []byte, selector Selector) (value any, err 
 
 	valuesMap, notFound, err = ExtractValuesFromBytes(jsonBytes, []Selector{selector})
 	if err != nil {
-		err = errors.Join(
+		err = WithErr(
 			ErrFailedToExtractValueFromJSON,
 			ErrExtractingFromJSONBytes,
-			fmt.Errorf("selector=%s", selector),
+			"selector", selector,
 			err,
 		)
 		goto end
 	}
 
 	if len(notFound) > 0 {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONSelectorNotFound,
 			ErrExtractingFromJSONBytes,
-			fmt.Errorf("selector=%s", selector))
+			"selector", selector)
 		goto end
 	}
 
 	value, ok = valuesMap[selector]
 	if !ok {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONSelectorNotFound,
 			ErrExtractingFromJSONBytes,
-			fmt.Errorf("selector=%s", selector))
+			"selector", selector)
 		goto end
 	}
 
@@ -185,7 +183,7 @@ func extractSingleValue(reader io.Reader, selector Selector, rawBytes []byte) (v
 	var state *extractState
 
 	if len(selector) == 0 {
-		err = errors.Join(
+		err = NewErr(
 			ErrJSONPathTraversalFailed,
 			ErrJSONValueSelectorCannotBeEmpty,
 		)
@@ -199,7 +197,7 @@ func extractSingleValue(reader io.Reader, selector Selector, rawBytes []byte) (v
 	for i, segment := range state.segments {
 		state.position = i
 		if segment == "" {
-			err = state.joinErrors(
+			err = state.enrichError(
 				ErrJSONPathTraversalFailed,
 				ErrJSONPathContainsEmptySegment,
 			)
@@ -216,7 +214,7 @@ func extractSingleValue(reader io.Reader, selector Selector, rawBytes []byte) (v
 	// Extract the final value
 	err = jsonv2.UnmarshalDecode(decoder, &value)
 	if err != nil {
-		err = state.joinErrors(
+		err = state.enrichError(
 			ErrJSONStreamingParseFailed,
 			ErrJSONUnmarshalFailed,
 			err,

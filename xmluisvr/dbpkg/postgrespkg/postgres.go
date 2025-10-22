@@ -3,7 +3,6 @@ package postgrespkg
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -16,6 +15,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 func init() {
@@ -80,16 +81,17 @@ func (p *Postgres) IsConnectString(cs string) bool {
 
 func (p *Postgres) Open(_ context.Context) (err error) {
 	var cs common.ConnectString
+
 	p.writer.Printf("Using PostgreSQL database\n")
 	p.logger.Info("Opening PostgreSQL database")
 	cs, err = p.ParseConnectString(p.ConnectString())
 	if err != nil {
-		err = errors.Join(dbpkg.ErrInvalidConnString, err)
+		err = NewErr(dbpkg.ErrInvalidConnectString, err)
 		goto end
 	}
 	p.DB, err = sql.Open("postgres", string(cs))
 	if err != nil {
-		err = errors.Join(dbpkg.ErrConnFailed, err)
+		err = NewErr(dbpkg.ErrConnectFailed, err)
 		goto end
 	}
 end:

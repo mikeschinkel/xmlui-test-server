@@ -3,7 +3,6 @@ package cfgstore
 import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -202,16 +201,16 @@ func (s *configStore) Load() (data []byte, err error) {
 
 	fSys, err = s.getFS()
 	if err != nil {
-		err = errors.Join(ErrFailedToGetConfigFileSystem, err)
+		err = WithErr(ErrFailedToGetConfigFileSystem, err)
 		goto end
 	}
 
 	data, err = fs.ReadFile(fSys, s.filename)
 	if NoSuchFileOrDirectory(err) {
-		err = errors.Join(ErrFileDoesNotExist, err)
+		err = NewErr(ErrFileDoesNotExist, err)
 	}
 	if err != nil {
-		err = errors.Join(ErrFailedToReadFile, err)
+		err = NewErr(ErrFailedToReadFile, err)
 		goto end
 	}
 
@@ -231,7 +230,7 @@ func (s *configStore) LoadJSON(data any, opts *LoadJSONOpts) (err error) {
 	var jsonData []byte
 	jsonData, err = s.Load()
 	if err != nil {
-		err = errors.Join(ErrFailedToReadConfigFile, err)
+		err = WithErr(ErrFailedToReadConfigFile, err)
 		goto end
 	}
 
@@ -242,7 +241,7 @@ func (s *configStore) LoadJSON(data any, opts *LoadJSONOpts) (err error) {
 		err = jsonv2.Unmarshal(jsonData, data, opts.Options...)
 	}
 	if err != nil {
-		err = errors.Join(ErrFailedToUnmarshalConfigFile, err)
+		err = NewErr(ErrFailedToUnmarshalConfigFile, err)
 		goto end
 	}
 

@@ -427,14 +427,16 @@ Parameters use a flexible syntax in path templates:
 
 ### Constraint Examples
 - `{id:int:range[1..1000]}` - Integer between 1 and 1000
-- `{email:string:regex[.+@.+]}` - String matching email pattern
+- `{email:string:regex[.+@.+]}` - String matching email pattern (auto-anchored for full match)
 - `{status:string:enum[active,inactive]}` - String from allowed values
 - `{name:string:length[3..50]}` - String with length constraints
 - `{slug:string:notempty}` - Non-empty string
 - `{date:date:format[yyyy-mm-dd]}` - Date with specific format
 
 ### Multiple Constraints
-- `{id:string:regex[^[0-9]+$],length[3..10]}` - Multiple constraints separated by commas
+- `{id:string:regex[[0-9]+],length[3..10]}` - Multiple constraints separated by commas
+
+**Note on Regex Constraints:** Regex patterns automatically match the complete parameter value (full string matching). Do not include `^` (start) or `$` (end) anchors in your patterns - they are added automatically to ensure security and prevent partial matches. For example, `regex[.+@.+]` internally becomes `^.+@.+$` before compilation.
 
 ## Usage Examples
 

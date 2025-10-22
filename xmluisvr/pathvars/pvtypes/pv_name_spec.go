@@ -1,8 +1,6 @@
-package pathvars
+package pvtypes
 
 import (
-	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 )
@@ -40,25 +38,25 @@ func ParseNameSpecProps(ns string) (props *NameSpecProps, err error) {
 	var matches []string
 
 	if ns == "" {
-		err = errors.Join(err,
+		err = WithErr(err,
 			ErrInvalidNameSpec,
 			ErrNameSpecNameCannotBeEmpty,
 			ErrWhatNameSpecMustContain,
-			fmt.Errorf("namespec=%s", ns),
+			"namespec", ns,
 		)
 		goto end
 	}
 
 	name, err = ParseLeadingIdentifier(strings.ToLower(ns))
 	if err != nil {
-		err = errors.Join(err,
+		err = WithErr(err,
 			ErrInvalidNameSpec,
 			ErrWhatNameSpecMustContain,
-			fmt.Errorf("namespec=%s", ns),
+			"namespec", ns,
 		)
 		goto end
 	}
-	//err = errors.Join(ErrInvalidNameSpec, ErrWhatNameSpecMustContain)
+	//err = NewErr(ErrInvalidNameSpec, ErrWhatNameSpecMustContain)
 	//goto end
 	props = &NameSpecProps{
 		Name:     name,

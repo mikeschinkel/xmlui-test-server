@@ -8,6 +8,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 var paType = (*PayloadArgs)(nil)
@@ -28,7 +30,7 @@ var payloadArgsProps = map[uintptr]propInfo{
 	unsafe.Offsetof(paType.EndpointTemplate):  {"EndpointTemplate", func(args *PayloadArgs) bool { return args.EndpointTemplate == "" }},
 	unsafe.Offsetof(paType.Detail):            {"Detail", func(args *PayloadArgs) bool { return args.Detail == "" }},
 	unsafe.Offsetof(paType.RFC9457):           {"RFC9457", func(args *PayloadArgs) bool { return args.RFC9457 == nil }},
-	unsafe.Offsetof(paType.PVE):               {"PVE", func(args *PayloadArgs) bool { return args.PVE == nil }},
+	unsafe.Offsetof(paType.TemplateError):     {"TemplateError", func(args *PayloadArgs) bool { return args.TemplateError == nil }},
 }
 
 type PayloadArgs struct {
@@ -42,8 +44,10 @@ type PayloadArgs struct {
 	EndpointTemplate  string
 	Detail            string
 	RFC9457           *rfc9457.Response
-	PVE               *pathvars.ParameterValidationError
+	TemplateError     *pathvars.TemplateError
+	PVE               *pathvars.TemplateError
 	propsUsed         map[uintptr]struct{}
+	errs              []error
 }
 
 func (args *PayloadArgs) clone() *PayloadArgs {
@@ -57,10 +61,12 @@ func (args *PayloadArgs) clone() *PayloadArgs {
 	}
 	return &pa
 }
-
 func (args *PayloadArgs) useProp(propId uintptr) {
 	if args.propsUsed == nil {
-		stderrf("\nYou are attempting to mark property '%s' as being used by calling its Getter() but you are calling it on the original PayloadArgs and not the cloned version.\n", propId)
+		args.errs = append(args.errs, NewErr(
+			ErrNotUsingClonedPayloadArgs,
+			"property_id", propId,
+		))
 		goto end
 	}
 	args.propsUsed[propId] = struct{}{}
@@ -74,18 +80,37 @@ end:
 // error if so. This makes sure the developer is made away that the function will
 // not use any of these "disallowed" arg rather than allowing a potentially
 // subtle bug to remain in the source code.
-// TODO: This uses common.Logger() inside stderrf. See if we can eliminate that import.
-func (args *PayloadArgs) checkUsage(rp ResponsePayload) ResponsePayload {
+func (args *PayloadArgs) checkUsage(rp ResponsePayload) PayloadResult {
+	var errs []error
+	var err error
+
 	for propId, info := range payloadArgsProps {
 		_, used := args.propsUsed[propId]
 		switch {
 		case used && info.zeroFunc(args):
-			stderrf("\nProperty '%s' was expected TO be passed but had a zero value\n", info.name)
+			errs = append(errs, NewErr(
+				ErrZeroValueForExpectedProperty,
+				"property_name", info.name,
+			))
 		case !used && !info.zeroFunc(args):
-			stderrf("\nProperty '%s' was expected NOT to be passed but had a non-zero value\n", info.name)
+			errs = append(errs, NewErr(
+				ErrNonZeroValueForUnexpectedProperty,
+				"property_name", info.name,
+			))
 		}
 	}
-	return rp
+	// Add these errors to ones collected by useProp()
+	err = CombineErrs(append(args.errs, errs...))
+	if err != nil {
+		err = NewErr(
+			ErrInvalidPropertyUsage,
+			err,
+		)
+	}
+	return PayloadResult{
+		ResponsePayload: rp,
+		Error:           err,
+	}
 }
 
 func (args *PayloadArgs) GetHTTPStatus() int {
@@ -133,7 +158,7 @@ func (args *PayloadArgs) GetDBQuery() dbqvars.QueryString {
 	return args.DBQuery
 }
 
-func (args *PayloadArgs) GetPVE() *pathvars.ParameterValidationError {
-	args.useProp(unsafe.Offsetof(args.PVE))
-	return args.PVE
+func (args *PayloadArgs) GetTemplateError() *pathvars.TemplateError {
+	args.useProp(unsafe.Offsetof(args.TemplateError))
+	return args.TemplateError
 }

@@ -1,35 +1,40 @@
 package apiresp
 
 import (
-	"errors"
 	"fmt"
-	"reflect"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/errparsr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
+
+type PayloadResult struct {
+	ResponsePayload ResponsePayload
+	Error           error
+}
+
+func (r PayloadResult) NewErr(parts ...any) error {
+	var errs []any
+	// If generating the payload generated an error, show it first
+	if r.Error != nil {
+		errs = append(errs, r.Error)
+	}
+	// Add the ResponsePayload as an error so it can be found with FindErr
+	if r.ResponsePayload != nil {
+		errs = append(errs, r.ResponsePayload)
+	}
+	// Add all the parts passed in
+	errs = append(errs, parts...)
+
+	// Now make a new error
+	return NewErr(errs...)
+}
 
 type ResponsePayload interface {
 	ResponsePayload()
 	HTTPStatusCode() int
 	MIMEType() rfc9457.MIMEType
 	error
-}
-
-var responsePayloadArchetype = reflect.TypeOf((*ResponsePayload)(nil))
-
-func GetResponsePayload(pe errparsr.ParsedError) (rp ResponsePayload, err error) {
-	var ce error
-	ce, err = pe.GetCustomError(responsePayloadArchetype)
-	if ce != nil {
-		_ = errors.As(ce, &rp)
-	}
-	return rp, err
-}
-
-func MaybeGetResponsePayload(pe errparsr.ParsedError) (rp ResponsePayload) {
-	rp, _ = GetResponsePayload(pe)
-	return rp
 }
 
 var _ ResponsePayload = (*responsePayload)(nil)

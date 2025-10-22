@@ -29,8 +29,24 @@ func BootstrapSQL() string {
 	return string(bootstrapSQL)
 }
 func TestMain(m *testing.M) {
+	// Setup test environment
+	if err := setup(); err != nil {
+		stdErrf("Setup failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Run tests
+	code := m.Run()
+
+	// Cleanup test environment
+	teardown()
+
+	os.Exit(code)
+}
+
+// setup prepares the test environment before running tests.
+func setup() error {
 	var err error
-	// Logger is already set up in init() function above
 
 	// This ensures the logger is set up before cfgldr package initialization
 	logger := slog.New(testutil.NewBufferedLogHandler())
@@ -40,19 +56,25 @@ func TestMain(m *testing.M) {
 	wd, _ := os.Getwd()
 	testDataDir = filepath.Join(wd, "test-data")
 
+	// Generate the comprehensive test config file
+	configPath := filepath.Join(testDataDir, "api_comprehensive_test.json")
+	if err = generateComprehensiveConfig(configPath); err != nil {
+		return fmt.Errorf("failed to generate comprehensive config: %w", err)
+	}
+
 	// Pre-load the bootstrap SQL that all tests will use
 	sqlFile := filepath.Join(testDataDir, "bootstrap.sql")
 	bootstrapSQL, err = os.ReadFile(sqlFile)
 	if err != nil {
-		stdErrf("Failed to read %s; %v\n", sqlFile, err)
+		return fmt.Errorf("failed to read %s: %w", sqlFile, err)
 	}
 
-	// Run tests
-	code := m.Run()
+	return nil
+}
 
-	// Cleanup code here if needed
-
-	os.Exit(code)
+// teardown cleans up the test environment after all tests have run.
+func teardown() {
+	// Cleanup code here if needed in the future
 }
 
 func stdErrf(format string, args ...any) {

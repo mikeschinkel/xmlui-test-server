@@ -1,9 +1,9 @@
 package dbpkg
 
 import (
-	"errors"
-
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 type DatabaseType string
@@ -14,6 +14,7 @@ func ParseDatabaseType(ctx Context, connStr string) (dt DatabaseType, err error)
 	for dbType, db := range databaseMap {
 		cs, err = db.ParseConnectString(connStr)
 		if err != nil {
+			err = NewErr(ErrInvalidConnectString)
 			goto end
 		}
 		err := db.CheckConnection(ctx, dbType, cs)
@@ -24,7 +25,15 @@ func ParseDatabaseType(ctx Context, connStr string) (dt DatabaseType, err error)
 		dt = db.Type()
 		goto end
 	}
-	err = errors.Join(append([]error{ErrConnectStringNotSupported}, errs...)...)
+	err = NewErr(
+		ErrConnectStringNotSupported,
+		CombineErrs(errs),
+	)
 end:
+	if err != nil {
+		err = WithErr(err,
+			"connect_string", connStr,
+		)
+	}
 	return dt, err
 }

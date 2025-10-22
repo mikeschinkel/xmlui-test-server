@@ -525,7 +525,7 @@ func TestAPIEndpoints_FullIntegration(t *testing.T) {
 			name: "13_string_regex_constraint",
 			configContent: getRootConfig(`{
 				"method": "GET",
-				"path": "users/by-email-pattern/{email:string:regex[^[^@]+@[^@]+\\.[^@]+$]}",
+				"path": "users/by-email-pattern/{email:string:regex[[^@]+@[^@]+\\.[^@]+]}",
 				"description": "String with regex constraint",
 				"query": "SELECT id, email, name FROM users WHERE email LIKE {email} || '%';",
 				"cardinality": "many",

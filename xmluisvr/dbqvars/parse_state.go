@@ -1,8 +1,6 @@
 package dbqvars
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 	"unicode"
 )
@@ -251,18 +249,18 @@ func (s *parseState) consumePlaceholder(formatFunc FormatParamFunc) (err error) 
 		j++
 	}
 	if j >= s.n {
-		err = errors.Join(
+		err = NewErr(
 			ErrUnclosedPlaceholder,
-			fmt.Errorf("offset=%d", start),
+			"offset", start,
 		)
 		goto end
 	}
 	rawName = strings.TrimSpace(s.src[start+1 : j])
 	if !isValidName(rawName) {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidPlaceholderName,
-			fmt.Errorf("name=%s", rawName),
-			fmt.Errorf("offset=%d", start),
+			"name", rawName,
+			"offset", start,
 		)
 		goto end
 	}

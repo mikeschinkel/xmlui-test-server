@@ -2,15 +2,15 @@ package apipkg
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/errparsr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // HandleAPIFunc returns an HTTP handler function that processes API requests.
@@ -80,6 +80,9 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 	}
 }
 
+var ErrMissingQueryParameters = errors.New("missing query parameters")
+var ErrUnhandledParameterError = errors.New("unhandled parameter error")
+
 func (api *API) getQueryValues(args HandlerHelperArgs) (queryValues []any, err error) {
 	var missing []apiresp.MissingParameter
 
@@ -87,47 +90,69 @@ func (api *API) getQueryValues(args HandlerHelperArgs) (queryValues []any, err e
 	result := args.MatchResult
 	endpoint := args.Endpoint
 
-	queryValues, missing, err = endpoint.GetParameterValues(ParameterValuesSource{
+	queryValues, missing, err = endpoint.GetParameterValues(ParameterValuesArgs{
 		ValuesMap:  result.ValuesMap(),
 		BodyReader: r.Body,
 		Headers:    nil, // TODO: Not yet supported
+		Database:   args.Database,
 	})
-	if err != nil {
-		if len(missing) != 0 {
-			err = errors.Join(
-				ErrQueryValuesExtractionFailed,
-				apiresp.MissingParametersPayload(r, apiresp.PayloadArgs{
-					MissingParameters: missing,
-				}),
-				err,
-			)
-			goto end
-		}
-		err = errors.Join(
-			ErrQueryValuesExtractionFailed,
-			apiresp.CurrentlyUnhandledErrorPayload(r, apiresp.PayloadArgs{
-				Location: "CHANGE ME", // TODO: Determine appropriate value by breakpoint debugging during tests
-				Error:    err,
-			}),
+	if err == nil {
+		goto end
+	}
+	// Capture the cause
+	switch {
+	case len(missing) != 0:
+		err = apiresp.MissingParametersPayload(r, apiresp.PayloadArgs{
+			MissingParameters: missing,
+			Error:             err,
+		}).NewErr(
+			ErrMissingQueryParameters,
+			"missing_parameters", missing, // TODO Does this need to be converted to string?
+			err,
+		)
+	default:
+		err = apiresp.CurrentlyUnhandledErrorPayload(r, apiresp.PayloadArgs{
+			Location: "CHANGE ME", // TODO: Determine appropriate value by breakpoint debugging during tests
+			Error:    err,
+		}).NewErr(
+			ErrUnhandledParameterError,
 			err,
 		)
 	}
+	err = WithErr(err,
+		ErrQueryValuesExtractionFailed,
+		// TODO What of any of this would add value if returned as error meta?
+		// 	HTTPRequest *http.Request
+		// 	MatchResult pathvars.MatchResult
+		// 	APIResponse *apiresp.Response
+		// 	Database    dbpkg.Database
+		// 	Endpoint    *Endpoint
+		// 	QueryValues []any
+		// 	QueryResult apiresp.QueryResult
+		// 	DBQuery     dbqvars.QueryString
+		// 	RequestBody bytes.Buffer
+		// 	Content     any
+		// 	TargetURL   *url.URL
+		// 	URLPath     common.URLPath
+	)
 end:
 	return queryValues, err
 }
 
 func (api *API) GetQueryResult(ctx Context, args HandlerHelperArgs) (dbResult apiresp.QueryResult, err error) {
 	var rows dbpkg.QueryResult
+
 	endpoint := args.Endpoint
 	dbq := endpoint.ParsedQuery
 	qs := dbq.QueryString()
 	rows, err = dbpkg.ExecuteQuery(ctx, args.Database, qs, args.QueryValues)
 	if err != nil {
-		err = errors.Join(
+		// Generate a response payload
+		err = apiresp.QueryFailedPayload(args.HTTPRequest, apiresp.PayloadArgs{
+			ErrorStyle: api.Options.ErrorStyle,
+			Error:      err,
+		}).NewErr(
 			ErrQueryValuesExtractionFailed,
-			apiresp.QueryFailedPayload(args.HTTPRequest, apiresp.PayloadArgs{
-				ErrorStyle: api.Options.ErrorStyle,
-			}),
 			err,
 		)
 		goto end
@@ -155,39 +180,41 @@ end:
 	return ep, mr, err
 }
 
-func (api *API) handleFailedMatch(result pathvars.MatchResult, err error, args HandlerHelperArgs) error {
+func (api *API) handleFailedMatch(err error, args HandlerHelperArgs) error {
 	var httpStatus int
 	var resp *rfc9457.Response
-	var pe errparsr.ParsedError
 	var hasErrors bool
 
 	r := args.HTTPRequest
 
-	pe, _ = errparsr.ParseError(err)
-	err = pe.MaybeGetCustomError(rfc9457.ResponseArchetype)
-	if err != nil && errors.As(err, &resp) {
+	// Extract RFC9457 response using FindErr
+	resp, _ = FindErr[*rfc9457.Response](err)
+	if resp != nil {
 		httpStatus = resp.Status
 	}
+
+	// Extract http_status from metadata using ErrValue (type-safe!)
 	if httpStatus == 0 {
-		httpStatus = pe.MaybeGetIntDetail("http_status")
+		httpStatus, _ = ErrValue[int](err, "http_status")
 	}
-	hasErrors = pe.HasErrors()
+
+	// Simple nil check
+	hasErrors = err != nil
 
 	// TODO There are probably more cases we need to add
 	switch {
 	case httpStatus == 0 && !hasErrors:
 		goto end
 	case httpStatus == http.StatusUnprocessableEntity:
-		err = errors.Join(
+		err = apiresp.UnprocessableEntityPayload(r, apiresp.PayloadArgs{
+			RFC9457: resp,
+		}).NewErr(
 			ErrRouteMatchingFailed,
-			apiresp.UnprocessableEntityPayload(r, apiresp.PayloadArgs{
-				RFC9457: resp,
-			}),
 			err,
 		)
 		goto end
 	case hasErrors && httpStatus != 0:
-		err = errors.Join(
+		err = NewErr(
 			ErrRouteMatchingFailed,
 			// TODO Verify that "matching_request" is appropriate for "location"
 			apiresp.CurrentlyUnhandledErrorPayload(r, apiresp.PayloadArgs{
@@ -198,7 +225,7 @@ func (api *API) handleFailedMatch(result pathvars.MatchResult, err error, args H
 			err,
 		)
 	default:
-		err = errors.Join(
+		err = NewErr(
 			ErrRouteMatchingFailed,
 			apiresp.InternalServerErrorPayload(r, apiresp.PayloadArgs{}),
 			err,
@@ -209,38 +236,45 @@ end:
 	return err
 }
 
+func getErrFromPayload(cause error, payload apiresp.ResponsePayload, err error) {
+}
+
 func (api *API) tryMatchingRequest(args HandlerHelperArgs) (result pathvars.MatchResult, err error) {
-	var pve pathvars.ParameterValidationError
+	var te *pathvars.TemplateError
+	var pr apiresp.PayloadResult
 
 	r := args.HTTPRequest
 
 	result, err = api.Router.Match(r)
-	if errors.As(err, &pve) {
-		err = errors.Join(
+	if errors.As(err, &te) {
+		// Choose appropriate error payload based on error type
+		if te.ConstraintType() != "" {
+			pr = apiresp.ConstraintViolationErrorPayload(r, apiresp.PayloadArgs{TemplateError: te})
+		} else {
+			pr = apiresp.InvalidURLParameterErrorPayload(r, apiresp.PayloadArgs{TemplateError: te})
+		}
+		err = pr.NewErr(
 			pathvars.ErrInvalidParameter,
-			pve.Err,
-			apiresp.InvalidURLParameterErrorPayload(r, apiresp.PayloadArgs{PVE: &pve}),
+			te.Err, // TODO RESOLVE THIS!
 			err,
 		)
 		goto end
 	}
 	if errors.Is(err, pathvars.ErrNoMatch) {
-		err = errors.Join(
+		err = apiresp.EndpointNotMatchedPayload(r, apiresp.PayloadArgs{}).NewErr(
 			ErrRouteNotMatched,
-			apiresp.EndpointNotMatchedPayload(r, apiresp.PayloadArgs{}),
 			err,
 		)
 		goto end
 	}
 	if err != nil {
-		err = api.handleFailedMatch(result, err, args)
+		err = api.handleFailedMatch(err, args)
 	}
 end:
 	if err != nil {
-		err = errors.Join(
-			err,
-			fmt.Errorf("http_method=%s", r.Method),
-			fmt.Errorf("url_path=%s", r.URL.Path),
+		err = WithErr(err,
+			"http_method", r.Method,
+			"url_path", r.URL.Path,
 		)
 	}
 	return result, err
@@ -264,18 +298,19 @@ func (api *API) SendSuccessResponse(args SendResponseArgs) {
 }
 
 func (api *API) SendErrorResponse(args SendResponseArgs) {
-	// If an error occurred it would be encoded as a response payload so we parse the
-	// error, extract the payload, and return as the response.
-	pe, _ := errparsr.ParseError(args.Error)
-	rp := apiresp.MaybeGetResponsePayload(pe)
-	if rp == nil {
-		// Okay to ignore error as CurrentlyUnhandledErrorPayload() will report invalid location
-		location, _ := pe.GetDetail("location")
+	var rp apiresp.ResponsePayload
+	var location string
+	var found bool
+
+	// Extract ResponsePayload using FindErr
+	rp, found = FindErr[apiresp.ResponsePayload](args.Error)
+	if !found || rp == nil {
+		// Extract location using ErrValue (type-safe!)
+		location, _ = ErrValue[string](args.Error, "location")
 		rp = apiresp.CurrentlyUnhandledErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
-			Error:    errors.Join(ErrNoResponsePayloadFound, args.Error),
+			Error:    NewErr(ErrNoResponsePayloadFound, "error", args.Error.Error(), args.Error),
 			Location: apiresp.LocationType(location),
-		})
+		}).ResponsePayload
 	}
 	args.APIResponse.Send(rp)
-
 }

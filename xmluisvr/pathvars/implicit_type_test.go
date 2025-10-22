@@ -42,7 +42,7 @@ func TestImplicitTypeInference(t *testing.T) {
 		// Double colon syntax for constraints with implicit types
 		{"double-colon-slug", "/articles/{slug::enum[news,sports,tech]}", false, "slug", "Double colon with slug type and enum constraint"},
 		{"double-colon-int", "/items/{int::range[1..100]}", false, "integer", "Double colon with int type and range constraint"},
-		{"double-colon-date", "/events/{date::format[iso8601]}", false, "date", "Double colon with date type and format constraint"},
+		{"double-colon-date", "/events/{date::format[utc]}", false, "date", "Double colon with date type and format constraint"},
 
 		// Double colon syntax
 		{"double-colon-invalid", "/items/{invalidname::range[1..100]}", true, "", "Double colon with non-type name should error"},
@@ -114,7 +114,7 @@ func TestParameterParsingWithImplicitTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			param, err := pathvars.ParseParameter(tt.paramSpec /* LocationType unimportant for this test */, "")
+			param, err := pathvars.ParseParameter(tt.paramSpec, pathvars.IrrelevantLocationType)
 
 			if tt.expectError {
 				if err == nil {

@@ -78,8 +78,8 @@ func TestNotCompiledRouter(t *testing.T) {
 	if err == nil {
 		t.Error("Expected ErrAPIRouterNotCompiled but got no error")
 	}
-	if !errors.Is(err, pathvars.ErrAPIRouterNotCompiled) {
-		t.Errorf("Expected ErrAPIRouterNotCompiled, got %v", err)
+	if !errors.Is(err, pathvars.ErrRouterNotCompiled) {
+		t.Errorf("Expected ErrRouterNotCompiled, got %v", err)
 	}
 }
 

@@ -64,7 +64,7 @@ func (wl WriterLogger) ErrorError(msg string, args ...any) (err error) {
 		err = errors.New(msg)
 		goto end
 	}
-	err = errors.Join(errors.New(msg), err)
+	err = NewErr(errors.New(msg), err)
 end:
 	return err
 }

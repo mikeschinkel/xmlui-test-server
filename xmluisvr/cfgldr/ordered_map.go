@@ -18,7 +18,7 @@ func NewOrderedMap[K comparable, V any]() *OrderedMap[K, V] {
 	}
 }
 
-// Clear resets an ordered map to its initial state with internal data stractures
+// Clear resets an ordered map to its initial state with internal data structures
 // initialized but with no keys or values.
 func (o *OrderedMap[K, V]) Clear() {
 	o.store = map[K]V{}

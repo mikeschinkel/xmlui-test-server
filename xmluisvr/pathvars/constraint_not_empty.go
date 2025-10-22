@@ -21,7 +21,7 @@ func NewNotEmptyConstraint() *NotEmptyConstraint {
 	return c
 }
 
-func (c *NotEmptyConstraint) ValidDateTypes() []PVDataType {
+func (c *NotEmptyConstraint) ValidDataTypes() []PVDataType {
 	return []PVDataType{
 		AlphanumericType,
 		DateType,

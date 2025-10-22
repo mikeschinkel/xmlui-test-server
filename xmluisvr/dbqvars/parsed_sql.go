@@ -7,8 +7,9 @@ import (
 var _ ParsedQuery = (*ParsedSQL)(nil)
 
 type ParsedSQL struct {
-	SQL        SQLQuery
-	parameters []Parameter // ordered by first appearance, deduped by Name
+	SQL         SQLQuery
+	parameters  []Parameter  // ordered by first appearance, deduped by Name
+	occurrences []QueryToken // all parameter occurrences including duplicates
 }
 
 func NewParsedSQL(SQL SQLQuery, parameters []Parameter) ParsedSQL {
@@ -18,6 +19,20 @@ func NewParsedSQL(SQL SQLQuery, parameters []Parameter) ParsedSQL {
 	return ParsedSQL{
 		SQL:        SQL,
 		parameters: parameters,
+	}
+}
+
+func NewParsedSQLWithOccurrences(SQL SQLQuery, parameters []Parameter, occurrences []QueryToken) ParsedSQL {
+	if parameters == nil {
+		parameters = make([]Parameter, 0)
+	}
+	if occurrences == nil {
+		occurrences = make([]QueryToken, 0)
+	}
+	return ParsedSQL{
+		SQL:         SQL,
+		parameters:  parameters,
+		occurrences: occurrences,
 	}
 }
 
@@ -31,6 +46,10 @@ func (ps ParsedSQL) QueryString() QueryString {
 
 func (ps ParsedSQL) Parameters() (names Parameters) {
 	return ps.parameters
+}
+
+func (ps ParsedSQL) Occurrences() (tokens QueryTokens) {
+	return ps.occurrences
 }
 
 type ParseSQLArgs struct{}
@@ -100,16 +119,18 @@ func ParseSQL(sqlText SQLQuery, formatFunc FormatParamFunc) (ps ParsedSQL, err e
 	}
 
 	if len(state.edits) == 0 {
-		ps = NewParsedSQL(
+		ps = NewParsedSQLWithOccurrences(
 			SQLQuery(state.src),
 			state.tokens.Parameters(),
+			state.tokens,
 		)
 		goto end
 	}
 
-	ps = NewParsedSQL(
+	ps = NewParsedSQLWithOccurrences(
 		state.buildSQL(),
 		state.orderedTokens().Parameters(),
+		state.tokens,
 	)
 
 end:

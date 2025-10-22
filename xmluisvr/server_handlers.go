@@ -21,6 +21,7 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 func (svr *Server) handleRootFunc() http.HandlerFunc {
@@ -114,7 +115,7 @@ func (svr *Server) checkUntrustedQueriesAuthorization(args apipkg.HandlerHelperA
 		// Should PresentationStyle not return 404 instead, or it 501 still valid? 501 is
 		// probably valid since this is not a production server and leaking info is not a
 		// big concern for local development and testing.
-		err = errors.Join(
+		err = NewErr(
 			ErrUnauthorizedEndpointAccess,
 			apiresp.UnauthorizedPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Detail: fmt.Sprintf(
@@ -149,7 +150,7 @@ func (svr *Server) getHTTPBody(args apipkg.HandlerHelperArgs) (body bytes.Buffer
 	// Read the body into a buffer
 	_, err = io.ReadAll(teeReader)
 	if err != nil {
-		err = errors.Join(
+		err = NewErr(
 			apiresp.ErrFailedToReadHTTPRequestBody,
 			apiresp.InternalServerErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Location: apiresp.BodyLocation,
@@ -175,7 +176,7 @@ func (svr *Server) getDBQuery(args apipkg.HandlerHelperArgs) (qs dbqvars.QuerySt
 	}
 	err = jsonv2.UnmarshalRead(&args.RequestBody, &req)
 	if err != nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrFailedToGetDBQueryFromHTTPRequestBody,
 			ErrFailedToUnmarshalJSON,
 			apiresp.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
@@ -191,7 +192,7 @@ func (svr *Server) getDBQuery(args apipkg.HandlerHelperArgs) (qs dbqvars.QuerySt
 	values = req.Values
 	qs, err = args.Database.ParseQueryString(req.Query)
 	if err != nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrFailedToGetDBQueryFromHTTPRequestBody,
 			ErrInvalidDBQueryString,
 			apiresp.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
@@ -248,7 +249,7 @@ func (svr *Server) getTargetURLAndPath(args apipkg.HandlerHelperArgs) (target *u
 
 	hostPart, path, _ := strings.Cut(targetPath, "/")
 	if hostPart == "" {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidURL,
 			ErrMissingHostAfterProxySegment,
 			apiresp.InvalidURLFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
@@ -267,7 +268,7 @@ func (svr *Server) getTargetURLAndPath(args apipkg.HandlerHelperArgs) (target *u
 		targetHost = target.Host
 	}
 	if err != nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidURL,
 			ErrInvalidProxyTargetHost,
 			apiresp.InvalidURLFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{

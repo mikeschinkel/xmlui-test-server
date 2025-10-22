@@ -8,6 +8,8 @@ import (
 	"reflect"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 const (
@@ -111,7 +113,7 @@ func LoadAPIConfigV2(apiFile string) (c *APIConfigV2, err error) {
 		goto end
 	}
 	if err != nil {
-		err = errors.Join(ErrReadFailed, err)
+		err = WithErr(err, ErrReadFailed)
 		goto end
 	}
 	c = new(APIConfigV2)
@@ -119,7 +121,7 @@ func LoadAPIConfigV2(apiFile string) (c *APIConfigV2, err error) {
 	if err != nil {
 		c = nil
 		// TODO: Provide user better feedback as to what actually failed.
-		err = errors.Join(ErrParseFailed, err)
+		err = NewErr(ErrParseFailed, err)
 		goto end
 	}
 end:

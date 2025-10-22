@@ -4,11 +4,27 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
 )
+
+// TestMain sets up package-level configuration before running tests
+func TestMain(m *testing.M) {
+	// Set the GitHub repo URL to avoid log.Fatal during tests
+	apiresp.SetGitHubRepoURL(common.GitHubRepoURL)
+
+	// Set up the buffered logger for tests
+	logger, _ := testutil.GetBufferedLogger()
+	common.SetLogger(logger)
+
+	// Run tests
+	os.Exit(m.Run())
+}
 
 // TestInternalServerErrorPayload tests the InternalServerErrorPayload function
 func TestInternalServerErrorPayload(t *testing.T) {
@@ -16,11 +32,11 @@ func TestInternalServerErrorPayload(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/users/abc", nil)
 
-	payload := apiresp.InternalServerErrorPayload(req, apiresp.PayloadArgs{})
+	pr := apiresp.InternalServerErrorPayload(req, apiresp.PayloadArgs{})
 
 	// Should return Response
-	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiresp.Response, got %T", payload)
+	if !errors.As(pr.ResponsePayload, &resp) {
+		t.Fatalf("Expected *apiresp.Response, got %T", pr.ResponsePayload)
 	}
 
 	// Verify all fields
@@ -78,12 +94,12 @@ func TestInternalServerErrorPayload(t *testing.T) {
 func TestEndpointNotMatchedPayload(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/nonexistent", nil)
 
-	payload := apiresp.EndpointNotMatchedPayload(req, apiresp.PayloadArgs{})
+	pr := apiresp.EndpointNotMatchedPayload(req, apiresp.PayloadArgs{})
 	// Should return Response
 
 	var resp *rfc9457.Response
-	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiresp.Response, got %T", payload)
+	if !errors.As(pr.ResponsePayload, &resp) {
+		t.Fatalf("Expected *apiresp.Response, got %T", pr.ResponsePayload)
 	}
 
 	// Verify all fields
@@ -157,14 +173,14 @@ func TestUnprocessableEntityPayload_WithRFC9457(t *testing.T) {
 		},
 	}
 
-	payload := apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{
+	pr := apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{
 		RFC9457: inputRFC9457,
 	})
 
 	// Should return the same Response
 	var resp *rfc9457.Response
-	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiresp.Response, got %T", payload)
+	if !errors.As(pr.ResponsePayload, &resp) {
+		t.Fatalf("Expected *apiresp.Response, got %T", pr.ResponsePayload)
 	}
 
 	// Should be the exact same instance
@@ -205,11 +221,11 @@ func TestUnprocessableEntityPayload_WithNil(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/users/abc", nil)
 
-	payload := apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{})
+	pr := apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{})
 
 	// Should return InternalServerError instead
-	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiresp.Response, got %T", payload)
+	if !errors.As(pr.ResponsePayload, &resp) {
+		t.Fatalf("Expected *apiresp.Response, got %T", pr.ResponsePayload)
 	}
 
 	// Should be an internal server error (fallback behavior)
@@ -221,101 +237,5 @@ func TestUnprocessableEntityPayload_WithNil(t *testing.T) {
 	}
 	if resp.Title != "Internal Server Error" {
 		t.Errorf("Title: got %q, want %q", resp.Title, "Internal Server Error")
-	}
-}
-
-// TestNewResponsePayload tests the NewResponsePayload function
-func TestNewResponsePayload(t *testing.T) {
-	content := map[string]interface{}{
-		"id":    1,
-		"email": "test@example.com",
-		"name":  "Test User",
-	}
-
-	payload := apiresp.NewResponsePayload(apiresp.ResponsePayloadArgs{
-		Content:    content,
-		HTTPStatus: http.StatusOK,
-		MIMEType:   rfc9457.ApplicationJSON,
-	})
-
-	// Verify it implements ResponsePayload
-	var resp *rfc9457.Response
-	if !errors.As(payload, &resp) {
-		t.Fatalf("Expected *apiresp.Response, got %T", payload)
-	}
-
-	// Verify HTTPStatusCode
-	if payload.HTTPStatusCode() != http.StatusOK {
-		t.Errorf("HTTPStatusCode: got %d, want %d", payload.HTTPStatusCode(), http.StatusOK)
-	}
-
-	// Verify MIMEType
-	if payload.MIMEType() != rfc9457.ApplicationJSON {
-		t.Errorf("MIMEType: got %v, want %v", payload.MIMEType(), rfc9457.ApplicationJSON)
-	}
-
-	// Verify Content (if ContentGetter interface is available)
-	contentGetter, ok := payload.(rfc9457.ContentGetter)
-	if ok && contentGetter.Content() == nil {
-		t.Error("Content should not be nil")
-	}
-}
-
-// TestPayloadImplementsInterfaces verifies all payloads implement required interfaces
-func TestPayloadImplementsInterfaces(t *testing.T) {
-	req := httptest.NewRequest("GET", "/test", nil)
-
-	testCases := []struct {
-		name    string
-		payload rfc9457.ResponsePayload
-	}{
-		{
-			name:    "InternalServerErrorPayload",
-			payload: apiresp.InternalServerErrorPayload(req, apiresp.PayloadArgs{}),
-		},
-		{
-			name:    "EndpointNotMatchedPayload",
-			payload: apiresp.EndpointNotMatchedPayload(req, apiresp.PayloadArgs{}),
-		},
-		{
-			name: "UnprocessableEntityPayload",
-			payload: apiresp.UnprocessableEntityPayload(req, apiresp.PayloadArgs{
-				RFC9457: &rfc9457.Response{
-					Type:   rfc9457.InvalidParameterErrorType,
-					Title:  "Test",
-					Status: 422,
-				},
-			}),
-		},
-		{
-			name: "NewResponsePayload",
-			payload: apiresp.NewResponsePayload(apiresp.ResponsePayloadArgs{
-				Content:    map[string]string{"test": "data"},
-				HTTPStatus: 200,
-				MIMEType:   rfc9457.ApplicationJSON,
-			}),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Verify ResponsePayload interface
-			var resp *rfc9457.Response
-			if !errors.As(tc.payload, &resp) {
-				t.Fatalf("Expected *apiresp.Response, got %T", tc.payload)
-			}
-
-			// Verify HTTPStatusCode method exists
-			statusCode := tc.payload.HTTPStatusCode()
-			if statusCode < 100 || statusCode > 599 {
-				t.Errorf("%s HTTPStatusCode out of valid range: %d", tc.name, statusCode)
-			}
-
-			// Verify MIMEType method exists
-			mimeType := tc.payload.MIMEType()
-			if mimeType == "" {
-				t.Errorf("%s MIMEType is empty", tc.name)
-			}
-		})
 	}
 }

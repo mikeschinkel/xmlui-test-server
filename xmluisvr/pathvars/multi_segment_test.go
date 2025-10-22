@@ -63,7 +63,7 @@ func TestMultiSegmentParameters(t *testing.T) {
 
 			if tt.expectMatch {
 				if err != nil {
-					t.Errorf("Expected match but got error: %v", err)
+					t.Errorf("Expected match but got error:\n%v", err)
 					return
 				}
 
@@ -170,7 +170,7 @@ func TestMultiSegmentRegexGeneration(t *testing.T) {
 			_, err = router.Match(req)
 
 			if tt.matches && err != nil {
-				t.Errorf("Expected match but got error: %v", err)
+				t.Errorf("Expected match but got error:\n%v", err)
 			} else if !tt.matches && err == nil {
 				t.Errorf("Expected no match but got success")
 			}

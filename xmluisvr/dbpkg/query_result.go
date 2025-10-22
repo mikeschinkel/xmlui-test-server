@@ -1,10 +1,9 @@
 package dbpkg
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 type (
@@ -41,9 +40,9 @@ func (qr QueryResult) GetByCardinality(c dbqvars.Cardinality) (content any, err 
 			goto end
 		}
 		if len(qr) > 1 {
-			err = errors.Join(
+			err = NewErr(
 				ErrOneRowExpectedManyReturned,
-				fmt.Errorf("row_count=%d", len(qr)),
+				"row_count", len(qr),
 			)
 			goto end
 		}
@@ -55,7 +54,7 @@ func (qr QueryResult) GetByCardinality(c dbqvars.Cardinality) (content any, err 
 
 end:
 	if err != nil {
-		err = errors.Join(ErrInvalidCardinality, err)
+		err = WithErr(ErrInvalidCardinality, err)
 	}
 	return qr, err
 }

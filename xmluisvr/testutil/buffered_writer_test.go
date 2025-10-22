@@ -20,7 +20,7 @@ func TestBufferedWriter_Basic(t *testing.T) {
 	// Test basic Errorf
 	writer.Errorf("Error: %s", "something failed")
 	if !writer.ContainsStderr("Error: something failed") {
-		t.Errorf("Expected stderr to contain 'Error: something failed', got: %q", writer.GetStderr())
+		t.Errorf("Expected doterr to contain 'Error: something failed', got: %q", writer.GetStderr())
 	}
 }
 
@@ -134,7 +134,7 @@ func TestBufferedWriter_HelperMethods(t *testing.T) {
 		t.Error("Expected stdout to be empty after Reset()")
 	}
 	if writer.GetStderr() != "" {
-		t.Error("Expected stderr to be empty after Reset()")
+		t.Error("Expected doterr to be empty after Reset()")
 	}
 }
 
@@ -187,6 +187,6 @@ func TestBufferedWriter_ConcurrentAccess(t *testing.T) {
 		t.Error("Expected some stdout lines from concurrent writes")
 	}
 	if writer.CountStderrLines() == 0 {
-		t.Error("Expected some stderr lines from concurrent writes")
+		t.Error("Expected some doterr lines from concurrent writes")
 	}
 }

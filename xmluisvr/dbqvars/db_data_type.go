@@ -1,8 +1,6 @@
 package dbqvars
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -80,7 +78,7 @@ func ParseDBRowType(s string) (rt DBRowType, err error) {
 	case AnyRowType, IntegerRowType, RealRowType, StringRowType, ColumnsRowType, JSONRowType, IntegerRowTypeOrNULL, RealRowTypeOrNULL, StringRowTypeOrNULL, JSONRowTypeOrNULL:
 		// Nothing to do
 	default:
-		err = errors.Join(ErrInvalidRowType, fmt.Errorf("row_type=%s", s))
+		err = NewErr(ErrInvalidRowType, "row_type", s)
 		rt = ""
 	}
 end:
@@ -101,9 +99,9 @@ func ParseColumnTypes(ss []string) (cts []DBDataType, err error) {
 		}
 		cts[i] = value
 	}
-	err = errors.Join(errs...)
+	err = CombineErrs(errs)
 	if err != nil {
-		err = errors.Join(ErrInvalidResultsColumnDataType, err)
+		err = NewErr(ErrInvalidResultsColumnDataType, err)
 	}
 end:
 	return cts, err
@@ -119,7 +117,7 @@ func ParseDBDataType(s string) (dt DBDataType, err error) {
 	case AnyDBDataType, IntegerDBDataType, RealDBDataType, StringDBDataType, JSONDBDataType, IntegerDBDataTypeOrNULL, RealDBDataTypeOrNULL, StringDBDataTypeOrNULL, JSONDBDataTypeOrNULL:
 		// Nothing to do
 	default:
-		err = errors.Join(ErrInvalidDataType, fmt.Errorf("data_type=%s", s))
+		err = NewErr(ErrInvalidDataType, "data_type", s)
 		dt = ""
 	}
 end:

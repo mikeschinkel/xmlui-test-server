@@ -12,9 +12,12 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonxtractr"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 // ParseEndpoints converts a slice of configuration endpoint definitions
@@ -25,13 +28,21 @@ func ParseEndpoints(cfgEPs []*cfgldr.APIEndpointV2, basePath common.URLPath, db 
 	for i, cfgEP := range cfgEPs {
 		eps[i], err = ParseEndpoint(cfgEP, basePath, db)
 		if err != nil {
-			errs = append(errs, errors.Join(
+			errs = append(errs, NewErr(
 				ErrInvalidAPIEndpointParameter,
 				err,
 			))
 		}
 	}
-	return eps, errors.Join(errs...)
+	err = CombineErrs(errs)
+	if err != nil {
+		err = NewErr(
+			ErrParsingFailed,
+			ErrParsingOfMultipleEndpointsFailed,
+			CombineErrs(errs),
+		)
+	}
+	return eps, err
 }
 
 func ParseQuery(query common.QueryString, db dbpkg.Database) (pq dbqvars.ParsedQuery, err error) {
@@ -43,7 +54,7 @@ func ParseQuery(query common.QueryString, db dbpkg.Database) (pq dbqvars.ParsedQ
 	case ".sql":
 		pq, err = dbqvars.ParseSQL(dbqvars.SQLQuery(query), db.GetFormatParamFunc())
 	default:
-		err = errors.Join(ErrQueryTypeParsingNotYetSupported, fmt.Errorf("query_type=%s", qt))
+		err = NewErr(ErrQueryTypeParsingNotYetSupported, "query_type", qt)
 	}
 	return pq, err
 }
@@ -60,37 +71,48 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2, basePath common.URLPath, db dbpkg.
 	if err == nil {
 		ep.ParsedQuery, err = ParseQuery(common.QueryString(q), db)
 	}
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 
 	// TODO: Allow or disallow defining endpoints without explicitly specifying a method? Maybe we should require "ANY"?
 	ep.method, err = common.ParseHTTPMethod(cfg.Method, common.EmptyOk)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	var relPath *pathvars.ParsedTemplate
 	relPath, err = pathvars.ParseTemplate(cfg.Path)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 
 	// TODO Allow or disallow root-based URLs that ignore basepath; which to choose?
 	//      Need override setting to explicitly allow
+	// 			UNTIL THEN, we strip any leading slash (`/`)
+	relPath.Normalize()
+
 	ep.path = pathvars.Template(fmt.Sprintf("%s/%s", basePath, relPath))
 	ep.Params, err = ParseEndpointParams(cfg.Params, ep.path)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	ep.pathParsed = true
 	ep.Cardinality, err = dbqvars.ParseCardinality(cfg.Cardinality)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	ep.RowType, err = dbqvars.ParseDBRowType(cfg.RowType)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	ep.ColumnTypes, err = dbqvars.ParseColumnTypes(cfg.ColumnTypes)
-	errs = append(errs, err)
-	err = errors.Join(errs...)
+	errs = AppendErr(errs, err)
+	err = CombineErrs(errs)
 	if err != nil {
 		ep = nil
-		err = errors.Join(err,
-			fmt.Errorf("endpoint=%s", cfg.Endpoint()),
+		err = NewErr(
+			ErrParsingFailed,
+			ErrEndpointParsingFailed,
+			err,
+			"endpoint", cfg.Endpoint(),
 		)
 	}
-
 	return ep, err
 }
+
+var (
+	ErrParsingFailed                    = errors.New("parsing failed")
+	ErrEndpointParsingFailed            = errors.New("endpoint parsing failed")
+	ErrParsingOfMultipleEndpointsFailed = errors.New("parsing of multiple endpoints failed")
+)
 
 // EndPointString represents a string representation of an HTTP endpoint (e.g., "GET /users/:id").
 type EndPointString string
@@ -120,13 +142,13 @@ func (ep *Endpoint) GetBodyValuesMap(r io.Reader, selectors []jsonxtractr.Select
 	}
 	if err != nil {
 		// TODO: Replace with an Response
-		err = errors.Join(ErrExtractingFromReader,
+		err = NewErr(ErrExtractingFromReader,
 			err,
-			fmt.Errorf("endpoint=%v", ep.Endpoint()),
-			fmt.Errorf("sql_query=%v", dbq.QueryString()),
-			fmt.Errorf("sql_params=%v", dbq.Parameters()),
-			fmt.Errorf("body_matched=%v", valuesMap),
-			fmt.Errorf("not_matched=%v", notFound),
+			"endpoint", ep.Endpoint(),
+			"sql_query", dbq.QueryString(),
+			"sql_params", dbq.Parameters(),
+			"body_matched", valuesMap,
+			"not_matched", notFound,
 		)
 		goto end
 	}
@@ -134,13 +156,23 @@ end:
 	return valuesMap, notFound, err
 }
 
-type ParameterValuesSource struct {
+type ParameterValuesArgs struct {
 	ValuesMap  pathvars.ValuesMap
 	BodyReader io.Reader
 	Headers    http.Header // TODO: Not yet supported
+	Database   dbpkg.Database
 }
 
-func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues []any, missing []apiresp.MissingParameter, err error) {
+func (ep *Endpoint) parameterTypeMap() (tm map[string]pathvars.PVDataType) {
+	// Create a map of parameter names to their types for quick lookup
+	tm = make(map[string]pathvars.PVDataType)
+	for _, param := range ep.Params {
+		tm[string(param.Name)] = param.Type
+	}
+	return tm
+}
+
+func (ep *Endpoint) GetParameterValues(args ParameterValuesArgs) (queryValues []any, missing []apiresp.MissingParameter, err error) {
 	var pathValuesMap pathvars.ValuesMap
 	var namesNotFound []pathvars.Identifier
 	var jsonValuesMap jsonxtractr.ValuesMap
@@ -150,52 +182,60 @@ func (ep *Endpoint) GetParameterValues(pvs ParameterValuesSource) (queryValues [
 
 	dbq := ep.ParsedQuery
 	parameters := dbq.Parameters()
+	occurrences := dbq.Occurrences()
 
 	// Get the pathValuesMap needed for the SQL query from the URL path and query variables
 	ids := pathvars.Identifiers(parameters.Identifiers())
-	pathValuesMap, namesNotFound = pvs.ValuesMap.GetValues(ids)
+	pathValuesMap, namesNotFound = args.ValuesMap.GetValues(ids)
 
-	// Note get the selectors to search JSON
+	// Get the selectors to search JSON - only dotted selectors (e.g., task.title) should
+	// be extracted from the body. Query parameters and path parameters are already in pathValuesMap.
 	selectors = parameters.DottedSelectors()
-	if len(namesNotFound) > 0 {
-		// If some non-dotted selectors were not found in path or query, add to selectors
-		// to potentially extract values for from the JSON body.
-		selectors = combineStringsAsY(namesNotFound, selectors)
-	}
+	// NOTE: We do NOT add namesNotFound to selectors here because those are simple parameter names
+	// (not dotted) that should come from path/query, not the JSON body.
 
 	switch {
-	case pvs.BodyReader != nil:
-		// We got a reader for the JSON body
-		jsonValuesMap, notFound, err = ep.GetBodyValuesMap(pvs.BodyReader, jsonxtractr.ToSelectors(selectors))
+	case args.BodyReader != nil:
+		// We got a reader for the JSON body - extract dotted body parameters
+		jsonValuesMap, notFound, err = ep.GetBodyValuesMap(args.BodyReader, jsonxtractr.ToSelectors(selectors))
 		if err != nil {
-			err = errors.Join(ErrExtractingJSONBodyValues, err)
+			err = NewErr(ErrExtractingJSONBodyValues, err)
 			goto end
 		}
+		// Combine path/query params not found with body params not found
+		notFound = combineStringsAsY(namesNotFound, notFound)
 	default:
 		// We did NOT get a reader for the JSON body
-		// Convert slice of []common.Identifier to slice of []common.Selector{}.
+		// Any parameters not found in path/query are missing
 		notFound = combineStringsAsY(namesNotFound, []jsonxtractr.Selector{})
 	}
 
-	queryValues = make([]any, len(parameters))
-	for i, p := range parameters {
-		qv, ok := pathValuesMap[pathvars.Identifier(p.Name)]
+	// Build queryValues array based on ALL occurrences (including duplicates)
+	// For SQL binding, we need one value per placeholder, even if the same parameter appears multiple times
+	queryValues = make([]any, len(occurrences))
+	for i, token := range occurrences {
+		qv, ok := pathValuesMap.Get(pathvars.Identifier(token.Name))
 		if ok {
 			queryValues[i] = qv
 			continue
 		}
-		if pvs.BodyReader == nil {
+		if args.BodyReader == nil {
 			// We did not get a body ready so no jsonValuesMap to look at
 			continue
 		}
-		qv, ok = jsonValuesMap[jsonxtractr.Selector(p.Name)]
+		qv, ok = jsonValuesMap[jsonxtractr.Selector(token.Name)]
 		if ok {
 			queryValues[i] = qv
 			continue
 		}
 	}
-	missing = make([]apiresp.MissingParameter, len(notFound))
+
+	// Convert values based on parameter types for SQL compatibility
+	queryValues = ep.convertValuesForSQL(occurrences.Parameters(), queryValues, args)
+
+	// Build list of missing parameters for error reporting
 	epParams = EndpointParams(ep.Params).FilterByNames(jsonxtractr.Selectors(notFound).Strings())
+	missing = make([]apiresp.MissingParameter, len(epParams))
 	for i, p := range epParams {
 		missing[i] = apiresp.MissingParameter{
 			// TODO: Converting an Identifier to a Selector. p.Name should probably be a Selector
@@ -210,9 +250,9 @@ end:
 	return queryValues, missing, err
 }
 
-// ParsePathVarsParameters converts endpoint parameters into pathvars.Parameter instances
+// ParsePathVarParameters converts endpoint parameters into pathvars.Parameter instances
 // for use with the routing system. This enables path parameter extraction and validation.
-func (ep *Endpoint) ParsePathVarsParameters() (params []pathvars.Parameter, err error) {
+func (ep *Endpoint) ParsePathVarParameters() (params []pathvars.Parameter, err error) {
 	var errs []error
 	params = make([]pathvars.Parameter, 0, len(ep.Params))
 	for i, p := range ep.Params {
@@ -235,7 +275,7 @@ func (ep *Endpoint) ParsePathVarsParameters() (params []pathvars.Parameter, err 
 		params = append(params, pathvars.NewParameter(pathvars.ParameterArgs{
 			Position:    i,
 			NameProps:   props,
-			Location:    pathvars.LocationType(p.Location),
+			Location:    p.Location,
 			DataType:    dt,
 			Constraints: p.Constraints,
 			Original:    p.RawValue(),
@@ -291,4 +331,46 @@ func splitEndPoint(ep string) (method, path string) {
 	}
 end:
 	return method, path
+}
+
+var (
+	ErrConvertingValuesForSQL = errors.New("converting values for SQL")
+)
+
+// convertValuesForSQL converts parameter values to SQL-compatible types.
+// Currently handles boolean to integer conversion for SQLite compatibility.
+func (ep *Endpoint) convertValuesForSQL(parameters dbqvars.Parameters, values []any, args ParameterValuesArgs) (_ []any) {
+	var converted []any
+
+	// Create a map of parameter names to their types for quick lookup
+	tm := ep.parameterTypeMap()
+
+	// Convert values based on their parameter types
+	converted = make([]any, len(values))
+	for i, param := range parameters {
+		value := values[i]
+		if value == nil {
+			converted[i] = value
+			continue
+		}
+
+		// Look up the parameter type
+		dt, exists := tm[string(param.Name)]
+		if !exists {
+			// If type not found, keep original value
+			converted[i] = value
+			continue
+		}
+		// Convert if needed
+		converted[i] = convertValueForSQL(value, dt, args)
+	}
+	return converted
+}
+
+func convertValueForSQL(value any, dt pathvars.PVDataType, args ParameterValuesArgs) any {
+	switch dt {
+	case pathvars.BooleanType:
+		value = args.Database.ConvertValue(value, dbqvars.IntegerDBDataType)
+	}
+	return value
 }

@@ -56,20 +56,20 @@ func TestConstraints(t *testing.T) {
 		{name: "length-zero-allowed", ps: "GET /optional/{value:string:length[0..10]}", path: "/optional/", wantErr: true, expectVars: false}, // Empty segment not allowed by router
 
 		// Simple regexes
-		{name: "regex-digits", ps: "GET /code/{value:string:regex[^[0-9]+$]}", path: "/code/123", wantErr: false, expectVars: true},
-		{name: "regex-digits-invalid", ps: "GET /code/{value:string:regex[^[0-9]+$]}", path: "/code/abc", wantErr: true, expectVars: false},
+		{name: "regex-digits", ps: "GET /code/{value:string:regex[[0-9]+]}", path: "/code/123", wantErr: false, expectVars: true},
+		{name: "regex-digits-invalid", ps: "GET /code/{value:string:regex[[0-9]+]}", path: "/code/abc", wantErr: true, expectVars: false},
 
 		// Letter regexes
-		{name: "regex-letters", ps: "GET /word/{value:string:regex[^[a-zA-Z]+$]}", path: "/word/Hello", wantErr: false, expectVars: true},
-		{name: "regex-letters-invalid", ps: "GET /word/{value:string:regex[^[a-zA-Z]+$]}", path: "/word/Hello123", wantErr: true, expectVars: false},
+		{name: "regex-letters", ps: "GET /word/{value:string:regex[[a-zA-Z]+]}", path: "/word/Hello", wantErr: false, expectVars: true},
+		{name: "regex-letters-invalid", ps: "GET /word/{value:string:regex[[a-zA-Z]+]}", path: "/word/Hello123", wantErr: true, expectVars: false},
 
 		// Complex regexes
-		{name: "regex-email-like", ps: "GET /contact/{value:string:regex[^[a-zA-Z0-9]+@[a-zA-Z0-9]+\\.[a-zA-Z]{2,}$]}", path: "/contact/user@example.com", wantErr: false, expectVars: true},
-		{name: "regex-email-invalid", ps: "GET /contact/{value:string:regex[^[a-zA-Z0-9]+@[a-zA-Z0-9]+\\.[a-zA-Z]{2,}$]}", path: "/contact/invalid-email", wantErr: true, expectVars: false},
+		{name: "regex-email-like", ps: "GET /contact/{value:string:regex[[a-zA-Z0-9]+@[a-zA-Z0-9]+\\.[a-zA-Z]{2,}]}", path: "/contact/user@example.com", wantErr: false, expectVars: true},
+		{name: "regex-email-invalid", ps: "GET /contact/{value:string:regex[[a-zA-Z0-9]+@[a-zA-Z0-9]+\\.[a-zA-Z]{2,}]}", path: "/contact/invalid-email", wantErr: true, expectVars: false},
 
 		// Version regexes
-		{name: "regex-version", ps: "GET /api/{version:string:regex[^v[0-9]+$]}", path: "/api/v1", wantErr: false, expectVars: true},
-		{name: "regex-version-invalid", ps: "GET /api/{version:string:regex[^v[0-9]+$]}", path: "/api/1", wantErr: true, expectVars: false},
+		{name: "regex-version", ps: "GET /api/{version:string:regex[v[0-9]+]}", path: "/api/v1", wantErr: false, expectVars: true},
+		{name: "regex-version-invalid", ps: "GET /api/{version:string:regex[v[0-9]+]}", path: "/api/1", wantErr: true, expectVars: false},
 
 		// Basic enum
 		{name: "enum-valid-first", ps: "GET /status/{value:string:enum[active,inactive,pending]}", path: "/status/active", wantErr: false, expectVars: true},
@@ -89,9 +89,28 @@ func TestConstraints(t *testing.T) {
 		{name: "enum-single", ps: "GET /readonly/{value:string:enum[true]}", path: "/readonly/true", wantErr: false, expectVars: true},
 		{name: "enum-single-invalid", ps: "GET /readonly/{value:string:enum[true]}", path: "/readonly/false", wantErr: true, expectVars: false},
 
-		// ISO8601 format
-		{name: "date-iso8601-valid", ps: "GET /events/{date:date:format[iso8601]}", path: "/events/2023-12-25T10:30:00Z", wantErr: false, expectVars: true},
-		{name: "date-iso8601-invalid", ps: "GET /events/{date:date:format[iso8601]}", path: "/events/2023-12-25", wantErr: true, expectVars: false},
+		// Built-in format aliases
+
+		// dateonly format (yyyy-mm-dd)
+		{name: "date-dateonly-valid", ps: "GET /events/{date:date:format[dateonly]}", path: "/events/2023-12-25", wantErr: false, expectVars: true},
+		{name: "date-dateonly-invalid-with-time", ps: "GET /events/{date:date:format[dateonly]}", path: "/events/2023-12-25T10:30:00", wantErr: true, expectVars: false},
+		{name: "date-dateonly-invalid-with-timezone", ps: "GET /events/{date:date:format[dateonly]}", path: "/events/2023-12-25T10:30:00Z", wantErr: true, expectVars: false},
+		{name: "date-dateonly-invalid-format", ps: "GET /events/{date:date:format[dateonly]}", path: "/events/12-25-2023", wantErr: true, expectVars: false},
+
+		// utc format (strict UTC with Z required)
+		{name: "date-utc-valid", ps: "GET /events/{date:date:format[utc]}", path: "/events/2023-12-25T10:30:00Z", wantErr: false, expectVars: true},
+		{name: "date-utc-invalid-missing-z", ps: "GET /events/{date:date:format[utc]}", path: "/events/2023-12-25T10:30:00", wantErr: true, expectVars: false},
+		{name: "date-utc-invalid-date-only", ps: "GET /events/{date:date:format[utc]}", path: "/events/2023-12-25", wantErr: true, expectVars: false},
+
+		// local format (timezone-naive, Z forbidden)
+		{name: "date-local-valid", ps: "GET /logs/{date:date:format[local]}", path: "/logs/2023-12-25T10:30:00", wantErr: false, expectVars: true},
+		{name: "date-local-invalid-with-z", ps: "GET /logs/{date:date:format[local]}", path: "/logs/2023-12-25T10:30:00Z", wantErr: true, expectVars: false},
+		{name: "date-local-invalid-date-only", ps: "GET /logs/{date:date:format[local]}", path: "/logs/2023-12-25", wantErr: true, expectVars: false},
+
+		// datetime format (flexible, Z optional, treats missing Z as UTC)
+		{name: "date-datetime-valid-with-z", ps: "GET /records/{date:date:format[datetime]}", path: "/records/2023-12-25T10:30:00Z", wantErr: false, expectVars: true},
+		{name: "date-datetime-valid-without-z", ps: "GET /records/{date:date:format[datetime]}", path: "/records/2023-12-25T10:30:00", wantErr: false, expectVars: true},
+		{name: "date-datetime-invalid-date-only", ps: "GET /records/{date:date:format[datetime]}", path: "/records/2023-12-25", wantErr: true, expectVars: false},
 
 		// YYYY-MM-DD format
 		{name: "date-yyyy-mm-dd-valid", ps: "GET /posts/{date:date:format[yyyy-mm-dd]}", path: "/posts/2023-12-25", wantErr: false, expectVars: true},
@@ -223,7 +242,7 @@ func TestConstraints(t *testing.T) {
 		// Valid constraint formats
 		{name: "valid-range", ps: "GET /test/{val:int:range[1..10]}", wantErr: false, expectVars: false},
 		{name: "valid-length", ps: "GET /test/{val:string:length[5..50]}", wantErr: false, expectVars: false},
-		{name: "valid-regex", ps: "GET /test/{val:string:regex[^[a-z]+$]}", wantErr: false, expectVars: false},
+		{name: "valid-regex", ps: "GET /test/{val:string:regex[[a-z]+]}", wantErr: false, expectVars: false},
 		{name: "valid-enum", ps: "GET /test/{val:string:enum[a,b,c]}", wantErr: false, expectVars: false},
 		{name: "valid-date", ps: "GET /test/{val:date:format[yyyy-mm-dd]}", wantErr: false, expectVars: false},
 		{name: "valid-uuid", ps: "GET /test/{val:uuid:format[v4]}", wantErr: false, expectVars: false},
@@ -255,7 +274,7 @@ func TestConstraints(t *testing.T) {
 
 		// Additional realistic examples
 		{name: "user-status-enum", ps: "GET /users/{id:int}/status/{status:string:enum[active,inactive,suspended]}", path: "/users/42/status/active", wantErr: false, expectVars: true},
-		{name: "api-version", ps: "GET /api/{version:string:regex[^v[0-9]+$]}/users", path: "/api/v2/users", wantErr: false, expectVars: true},
+		{name: "api-version", ps: "GET /api/{version:string:regex[v[0-9]+]}/users", path: "/api/v2/users", wantErr: false, expectVars: true},
 		{name: "score-range", ps: "GET /games/{id:int}/score/{score:int:range[0..1000]}", path: "/games/123/score/850", wantErr: false, expectVars: true},
 
 		// === QUERY PARAMETER TESTS ===

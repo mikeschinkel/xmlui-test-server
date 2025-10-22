@@ -1,8 +1,7 @@
-package pathvars
+package pvtypes
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 )
 
@@ -23,17 +22,17 @@ func ParseIdentifier(s string) (id Identifier, err error) {
 		goto end
 	}
 	if s[0] != '_' && !isLetter(s[0]) {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidIdentifier,
 			ErrMustBeginWithLetterOrUnderscore,
-			fmt.Errorf("value=%s", s),
+			"value", s,
 		)
 		goto end
 	}
-	err = errors.Join(
+	err = NewErr(
 		ErrInvalidNameSpec,
 		ErrMustOnlyContainLettersDigitsAndOrUnderscores,
-		fmt.Errorf("value=%s", s),
+		"value", s,
 	)
 	id = Identifier(s)
 end:
@@ -45,10 +44,10 @@ var leadingIdentifierRegex = regexp.MustCompile(`^(\w+)(\W*)`)
 func ParseLeadingIdentifier(s string) (id Identifier, err error) {
 	matches := leadingIdentifierRegex.FindStringSubmatch(s)
 	if matches == nil {
-		err = errors.Join(
+		err = NewErr(
 			ErrInvalidIdentifier,
 			ErrMustBeginWithLetterOrUnderscore,
-			fmt.Errorf("value=%s", s),
+			"value", s,
 		)
 		goto end
 	}
@@ -58,8 +57,5 @@ end:
 }
 
 var (
-	ErrInvalidIdentifier                            = errors.New("invalid identifier")
-	ErrMustBeginWithLetterOrUnderscore              = errors.New("must begin with letter or underscore")
-	ErrMustOnlyContainLettersDigitsAndOrUnderscores = errors.New("must only contain letters, digits, and/or underscores")
-	ErrIdentifierCannotBeEmpty                      = errors.New("identifier can not be empty")
+	ErrInvalidIdentifier = errors.New("invalid identifier")
 )

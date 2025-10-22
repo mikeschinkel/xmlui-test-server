@@ -1,8 +1,6 @@
 package common
 
 import (
-	"errors"
-	"fmt"
 	"regexp"
 )
 
@@ -43,7 +41,7 @@ func ParseURLPath(p string) (up URLPath, err error) {
 		err = ErrURLPathMustNotBeEmpty
 	}
 	if !urlPathRegexp.MatchString(p) {
-		err = errors.Join(ErrInvalidURLPath, fmt.Errorf("url_path=%s", p))
+		err = NewErr(ErrInvalidURLPath, "url_path", p)
 		goto end
 	}
 	up = URLPath(p)

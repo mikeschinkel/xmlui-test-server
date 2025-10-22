@@ -19,3 +19,7 @@ func combineStringsAsY[X ~string, Y ~string](xx []X, yy []Y) []Y {
 	}
 	return append(yy, xxAsY...)
 }
+
+func prepend[T any](slice []T, item ...T) []T {
+	return append(item, slice...)
+}

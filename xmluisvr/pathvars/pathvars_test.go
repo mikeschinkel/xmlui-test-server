@@ -29,10 +29,10 @@ func TestPathVars(t *testing.T) {
 		{
 			method: "GET",
 			path:   "/foos/myfoo/bars/1",
-			expected: pathvars.NewMatchResult(&pathvars.Route{Index: 0}, pathvars.ValuesMap{
-				"foo":  "myfoo",
-				"bars": "1",
-			}),
+			expected: pathvars.NewMatchResult(&pathvars.Route{Index: 0}, newValuesMap(
+				"foo", "myfoo",
+				"bars", "1",
+			)),
 		},
 		{
 			method:  "POST",
@@ -99,7 +99,7 @@ func TestPathVars(t *testing.T) {
 				return
 			}
 
-			for expectedParam, expectedValue := range tt.expected.ValuesMap() {
+			for expectedParam, expectedValue := range tt.expected.ValuesMap().Iterator() {
 				actualValue, found := result.GetValue(expectedParam)
 				if !found {
 					t.Errorf("Expected parameter %q not found", expectedParam)

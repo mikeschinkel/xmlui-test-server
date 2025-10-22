@@ -66,7 +66,7 @@ func (w *BufferedWriter) Printf(format string, args ...any) {
 	w.stdout.WriteString(formatted)
 }
 
-// Errorf writes formatted error output to stderr buffer
+// Errorf writes formatted error output to doterr buffer
 func (w *BufferedWriter) Errorf(format string, args ...any) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -151,14 +151,14 @@ func (w *BufferedWriter) GetStdout() string {
 	return w.stdout.String()
 }
 
-// GetStderr returns the current stderr buffer contents
+// GetStderr returns the current doterr buffer contents
 func (w *BufferedWriter) GetStderr() string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.stderr.String()
 }
 
-// GetAllOutput returns both stdout and stderr combined
+// GetAllOutput returns both stdout and doterr combined
 func (w *BufferedWriter) GetAllOutput() string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -172,7 +172,7 @@ func (w *BufferedWriter) ContainsStdout(s string) bool {
 	return strings.Contains(w.stdout.String(), s)
 }
 
-// ContainsStderr returns true if stderr buffer contains the specified substring
+// ContainsStderr returns true if doterr buffer contains the specified substring
 func (w *BufferedWriter) ContainsStderr(s string) bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -186,7 +186,7 @@ func (w *BufferedWriter) ContainsOutput(s string) bool {
 	return strings.Contains(w.stdout.String(), s) || strings.Contains(w.stderr.String(), s)
 }
 
-// Reset clears both stdout and stderr buffers
+// Reset clears both stdout and doterr buffers
 func (w *BufferedWriter) Reset() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -231,7 +231,7 @@ func (w *BufferedWriter) GetStdoutLines() []string {
 	return result
 }
 
-// GetStderrLines returns stderr content split into lines (excluding empty lines)
+// GetStderrLines returns doterr content split into lines (excluding empty lines)
 func (w *BufferedWriter) GetStderrLines() []string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -256,7 +256,7 @@ func (w *BufferedWriter) CountStdoutLines() int {
 	return len(w.GetStdoutLines())
 }
 
-// CountStderrLines returns the number of non-empty lines in stderr
+// CountStderrLines returns the number of non-empty lines in doterr
 func (w *BufferedWriter) CountStderrLines() int {
 	return len(w.GetStderrLines())
 }

@@ -12,6 +12,8 @@ import (
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+
+	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
 )
 
 type HandlerHelperArgs struct {
@@ -78,6 +80,7 @@ func (args HandlerHelperArgs) ErrorMeta(err error) []any {
 }
 
 func (api *API) GetResponseContent(args HandlerHelperArgs) (content any, err error) {
+
 	// Now get the response content
 	result := args.MatchResult
 	dbResult := args.QueryResult
@@ -88,33 +91,31 @@ func (api *API) GetResponseContent(args HandlerHelperArgs) (content any, err err
 		fallthrough
 
 	case errors.Is(err, dbpkg.ErrOneRowExpectedZeroReturned):
-		err = errors.Join(
+		err = apiresp.NoResultsPayload(args.HTTPRequest, apiresp.PayloadArgs{
+			Error:            err,
+			ErrorStyle:       api.Options.ErrorStyle,
+			DBQuery:          args.Endpoint.ParsedQuery.QueryString(),
+			EndpointTemplate: result.Route.Endpoint(),
+		}).NewErr(
 			ErrQueryValuesExtractionFailed,
-			apiresp.NoResultsPayload(args.HTTPRequest, apiresp.PayloadArgs{
-				Error:            err,
-				ErrorStyle:       api.Options.ErrorStyle,
-				DBQuery:          args.Endpoint.ParsedQuery.QueryString(),
-				EndpointTemplate: result.Route.Endpoint(),
-			}),
 			err,
 		)
 		goto end
 
 	case errors.Is(err, dbpkg.ErrOneRowExpectedManyReturned):
-		err = errors.Join(
+		err = apiresp.NoResultsPayload(args.HTTPRequest, apiresp.PayloadArgs{
+			Error:            err,
+			ErrorStyle:       api.Options.ErrorStyle,
+			DBQuery:          args.Endpoint.ParsedQuery.QueryString(),
+			EndpointTemplate: result.Route.Endpoint(),
+		}).NewErr(
 			ErrQueryValuesExtractionFailed,
-			fmt.Errorf("rows_returned=%d", len(dbResult)),
-			apiresp.NoResultsPayload(args.HTTPRequest, apiresp.PayloadArgs{
-				Error:            err,
-				ErrorStyle:       api.Options.ErrorStyle,
-				DBQuery:          args.Endpoint.ParsedQuery.QueryString(),
-				EndpointTemplate: result.Route.Endpoint(),
-			}),
+			"rows_returned", len(dbResult),
 			err,
 		)
 
 	case err != nil:
-		err = errors.Join(
+		err = NewErr(
 			ErrQueryValuesExtractionFailed,
 			apiresp.CurrentlyUnhandledErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
 				Location:         "CHANGE ME", // TODO: Determine appropriate value by breakpoint debugging during tests
@@ -129,7 +130,7 @@ func (api *API) GetResponseContent(args HandlerHelperArgs) (content any, err err
 
 	}
 	if err != nil {
-		err = errors.Join(ErrGettingResponseContent, err)
+		err = WithErr(err, ErrGettingResponseContent)
 	}
 end:
 	return content, err

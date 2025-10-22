@@ -27,7 +27,10 @@ CREATE TABLE IF NOT EXISTS users (
 INSERT OR IGNORE INTO users (id, uuid, email, name, slug, score, rating, active, birth_date, login_time) VALUES
     (1, '550e8400-e29b-41d4-a716-446655440001', 'alice@example.com', 'Alice Carter', 'alice-carter', 85, 4.5, 1, '1990-05-15', '09:30:45'),
     (2, '550e8400-e29b-41d4-a716-446655440002', 'bob@example.com', 'Bob Nguyen', 'bob-nguyen', 92, 4.8, 1, '1985-12-03', '14:22:10'),
-    (3, '550e8400-e29b-41d4-a716-446655440003', 'carol@example.com', 'Carol Diaz', 'carol-diaz', 78, 3.9, 0, '1995-07-22', '11:45:30');
+    (3, '550e8400-e29b-41d4-a716-446655440003', 'carol@example.com', 'Carol Diaz', 'carol-diaz', 78, 3.9, 0, '1995-07-22', '11:45:30'),
+    -- Additional test users for specific test cases
+    (4, '550e8400-e29b-41d4-a716-446655440000', 'dana@example.com', 'Dana Kim', 'dana-kim', 88, 4.2, 1, '1990-01-15', '10:15:00'),
+    (5, '550e8400-e29b-41d4-a716-446655440005', 'evan@example.com', 'Evan Jones', 'evan-jones', 73, 3.5, 0, '1992-08-20', '16:30:25');
 
 -- =========================
 -- PROJECTS TABLE
@@ -118,7 +121,9 @@ INSERT OR IGNORE INTO measurements (sensor_id, value, unit, precision_val) VALUE
     ('TEMP001', 23.5, 'celsius', 0.1),
     ('HUMID002', 65.8, 'percent', 0.5),
     ('PRESS003', 1013.25, 'hPa', 0.01),
-    ('LIGHT004', 750.0, 'lux', 1.0);
+    ('LIGHT004', 750.0, 'lux', 1.0),
+    -- Additional test measurement for alphanumeric parameter testing
+    ('ABC123', 42.0, 'units', 0.5);
 
 -- =========================
 -- ARCHIVE TABLE (for date format testing)

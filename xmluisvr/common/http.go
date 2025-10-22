@@ -73,13 +73,13 @@ func ParseHTTPMethod(m string, eh EmptyHandling) (hm HTTPMethod, err error) {
 		case UnspecifiedEmptyHandling:
 			fallthrough
 		default:
-			err = errors.Join(ErrEmptyHandlingNotSpecified, fmt.Errorf("method=%s", m))
+			err = NewErr(ErrEmptyHandlingNotSpecified, "method", m)
 			goto end
 		}
 	}
 	matches = HttpMethodRegexp.FindStringSubmatch(strings.ToUpper(m))
 	if len(matches) == 0 {
-		err = errors.Join(ErrNotAValidHTTPMethod, fmt.Errorf("method=%s", m))
+		err = NewErr(ErrNotAValidHTTPMethod, "method", m)
 		goto end
 	}
 	hm = HTTPMethod(matches[1])
