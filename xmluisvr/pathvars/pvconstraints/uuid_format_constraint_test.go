@@ -1,7 +1,9 @@
-package pathvars
+package pvconstraints
 
 import (
 	"testing"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func TestUUIDFormatConstraintParsing(t *testing.T) {
@@ -63,12 +65,12 @@ func TestUUIDFormatConstraintParsing(t *testing.T) {
 			}
 
 			// Verify constraint properties
-			if constraint.Type() != FormatConstraintType {
+			if constraint.Type() != pvtypes.FormatConstraintType {
 				t.Errorf("Expected FormatConstraintType, got %v", constraint.Type())
 			}
 
 			validTypes := constraint.ValidDataTypes()
-			if len(validTypes) != 1 || validTypes[0] != UUIDType {
+			if len(validTypes) != 1 || validTypes[0] != pvtypes.UUIDType {
 				t.Errorf("Expected ValidDataTypes to return [UUIDType], got %v", validTypes)
 			}
 		})
@@ -170,13 +172,13 @@ func TestUUIDFormatConstraintInterface(t *testing.T) {
 	}
 
 	// Test Type method
-	if constraint.Type() != FormatConstraintType {
+	if constraint.Type() != pvtypes.FormatConstraintType {
 		t.Errorf("Expected Type() to return FormatConstraintType, got %v", constraint.Type())
 	}
 
 	// Test ValidDataTypes method
 	validTypes := constraint.ValidDataTypes()
-	if len(validTypes) != 1 || validTypes[0] != UUIDType {
+	if len(validTypes) != 1 || validTypes[0] != pvtypes.UUIDType {
 		t.Errorf("Expected ValidDataTypes() to return [UUIDType], got %v", validTypes)
 	}
 
@@ -186,7 +188,7 @@ func TestUUIDFormatConstraintInterface(t *testing.T) {
 	}
 
 	// Test ParseBytes method
-	parsed, err := constraint.Parse("v7", UUIDType)
+	parsed, err := constraint.Parse("v7", pvtypes.UUIDType)
 	if err != nil {
 		t.Errorf("Expected ParseBytes() to succeed, got error: %v", err)
 		return
@@ -248,7 +250,7 @@ func TestUUIDFormatConstraintIntegration(t *testing.T) {
 	}
 
 	// Verify it implements the Constraint interface properly
-	var _ Constraint = constraint
+	var _ pvtypes.Constraint = constraint
 
 	// Test with valid UUID
 	validUUID := "550e8400-e29b-41d4-a716-446655440000"
@@ -260,5 +262,84 @@ func TestUUIDFormatConstraintIntegration(t *testing.T) {
 	invalidUUID := "not-a-uuid"
 	if err := constraint.Validate(invalidUUID); err == nil {
 		t.Error("Invalid UUID passed validation")
+	}
+}
+
+// TestUUIDFormatConstraint_EasterEggExamples tests that UUID format constraints
+// provide appropriate Easter egg examples for each UUID version format.
+// These examples use memorable/recognizable patterns.
+func TestUUIDFormatConstraint_EasterEggExamples(t *testing.T) {
+	tests := []struct {
+		name           string
+		formatSpec     string
+		wantExample    string
+		invalidExample string // An example that should fail validation
+	}{
+		{
+			name:           "uuid_v1_format",
+			formatSpec:     "v1",
+			wantExample:    "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+			invalidExample: "deadbeef-cafe-4011-8123-b1d5c0d51234", // v4 UUID
+		},
+		{
+			name:           "uuid_v4_format",
+			formatSpec:     "v4",
+			wantExample:    "deadbeef-cafe-4011-8123-b1d5c0d51234",
+			invalidExample: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6", // v1 UUID
+		},
+		{
+			name:           "uuid_v5_format",
+			formatSpec:     "v5",
+			wantExample:    "2a98f1f0-0a71-50e5-9d51-8650e68d9518",
+			invalidExample: "deadbeef-cafe-4011-8123-b1d5c0d51234", // v4 UUID
+		},
+		{
+			name:           "uuid_v7_format",
+			formatSpec:     "v7",
+			wantExample:    "018d9f10-5341-7c91-9e73-b3c14d9b4b0e",
+			invalidExample: "deadbeef-cafe-4011-8123-b1d5c0d51234", // v4 UUID
+		},
+		{
+			name:           "uuid_v8_format",
+			formatSpec:     "v8",
+			wantExample:    "20251018-b26a-8025-a12b-4c5d6e7f8a9b",
+			invalidExample: "deadbeef-cafe-4011-8123-b1d5c0d51234", // v4 UUID
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse the constraint
+			constraint, err := ParseUUIDFormatConstraint(tt.formatSpec)
+			if err != nil {
+				t.Fatalf("Failed to parse UUID format constraint %q: %v", tt.formatSpec, err)
+			}
+
+			// Get the example
+			example := constraint.Example(nil)
+			if example == nil {
+				t.Fatal("Example() returned nil")
+			}
+
+			exampleStr, ok := example.(string)
+			if !ok {
+				t.Fatalf("Example() returned non-string: %T", example)
+			}
+
+			// Verify the example matches what we expect
+			if exampleStr != tt.wantExample {
+				t.Errorf("Example() = %q, want %q", exampleStr, tt.wantExample)
+			}
+
+			// Verify the example validates correctly
+			if err := constraint.Validate(exampleStr); err != nil {
+				t.Errorf("Example %q failed validation: %v", exampleStr, err)
+			}
+
+			// Verify an invalid example fails validation
+			if err := constraint.Validate(tt.invalidExample); err == nil {
+				t.Errorf("Invalid example %q should have failed validation", tt.invalidExample)
+			}
+		})
 	}
 }

@@ -1,20 +1,22 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {
-	RegisterConstraint(&RegexConstraint{})
+	pvtypes.RegisterConstraint(&RegexConstraint{})
 }
 
-var _ Constraint = (*RegexConstraint)(nil)
+var _ pvtypes.Constraint = (*RegexConstraint)(nil)
 
 // RegexConstraint validates against regex regex
 type RegexConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	regex *regexp.Regexp
 	raw   string
 }
@@ -24,26 +26,26 @@ func NewRegexConstraint(regex *regexp.Regexp, raw string) *RegexConstraint {
 		regex: regex,
 		raw:   raw,
 	}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *RegexConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{
-		StringType,
-		SlugType,
-		AlphanumericType,
-		EmailType,
-		IdentifierType,
+func (c *RegexConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{
+		pvtypes.StringType,
+		pvtypes.SlugType,
+		pvtypes.AlphanumericType,
+		pvtypes.EmailType,
+		pvtypes.IdentifierType,
 	}
 }
 
-func (c *RegexConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *RegexConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseRegexConstraint(value)
 }
 
-func (c *RegexConstraint) Type() ConstraintType {
-	return RegexConstraintType
+func (c *RegexConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.RegexConstraintType
 }
 
 func (c *RegexConstraint) Validate(value string) (err error) {
@@ -57,7 +59,7 @@ func (c *RegexConstraint) Rule() string {
 	return c.raw
 }
 
-func (c *RegexConstraint) ErrorSuggestion(param *Parameter, value, example string) string {
+func (c *RegexConstraint) ErrorSuggestion(param *pvtypes.Parameter, value, example string) string {
 	// TODO Add more specific advice, and don't use this advice when not applicable
 	return "Do not include ^ or $ anchors in your regex pattern; regex patterns automatically match the full parameter value."
 }
@@ -72,7 +74,7 @@ func ParseRegexConstraint(pattern string) (constraint *RegexConstraint, err erro
 	var hasStart, hasEnd bool
 
 	if pattern == "" {
-		err = NewErr(ErrEmptyRegexPattern)
+		err = pvtypes.NewErr(ErrEmptyRegexPattern)
 		goto end
 	}
 
@@ -91,9 +93,9 @@ func ParseRegexConstraint(pattern string) (constraint *RegexConstraint, err erro
 	}
 
 	if len(errs) > 0 {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidRegexPattern,
-			CombineErrs(errs),
+			pvtypes.CombineErrs(errs),
 		)
 		goto end
 	}
@@ -104,7 +106,7 @@ func ParseRegexConstraint(pattern string) (constraint *RegexConstraint, err erro
 	// Compile the anchored pattern
 	regex, err = regexp.Compile(anchoredPattern)
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidRegexPattern,
 			err,
 		)
@@ -112,11 +114,11 @@ func ParseRegexConstraint(pattern string) (constraint *RegexConstraint, err erro
 	}
 
 	// Store original pattern (without anchors) for display
-	constraint = &RegexConstraint{regex: regex, raw: pattern}
+	constraint = NewRegexConstraint(regex, pattern)
 
 end:
 	if err != nil {
-		err = WithErr(err,
+		err = pvtypes.WithErr(err,
 			ErrInvalidRegexConstraint,
 			"regex", pattern,
 		)

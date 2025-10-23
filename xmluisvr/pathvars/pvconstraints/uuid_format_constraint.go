@@ -1,4 +1,4 @@
-package pathvars
+package pvconstraints
 
 import (
 	"encoding/hex"
@@ -6,12 +6,14 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 // Note: UUIDFormatConstraint is not registered directly.
 // It's handled by DateFormatConstraint.ParseBytes() based on dataType.
 
-var _ Constraint = (*UUIDFormatConstraint)(nil)
+var _ pvtypes.Constraint = (*UUIDFormatConstraint)(nil)
 
 // Package-level regex patterns compiled once for efficiency
 var (
@@ -38,12 +40,12 @@ const (
 )
 
 func init() {
-	RegisterConstraint(&UUIDFormatConstraint{})
+	pvtypes.RegisterConstraint(&UUIDFormatConstraint{})
 }
 
 // UUIDFormatConstraint validates UUID formats
 type UUIDFormatConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	format      string
 	formatParam string // Optional parameter (e.g., epoch for snowflake)
 	validator   func(string) error
@@ -59,16 +61,16 @@ func NewUUIDFormatConstraintWithParam(format, formatParam string, validator func
 		formatParam: formatParam,
 		validator:   validator,
 	}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *UUIDFormatConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{UUIDType}
+func (c *UUIDFormatConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{pvtypes.UUIDType}
 }
 
-func (c *UUIDFormatConstraint) Type() ConstraintType {
-	return FormatConstraintType
+func (c *UUIDFormatConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.FormatConstraintType
 }
 
 // ValidatesType returns true because format constraints perform their own type validation.
@@ -118,7 +120,7 @@ func (c *UUIDFormatConstraint) Example(err error) any {
 	}
 }
 
-func (c *UUIDFormatConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *UUIDFormatConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseUUIDFormatConstraint(value)
 }
 
@@ -178,7 +180,7 @@ func ParseUUIDFormatConstraint(spec string) (constraint *UUIDFormatConstraint, e
 		// Snowflake with optional epoch parameter
 		validator = createSnowflakeValidator(formatParam)
 	default:
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrUnsupportedUUIDFormat,
 			"uuid_spec", spec,
 		)
@@ -198,7 +200,7 @@ func validateUUIDGeneric(value string) error {
 		return err
 	}
 	if version < 1 || version > 8 {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrUUIDVersionOutOfRange1to8,
 			"value", value,
@@ -215,7 +217,7 @@ func validateUUIDv1to5(value string) error {
 		return err
 	}
 	if version < 1 || version > 5 {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrUUIDVersionOutOfRange1to5,
 			"value", value,
@@ -232,7 +234,7 @@ func validateUUIDv6to8(value string) error {
 		return err
 	}
 	if version < 6 || version > 8 {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrUUIDVersionOutOfRange6to8,
 			"value", value,
@@ -289,7 +291,7 @@ func validateSpecificUUIDVersion(value string, expectedVersion int) error {
 		return err
 	}
 	if version != expectedVersion {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrUUIDVersionMismatch,
 			"value", value,
@@ -308,7 +310,7 @@ func parseStandardUUID(value string) (version int, err error) {
 
 	// Check basic shape: 36 chars with hyphens at correct positions
 	if len(value) != 36 || value[8] != '-' || value[13] != '-' || value[18] != '-' || value[23] != '-' {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidUUIDShape,
 			"value", value,
@@ -320,7 +322,7 @@ func parseStandardUUID(value string) (version int, err error) {
 	hexStr = strings.ReplaceAll(value, "-", "")
 	_, err = hex.Decode(b[:], []byte(hexStr))
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidUUIDHexEncoding,
 			"value", value,
@@ -332,7 +334,7 @@ func parseStandardUUID(value string) (version int, err error) {
 	// Check variant bits (must be RFC 4122/9562: bits 10xx)
 	variant = int((b[8] & 0xC0) >> 6)
 	if variant != 0b10 {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidUUIDVariant,
 			"value", value,
@@ -344,7 +346,7 @@ func parseStandardUUID(value string) (version int, err error) {
 	// Extract version from upper 4 bits of byte 6
 	version = int(b[6] >> 4)
 	if version < 1 || version > 8 {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidUUIDVersion,
 			"value", value,
@@ -361,7 +363,7 @@ end:
 func validateULID(value string) error {
 	// ULID: 26 characters, Crockford Base32 alphabet
 	if !ulidRegex.MatchString(value) {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidULIDFormat,
 			"value", value,
@@ -375,7 +377,7 @@ func validateULID(value string) error {
 func validateKSUID(value string) error {
 	// KSUID: 27 characters, Base62 alphabet
 	if !ksuidRegex.MatchString(value) {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidKSUIDFormat,
 			"value", value,
@@ -389,7 +391,7 @@ func validateKSUID(value string) error {
 func validateNanoID(value string) error {
 	// NanoID: 21 characters (default), URL-safe alphabet
 	if !nanoidRegex.MatchString(value) {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidNanoIDFormat,
 			"value", value,
@@ -403,7 +405,7 @@ func validateNanoID(value string) error {
 func validateCUID(value string) error {
 	// CUID: 25 characters, starts with 'c', lowercase letters and digits
 	if !cuidRegex.MatchString(value) {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidCUIDFormat,
 			"value", value,
@@ -424,7 +426,7 @@ func createSnowflakeValidator(epochParam string) func(string) error {
 		if err != nil {
 			// Return a validator that always fails with epoch parse error
 			return func(value string) error {
-				return NewErr(
+				return pvtypes.NewErr(
 					ErrParameterValidationFailed,
 					ErrInvalidSnowflakeEpoch,
 					"epoch_param", epochParam,
@@ -449,7 +451,7 @@ func validateSnowflakeWithEpoch(value string, epoch int64) error {
 
 	// Basic format check: 1-19 digits (64-bit unsigned integer range)
 	if !snowflakeRegex.MatchString(value) {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidSnowflakeFormat,
 			"value", value,
@@ -460,7 +462,7 @@ func validateSnowflakeWithEpoch(value string, epoch int64) error {
 	// Parse as uint64
 	_, err = fmt.Sscanf(value, "%d", &id)
 	if err != nil {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrInvalidSnowflakeFormat,
 			"value", value,
@@ -479,7 +481,7 @@ func validateSnowflakeWithEpoch(value string, epoch int64) error {
 
 	// Validate timestamp is not negative (before epoch)
 	if timestamp < 0 {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrSnowflakeTimestampNegative,
 			"value", value,
@@ -495,7 +497,7 @@ func validateSnowflakeWithEpoch(value string, epoch int64) error {
 	oneYearFromNow := currentTime + (365 * 24 * 60 * 60 * 1000)
 
 	if actualTimestamp > oneYearFromNow {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrParameterValidationFailed,
 			ErrSnowflakeTimestampInFuture,
 			"value", value,

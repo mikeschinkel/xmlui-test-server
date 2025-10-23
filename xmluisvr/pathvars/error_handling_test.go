@@ -35,11 +35,11 @@ func TestRouterErrorHandling(t *testing.T) {
 		{"empty-braces", "GET", "/users/{}", true, pvtypes.ErrInvalidParameter, "", nil},
 		{"unmatched-open-brace", "GET", "/users/{id", true, pvtypes.ErrInvalidParameter, "", nil},
 		{"unmatched-close-brace", "GET", "/users/id}", true, pvtypes.ErrInvalidParameter, "", nil}, // Now consistent - error like unmatched opening
-		{"no-param-name", "GET", "/users/{:int}", true, pathvars.ErrNameSpecNameCannotBeEmpty, "", nil},
+		{"no-param-name", "GET", "/users/{:int}", true, pvtypes.ErrNameSpecNameCannotBeEmpty, "", nil},
 
 		// Invalid types
-		{"invalid-type", "GET", "/users/{id:invalid}", true, pathvars.ErrInvalidParameterType, "", nil},
-		{"typo-in-type", "GET", "/users/{id:integr}", true, pathvars.ErrInvalidParameterType, "", nil},
+		{"invalid-type", "GET", "/users/{id:invalid}", true, pvtypes.ErrInvalidParameterType, "", nil},
+		{"typo-in-type", "GET", "/users/{id:integr}", true, pvtypes.ErrInvalidParameterType, "", nil},
 	}
 
 	for _, tt := range tests {

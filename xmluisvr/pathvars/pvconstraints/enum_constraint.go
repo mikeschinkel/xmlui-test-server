@@ -1,35 +1,37 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {
-	RegisterConstraint(&EnumConstraint{})
+	pvtypes.RegisterConstraint(&EnumConstraint{})
 }
 
-var _ Constraint = (*EnumConstraint)(nil)
+var _ pvtypes.Constraint = (*EnumConstraint)(nil)
 
 // EnumConstraint validates against allowed values
 type EnumConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	values map[string]bool
 	list   []string
 }
 
 func NewEnumConstraint(values map[string]bool, list []string) *EnumConstraint {
 	c := &EnumConstraint{values: values, list: list}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *EnumConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *EnumConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseEnumConstraint(value)
 }
 
-func (c *EnumConstraint) Type() ConstraintType {
-	return EnumConstraintType
+func (c *EnumConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.EnumConstraintType
 }
 
 func (c *EnumConstraint) Validate(value string) (err error) {
@@ -43,19 +45,19 @@ func (c *EnumConstraint) Rule() string {
 	return strings.Join(c.list, ",")
 }
 
-func (c *EnumConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{
-		IntegerType,
-		BooleanType,
-		StringType,
-		IdentifierType,
-		AlphanumericType,
-		SlugType,
-		EmailType,
+func (c *EnumConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{
+		pvtypes.IntegerType,
+		pvtypes.BooleanType,
+		pvtypes.StringType,
+		pvtypes.IdentifierType,
+		pvtypes.AlphanumericType,
+		pvtypes.SlugType,
+		pvtypes.EmailType,
 	}
 }
 
-func (c *EnumConstraint) ErrorDetail(param *Parameter, value string) string {
+func (c *EnumConstraint) ErrorDetail(param *pvtypes.Parameter, value string) string {
 	return fmt.Sprintf("Parameter '%s' with value '%s' failed constraint validation: value '%s' is not in the allowed set: [%s]",
 		param.Name,
 		value,
@@ -80,7 +82,7 @@ func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error
 	var errs []error
 
 	enumError := func() error {
-		return NewErr(
+		return pvtypes.NewErr(
 			ErrEnumValueIsEmpty,
 			"enum", enumSpec,
 		)
@@ -104,7 +106,7 @@ func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error
 		// TODO Ensure value is a valid identifier
 		valueMap[value] = true
 	}
-	err = CombineErrs(errs)
+	err = pvtypes.CombineErrs(errs)
 	if err != nil {
 		goto end
 	}
@@ -113,7 +115,7 @@ func ParseEnumConstraint(enumSpec string) (constraint *EnumConstraint, err error
 
 end:
 	if err != nil {
-		err = WithErr(err,
+		err = pvtypes.WithErr(err,
 			ErrInvalidEnumConstraint,
 			"enum_spec", enumSpec,
 		)

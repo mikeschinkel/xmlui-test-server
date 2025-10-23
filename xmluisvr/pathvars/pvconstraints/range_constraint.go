@@ -1,8 +1,12 @@
-package pathvars
+package pvconstraints
+
+import (
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+)
 
 // ParseRangeConstraint uses the registry to find and parse the appropriate range constraint based on data type
-func ParseRangeConstraint(rangeSpec string, dataType PVDataType) (constraint Constraint, err error) {
-	constraint, err = GetConstraint(RangeConstraintType, dataType)
+func ParseRangeConstraint(rangeSpec string, dataType pvtypes.PVDataType) (constraint pvtypes.Constraint, err error) {
+	constraint, err = pvtypes.GetConstraint(pvtypes.RangeConstraintType, dataType)
 	if err != nil {
 		goto end
 	}

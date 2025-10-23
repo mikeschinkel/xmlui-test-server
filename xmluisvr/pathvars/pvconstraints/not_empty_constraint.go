@@ -1,47 +1,49 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {
-	RegisterConstraint(&NotEmptyConstraint{})
+	pvtypes.RegisterConstraint(&NotEmptyConstraint{})
 }
 
-var _ Constraint = (*NotEmptyConstraint)(nil)
+var _ pvtypes.Constraint = (*NotEmptyConstraint)(nil)
 
 // NotEmptyConstraint validates that a value is not empty
 type NotEmptyConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 }
 
 func NewNotEmptyConstraint() *NotEmptyConstraint {
 	c := &NotEmptyConstraint{}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *NotEmptyConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{
-		AlphanumericType,
-		DateType,
-		DecimalType,
-		EmailType,
-		IdentifierType,
-		IntegerType,
-		RealType,
-		SlugType,
-		StringType,
-		UUIDType,
+func (c *NotEmptyConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{
+		pvtypes.AlphanumericType,
+		pvtypes.DateType,
+		pvtypes.DecimalType,
+		pvtypes.EmailType,
+		pvtypes.IdentifierType,
+		pvtypes.IntegerType,
+		pvtypes.RealType,
+		pvtypes.SlugType,
+		pvtypes.StringType,
+		pvtypes.UUIDType,
 	}
 }
 
-func (c *NotEmptyConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *NotEmptyConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseNotEmptyConstraint(value)
 }
 
-func (c *NotEmptyConstraint) Type() ConstraintType {
-	return NotEmptyConstraintType
+func (c *NotEmptyConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.NotEmptyConstraintType
 }
 
 func (c *NotEmptyConstraint) Validate(value string) error {
@@ -56,17 +58,17 @@ func (c *NotEmptyConstraint) Rule() string {
 }
 
 func (c *NotEmptyConstraint) String() string {
-	return string(NotEmptyConstraintType)
+	return string(pvtypes.NotEmptyConstraintType)
 }
 
-func (c *NotEmptyConstraint) ErrorDetail(param *Parameter, value string) string {
+func (c *NotEmptyConstraint) ErrorDetail(param *pvtypes.Parameter, value string) string {
 	return fmt.Sprintf("Parameter '%s' with value '%s' failed constraint validation: value cannot be empty",
 		param.Name,
 		value,
 	)
 }
 
-func (c *NotEmptyConstraint) ErrorSuggestion(param *Parameter, value, example string) string {
+func (c *NotEmptyConstraint) ErrorSuggestion(param *pvtypes.Parameter, value, example string) string {
 	return fmt.Sprintf("Ensure parameter '%s' satisfies the constraint: %s, for example: %s",
 		param.Name,
 		c.String(),

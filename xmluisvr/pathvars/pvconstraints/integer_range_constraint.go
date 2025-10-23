@@ -1,40 +1,42 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {
-	RegisterConstraint(&IntegerRangeConstraint{})
+	pvtypes.RegisterConstraint(&IntegerRangeConstraint{})
 }
 
-var _ Constraint = (*IntegerRangeConstraint)(nil)
+var _ pvtypes.Constraint = (*IntegerRangeConstraint)(nil)
 
 // IntegerRangeConstraint validates integer ranges
 type IntegerRangeConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	min int64
 	max int64
 }
 
 func NewIntRangeConstraint(min int64, max int64) *IntegerRangeConstraint {
 	c := &IntegerRangeConstraint{min: min, max: max}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *IntegerRangeConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{IntegerType}
+func (c *IntegerRangeConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{pvtypes.IntegerType}
 }
 
-func (c *IntegerRangeConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *IntegerRangeConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseIntRangeConstraint(value)
 }
 
-func (c *IntegerRangeConstraint) Type() ConstraintType {
-	return RangeConstraintType
+func (c *IntegerRangeConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.RangeConstraintType
 }
 
 func (c *IntegerRangeConstraint) Validate(value string) (err error) {
@@ -57,7 +59,7 @@ func (c *IntegerRangeConstraint) Rule() string {
 	return fmt.Sprintf("%d..%d", c.min, c.max)
 }
 
-func (c *IntegerRangeConstraint) ErrorDetail(param *Parameter, value string) string {
+func (c *IntegerRangeConstraint) ErrorDetail(param *pvtypes.Parameter, value string) string {
 	var n int64
 	var err error
 	n, err = strconv.ParseInt(value, 10, 64)
@@ -74,10 +76,10 @@ func (c *IntegerRangeConstraint) ErrorDetail(param *Parameter, value string) str
 		)
 	}
 end:
-	return c.baseConstraint.ErrorDetail(param, value)
+	return c.BaseConstraint.ErrorDetail(param, value)
 }
 
-func (c *IntegerRangeConstraint) ErrorSuggestion(param *Parameter, value, example string) string {
+func (c *IntegerRangeConstraint) ErrorSuggestion(param *pvtypes.Parameter, value, example string) string {
 	return fmt.Sprintf("Ensure parameter '%s' satisfies the constraint: %s, for example: %s", param.Name, c.String(), example)
 }
 
@@ -96,7 +98,7 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 	// Split by ".."
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
-		err = NewErr(ErrExpectedRangeFormat)
+		err = pvtypes.NewErr(ErrExpectedRangeFormat)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -104,7 +106,7 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 
 	minimum, err = strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidMinimumValue,
 			"minimum", parts[0],
 			err,
@@ -114,13 +116,13 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 		}
 	}
 	if len(parts) == 1 {
-		err = CombineErrs(errs)
+		err = pvtypes.CombineErrs(errs)
 		goto end
 	}
 
 	maximum, err = strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidMaximumValue,
 			"maximum", parts[1],
 			err,
@@ -131,7 +133,7 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 	}
 
 	if minimum > maximum {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidMinMaxValue,
 			"minimum", minimum,
 			"maximum", maximum,
@@ -142,7 +144,7 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 	}
 
 	if len(errs) != 0 {
-		err = CombineErrs(errs)
+		err = pvtypes.CombineErrs(errs)
 		goto end
 	}
 
@@ -150,7 +152,7 @@ func ParseIntRangeConstraint(rangeSpec string) (constraint *IntegerRangeConstrai
 
 end:
 	if err != nil {
-		err = WithErr(err,
+		err = pvtypes.WithErr(err,
 			ErrInvalidRangeConstraint,
 			"range_spec", rangeSpec,
 		)

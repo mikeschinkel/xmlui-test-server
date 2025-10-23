@@ -8,7 +8,8 @@ import (
 type ConstraintMapKey string
 type ConstraintsMap map[ConstraintMapKey]Constraint
 
-var constraintMap = make(ConstraintsMap)
+var constraints = make([]Constraint, 0, 16) // 16 is a reasonable starting capacity
+var constraintsMap = make(ConstraintsMap)
 
 type DataTypeAliasMap = map[PVDataTypeSlug]PVDataTypeSlug
 
@@ -24,7 +25,7 @@ func RegisterDataTypeAlias(dataType PVDataType, alias PVDataTypeSlug) {
 	// Now let's check to see if constraints we are aliasing have already been registered.
 	// If they have, let's alias them as well.
 	c4dt := make([]Constraint, 0)
-	for key, c := range constraintMap {
+	for key, c := range constraintsMap {
 		dt, a, found := strings.Cut(string(key), "_")
 		if !found {
 			continue
@@ -38,7 +39,7 @@ func RegisterDataTypeAlias(dataType PVDataType, alias PVDataTypeSlug) {
 	}
 	// Alias constrains that were previously registered
 	for _, c := range c4dt {
-		constraintMap[GetConstraintMapKey(c.Type(), alias)] = c
+		constraintsMap[GetConstraintMapKey(c.Type(), alias)] = c
 	}
 end:
 	return
@@ -48,16 +49,16 @@ func RegisterConstraint(c Constraint) {
 	c.SetOwner(c)
 	for _, dt := range c.ValidDataTypes() {
 		name := dt.Slug()
-		constraintMap[c.MapKey(name)] = c
+		constraintsMap[c.MapKey(name)] = c
 		alias, ok := dataTypeAliasMap[name]
 		if ok {
-			constraintMap[c.MapKey(alias)] = c
+			constraintsMap[c.MapKey(alias)] = c
 		}
 	}
 }
 
 func GetConstraintsMap() ConstraintsMap {
-	return constraintMap
+	return constraintsMap
 }
 
 func GetConstraintMapKey(ct ConstraintType, dtn PVDataTypeSlug) ConstraintMapKey {
@@ -67,7 +68,7 @@ func GetConstraintMapKey(ct ConstraintType, dtn PVDataTypeSlug) ConstraintMapKey
 func GetConstraint(ct ConstraintType, dt PVDataType) (c Constraint, err error) {
 	var ok bool
 	key := GetConstraintMapKey(ct, dt.Slug())
-	c, ok = constraintMap[key]
+	c, ok = constraintsMap[key]
 	if !ok {
 		err = fmt.Errorf("constraint type '%s' not supported", ct)
 	}

@@ -1,9 +1,11 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 // Built-in date/time format aliases
@@ -15,30 +17,30 @@ const (
 )
 
 func init() {
-	RegisterConstraint(&DateFormatConstraint{})
+	pvtypes.RegisterConstraint(&DateFormatConstraint{})
 }
 
-var _ Constraint = (*DateFormatConstraint)(nil)
+var _ pvtypes.Constraint = (*DateFormatConstraint)(nil)
 
 // DateFormatConstraint validates date formats
 type DateFormatConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	format string
 	parser func(string) (time.Time, error)
 }
 
 func NewDateFormatConstraint(format string, parser func(string) (time.Time, error)) *DateFormatConstraint {
 	c := &DateFormatConstraint{format: format, parser: parser}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *DateFormatConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{DateType, UUIDType, StringType}
+func (c *DateFormatConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{pvtypes.DateType, pvtypes.UUIDType, pvtypes.StringType}
 }
 
-func (c *DateFormatConstraint) Type() ConstraintType {
-	return FormatConstraintType
+func (c *DateFormatConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.FormatConstraintType
 }
 
 // ValidatesType returns true because format constraints perform their own type validation.
@@ -46,28 +48,28 @@ func (c *DateFormatConstraint) ValidatesType() bool {
 	return true
 }
 
-func (c *DateFormatConstraint) Parse(value string, dataType PVDataType) (ct Constraint, err error) {
+func (c *DateFormatConstraint) Parse(value string, dataType pvtypes.PVDataType) (ct pvtypes.Constraint, err error) {
 	// Handle different data types for format constraints
 	switch dataType {
-	case DateType:
+	case pvtypes.DateType:
 		ct, err = ParseDateFormatConstraint(value)
-	case UUIDType:
+	case pvtypes.UUIDType:
 		ct, err = ParseUUIDFormatConstraint(value)
-	case StringType:
+	case pvtypes.StringType:
 		// Check if this is a UUID-like format for strings
 		switch strings.ToLower(value) {
 		// TODO Make constants for these
 		case "ulid", "ksuid", "nanoid":
 			ct, err = ParseUUIDFormatConstraint(value)
 		default:
-			err = NewErr(
+			err = pvtypes.NewErr(
 				ErrStringFormatOnlySupportsIDFormats,
 				"value", value,
 				"data_type", dataType.Slug(),
 			)
 		}
 	default:
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidConstraint,
 			ErrFormatConstraintUnsupportedDataType,
 			"data_type", dataType.Slug(),
@@ -119,7 +121,7 @@ func (c *DateFormatConstraint) buildPartialLayout(value string) (layout string, 
 
 	// Build a partial format using only the segments we have
 	if len(segments) > len(formatSegments) {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrMoreSegmentsThanFormat,
 			"value_segments", len(segments),
 			"format_segments", len(formatSegments),
@@ -133,7 +135,7 @@ func (c *DateFormatConstraint) buildPartialLayout(value string) (layout string, 
 	// Use the existing token-based parser to build the Go time layout
 	layout, err = buildGoTimeLayout(partialFormat)
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrFailedToBuildPartialLayout,
 			"partial_format", partialFormat,
 			err,
@@ -142,7 +144,7 @@ func (c *DateFormatConstraint) buildPartialLayout(value string) (layout string, 
 
 end:
 	if err != nil {
-		err = WithErr(err,
+		err = pvtypes.WithErr(err,
 			"value", value,
 			"format", c.format,
 		)
@@ -218,7 +220,7 @@ func ParseDateFormatConstraint(spec string) (constraint *DateFormatConstraint, e
 	// ParseBytes the format specification to build Go time layout
 	goLayout, err = buildGoTimeLayout(spec)
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidDateFormatSpec,
 			"spec", spec,
 			err,
@@ -266,7 +268,7 @@ func buildGoTimeLayout(spec string) (layout string, err error) {
 
 	// Validate that we found at least one date/time token
 	if !hasAnyToken {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrNoValidDateTimeTokens,
 			"spec", spec,
 		)
@@ -317,7 +319,7 @@ func matchToken(spec string, pos int, hasHour bool) (goToken string, newHasHour 
 			goToken = "04" // minutes
 		case isStandaloneMM(spec):
 			// Check if this is a standalone mm (ambiguous)
-			err = NewErr(
+			err = pvtypes.NewErr(
 				ErrAmbiguousMMToken,
 				"spec", spec,
 				"position", pos,

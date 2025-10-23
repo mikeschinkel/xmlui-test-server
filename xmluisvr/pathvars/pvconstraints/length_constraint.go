@@ -1,46 +1,48 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {
-	RegisterConstraint(&LengthConstraint{})
+	pvtypes.RegisterConstraint(&LengthConstraint{})
 }
 
-var _ Constraint = (*LengthConstraint)(nil)
+var _ pvtypes.Constraint = (*LengthConstraint)(nil)
 
 // LengthConstraint validates string length
 type LengthConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	min int
 	max int
 }
 
 func NewLengthConstraint(min int, max int) *LengthConstraint {
 	c := &LengthConstraint{min: min, max: max}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *LengthConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{
-		StringType,
-		IdentifierType,
-		AlphanumericType,
-		SlugType,
-		EmailType,
+func (c *LengthConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{
+		pvtypes.StringType,
+		pvtypes.IdentifierType,
+		pvtypes.AlphanumericType,
+		pvtypes.SlugType,
+		pvtypes.EmailType,
 	}
 }
 
-func (c *LengthConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *LengthConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseLengthConstraint(value)
 }
 
-func (c *LengthConstraint) Type() ConstraintType {
-	return LengthConstraintType
+func (c *LengthConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.LengthConstraintType
 }
 
 func (c *LengthConstraint) Validate(value string) (err error) {
@@ -63,13 +65,13 @@ func ParseLengthConstraint(lengthSpec string) (constraint *LengthConstraint, err
 	// Split by ".."
 	parts = strings.Split(lengthSpec, "..")
 	if len(parts) != 2 {
-		err = NewErr(ErrExpectedLengthFormat)
+		err = pvtypes.NewErr(ErrExpectedLengthFormat)
 		goto end
 	}
 
 	minimum, err = strconv.Atoi(parts[0])
 	if err != nil {
-		err = NewErr(ErrInvalidMinimumValue,
+		err = pvtypes.NewErr(ErrInvalidMinimumValue,
 			"minimum", parts[0],
 			err,
 		)
@@ -78,7 +80,7 @@ func ParseLengthConstraint(lengthSpec string) (constraint *LengthConstraint, err
 
 	maximum, err = strconv.Atoi(parts[1])
 	if err != nil {
-		err = NewErr(ErrInvalidMaximumValue,
+		err = pvtypes.NewErr(ErrInvalidMaximumValue,
 			"maximum", parts[1],
 			err,
 		)
@@ -86,7 +88,7 @@ func ParseLengthConstraint(lengthSpec string) (constraint *LengthConstraint, err
 	}
 
 	if minimum > maximum {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidLengthRangeMinGreaterThanMax,
 			"minimum", minimum,
 			"maximum", maximum,
@@ -95,7 +97,7 @@ func ParseLengthConstraint(lengthSpec string) (constraint *LengthConstraint, err
 	}
 
 	if minimum < 0 {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidLengthRangeNegativeMin,
 			"minimum", minimum,
 		)
@@ -106,7 +108,7 @@ func ParseLengthConstraint(lengthSpec string) (constraint *LengthConstraint, err
 
 end:
 	if err != nil {
-		err = WithErr(err,
+		err = pvtypes.WithErr(err,
 			"length_spec", lengthSpec,
 		)
 	}

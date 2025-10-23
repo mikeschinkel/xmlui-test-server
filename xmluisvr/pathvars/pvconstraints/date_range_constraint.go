@@ -1,20 +1,22 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {
-	RegisterConstraint(&DateRangeConstraint{})
+	pvtypes.RegisterConstraint(&DateRangeConstraint{})
 }
 
-var _ Constraint = (*DateRangeConstraint)(nil)
+var _ pvtypes.Constraint = (*DateRangeConstraint)(nil)
 
 // DateRangeConstraint validates date ranges
 type DateRangeConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	min time.Time
 	max time.Time
 }
@@ -24,67 +26,41 @@ func NewDateRangeConstraint(min time.Time, max time.Time) *DateRangeConstraint {
 		min: min,
 		max: max,
 	}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *DateRangeConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{DateType}
+func (c *DateRangeConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{pvtypes.DateType}
 }
 
-func (c *DateRangeConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *DateRangeConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseDateRangeConstraint(value)
 }
 
-func (c *DateRangeConstraint) Type() ConstraintType {
-	return RangeConstraintType
+func (c *DateRangeConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.RangeConstraintType
 }
 
 func (c *DateRangeConstraint) Validate(value string) (err error) {
 	var d time.Time
 
-	// Try common date formats
-	formats := []string{
-		time.DateOnly, //  "2006-01-02"
-		"01/02/2006",
-		"02/01/2006",
-		time.DateTime,     //  "2006-01-02 15:04:05"
-		time.RFC3339[:20], //  "2006-01-02T15:04:05Z"
-		time.RFC3339[:19], //  "2006-01-02T15:04:05"
-		time.RFC3339,      //  "2006-01-02T15:04:05Z07:00"
-		time.ANSIC,        //  "Mon Jan _2 15:04:05 2006"
-		time.UnixDate,     //  "Mon Jan _2 15:04:05 MST 2006"
-		time.RubyDate,     //  "Mon Jan 02 15:04:05 -0700 2006"
-		time.RFC822,       //  "02 Jan 06 15:04 MST"
-		time.RFC822Z,      //  "02 Jan 06 15:04 -0700" // RFC822 with numeric zone
-		time.RFC850,       //  "Monday, 02-Jan-06 15:04:05 MST"
-		time.RFC1123,      //  "Mon, 02 Jan 2006 15:04:05 MST"
-		time.RFC1123Z,     //  "Mon, 02 Jan 2006 15:04:05 -0700" // RFC1123 with numeric zone
-		time.RFC3339Nano,  //  "2006-01-02T15:04:05.999999999Z07:00"
-	}
-
-	for _, format := range formats {
-		d, err = time.Parse(format, value)
-		if err == nil {
-			break
-		}
-	}
-
+	// DateRangeConstraint only accepts YYYY-MM-DD format (same format used in range spec)
+	d, err = time.Parse(time.DateOnly, value)
 	if err != nil {
 		err = ErrInvalidDateFormat
 		goto end
 	}
-	err = nil
 
 	if d.Before(c.min) {
-		err = NewErr(ErrDateLessThanMinimum,
+		err = pvtypes.NewErr(ErrDateLessThanMinimum,
 			"minimum_date", c.min.Format(time.DateOnly),
 		)
 		goto end
 	}
 
 	if d.After(c.max) {
-		err = NewErr(ErrDateGreaterThanMaximum,
+		err = pvtypes.NewErr(ErrDateGreaterThanMaximum,
 			"maximum_date", c.max.Format(time.DateOnly),
 		)
 		goto end
@@ -92,7 +68,7 @@ func (c *DateRangeConstraint) Validate(value string) (err error) {
 
 end:
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			"date_value", value,
 			err,
 		)
@@ -112,14 +88,14 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 	// Split by ".."
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
-		err = NewErr(ErrExpectedRangeFormat)
+		err = pvtypes.NewErr(ErrExpectedRangeFormat)
 		goto end
 	}
 
 	// ParseBytes minimum date (try dateonly format first)
 	minimum, err = time.Parse(time.DateOnly, parts[0])
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrExpectedDateOnlyFormat,
 			ErrInvalidMinimumValue,
 			"minimum", parts[0],
@@ -131,7 +107,7 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 	// ParseBytes maximum date (try dateonly format first)
 	maximum, err = time.Parse(time.DateOnly, parts[1])
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrExpectedDateOnlyFormat,
 			ErrInvalidMaximumValue,
 			"maximum", parts[1],
@@ -141,7 +117,7 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 	}
 
 	if minimum.After(maximum) {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrExpectedDateOnlyFormat,
 			ErrInvalidMinMaxDate,
 			"minimum", minimum.Format(time.DateOnly),
@@ -154,7 +130,7 @@ func ParseDateRangeConstraint(rangeSpec string) (constraint *DateRangeConstraint
 
 end:
 	if err != nil {
-		err = WithErr(err,
+		err = pvtypes.WithErr(err,
 			ErrInvalidRangeConstraint,
 			"range_spec", rangeSpec,
 		)

@@ -46,7 +46,7 @@ func TestNestedRouterErrors(t *testing.T) {
 	if !errors.Is(err, pvtypes.ErrInvalidParameter) {
 		t.Fatalf("expected Is(err, pvtypes.ErrInvalidParameter) == true")
 	}
-	if !errors.Is(err, pathvars.ErrInvalidConstraint) {
+	if !errors.Is(err, pvtypes.ErrInvalidConstraint) {
 		t.Fatalf("expected Is(err, pathvars.ErrInvalidConstraint) == true")
 	}
 

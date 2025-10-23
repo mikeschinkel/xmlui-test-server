@@ -1,20 +1,22 @@
-package pathvars
+package pvconstraints
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {
-	RegisterConstraint(&DecimalRangeConstraint{})
+	pvtypes.RegisterConstraint(&DecimalRangeConstraint{})
 }
 
-var _ Constraint = (*DecimalRangeConstraint)(nil)
+var _ pvtypes.Constraint = (*DecimalRangeConstraint)(nil)
 
 // DecimalRangeConstraint validates decimal ranges
 type DecimalRangeConstraint struct {
-	baseConstraint
+	pvtypes.BaseConstraint
 	min float64
 	max float64
 }
@@ -24,20 +26,20 @@ func NewDecimalRangeConstraint(min float64, max float64) *DecimalRangeConstraint
 		min: min,
 		max: max,
 	}
-	c.baseConstraint = newBaseConstraint(c)
+	c.BaseConstraint = pvtypes.NewBaseConstraint(c)
 	return c
 }
 
-func (c *DecimalRangeConstraint) ValidDataTypes() []PVDataType {
-	return []PVDataType{DecimalType, RealType}
+func (c *DecimalRangeConstraint) ValidDataTypes() []pvtypes.PVDataType {
+	return []pvtypes.PVDataType{pvtypes.DecimalType, pvtypes.RealType}
 }
 
-func (c *DecimalRangeConstraint) Parse(value string, dataType PVDataType) (Constraint, error) {
+func (c *DecimalRangeConstraint) Parse(value string, dataType pvtypes.PVDataType) (pvtypes.Constraint, error) {
 	return ParseDecimalRangeConstraint(value)
 }
 
-func (c *DecimalRangeConstraint) Type() ConstraintType {
-	return RangeConstraintType
+func (c *DecimalRangeConstraint) Type() pvtypes.ConstraintType {
+	return pvtypes.RangeConstraintType
 }
 
 func (c *DecimalRangeConstraint) Validate(value string) (err error) {
@@ -68,13 +70,13 @@ func ParseDecimalRangeConstraint(rangeSpec string) (constraint *DecimalRangeCons
 	// Split by ".."
 	parts = strings.Split(rangeSpec, "..")
 	if len(parts) != 2 {
-		err = NewErr(ErrExpectedRangeFormat)
+		err = pvtypes.NewErr(ErrExpectedRangeFormat)
 		goto end
 	}
 
 	minimum, err = strconv.ParseFloat(parts[0], 64)
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidMinimumValue,
 			"minimum", parts[0],
 			err,
@@ -84,7 +86,7 @@ func ParseDecimalRangeConstraint(rangeSpec string) (constraint *DecimalRangeCons
 
 	maximum, err = strconv.ParseFloat(parts[1], 64)
 	if err != nil {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidMaximumValue,
 			"maximum", parts[1],
 			err,
@@ -93,7 +95,7 @@ func ParseDecimalRangeConstraint(rangeSpec string) (constraint *DecimalRangeCons
 	}
 
 	if minimum > maximum {
-		err = NewErr(
+		err = pvtypes.NewErr(
 			ErrInvalidMinMaxValue,
 			fmt.Errorf("minimum=%g", minimum),
 			fmt.Errorf("maximum=%g", maximum),
@@ -105,7 +107,7 @@ func ParseDecimalRangeConstraint(rangeSpec string) (constraint *DecimalRangeCons
 
 end:
 	if err != nil {
-		err = WithErr(err,
+		err = pvtypes.WithErr(err,
 			ErrInvalidRangeValue,
 			"range_spec", rangeSpec,
 		)

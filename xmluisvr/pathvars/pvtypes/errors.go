@@ -1,4 +1,4 @@
-// Package pvtypes/errors defines error values used throughout the pathvars package.
+// Package pathvars.Errors defines error values used throughout the pathvars package.
 // These sentinel errors provide specific error types for different failure modes
 // during path template parsing, route compilation, and request matching.
 package pvtypes
