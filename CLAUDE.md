@@ -2,6 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## File Organization for Claude-Generated Files
+
+**CRITICAL**: All markdown files, specifications, notes, session tracking, and documentation that Claude generates should be written to:
+
+**`./~/`** (tilde-slash directory at project root)
+
+This directory:
+- Sorts last alphabetically in the IDE (after all letter-named directories)
+- Is `.gitignore`d to prevent accidental commits
+- Contains only temporary/generated files
+
+**File Naming Conventions**:
+- Specifications: `~/SPEC_*.md` or `~/*_SPEC.md`
+- Completion reports: `~/COMPLETED_*.md` or `~/*_COMPLETED.md`
+- Session notes: `~/SESSION_NOTES.md`
+- Task tracking: `~/TODO.md`, `~/TASKS_*.md`
+- Technical debt: `~/TECHNICAL_DEBT.md`
+
+**Never write generated markdown files to**:
+- ❌ Project root directory
+- ❌ User's home directory (`~`)
+- ❌ Any committed source directories
+
 ## Project Overview
 
 xmlui-test-server is a lightweight Go HTTP server that provides:
