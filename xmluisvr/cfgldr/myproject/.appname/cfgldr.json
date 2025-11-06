@@ -11,7 +11,7 @@
       "version": 2,
       "name": "User-definable XMLUI Local Server APIConfig",
       "base_path": "/api",
-      "webroot": ".",
+      "webroot": "./webroot",
       "endpoints": []
     }
   },

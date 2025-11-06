@@ -92,7 +92,7 @@ func (c *RootConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) error {
 	if c.ServerConfig == nil {
 		c.ServerConfig = NewServerConfigV1(common.DefaultServerHost, ServerConfigV1Args{
 			Port: common.DefaultServerPort,
-			API:  NewAPIConfigV2("."),
+			API:  NewAPIConfigV2(DefaultWebroot),
 		})
 	}
 	errs = AppendErr(errs, c.ServerConfig.Normalize(sourceFile, opts))

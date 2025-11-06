@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -47,17 +48,33 @@ func (svr *Server) handleHealthCheckFunc() http.HandlerFunc {
 
 func (svr *Server) serveFile(w http.ResponseWriter, r *http.Request, ep dt.EntryPath) {
 	svr.Writer.Printf("Trying to serve: %s\n", ep)
+	if ep == "" {
+		svr.Writer.Errorf("No file to load\n")
+		// TODO: Change this to a 500 error when we have time
+		http.NotFound(w, r)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		// TODO: Change this to a 500 error when we have time
+		err = fmt.Errorf("failed to get working directory; %w", err)
+	}
+	switch {
+	case svr.API.Webroot == "" || svr.API.Webroot == ".":
+		ep = dt.EntryPath(filepath.Join(wd, string(ep)))
+	case svr.API.Webroot[0] == '.':
+		ep = dt.EntryPath(filepath.Join(wd, string(svr.API.Webroot), string(ep)))
+	}
 	status, err := ep.Status()
 	if err != nil {
 		goto end
 	}
 	switch status {
 	case dt.IsMissingEntry:
-		svr.Writer.Errorf("File not found\n")
+		svr.Writer.Errorf("File not found: %s\n", ep)
 		http.NotFound(w, r)
 	case dt.IsFileEntry:
 		// TODO Make this safe from path traversal exploit
-		http.ServeFile(w, r, filepath.Join(string(svr.API.Webroot), string(ep)))
+		http.ServeFile(w, r, string(ep))
 	case dt.IsDirEntry:
 		svr.serveFile(w, r, dt.EntryPath(fmt.Sprintf("%s/index.html", ep)))
 	case dt.IsSymlinkEntry:

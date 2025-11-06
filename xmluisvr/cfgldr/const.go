@@ -12,7 +12,7 @@ const (
 	DefaultVarScope                   = "app"
 	DefaultAPIBasePath                = "/api"
 	DefaultAPIConfigFile              = "./api.json"
-	DefaultWebroot                    = "webroot"
+	DefaultWebroot                    = "./webroot"
 	DefaultDBRoot                     = "dbroot"
 	DefaultSQLite3DBFile              = "data.db"
 )
