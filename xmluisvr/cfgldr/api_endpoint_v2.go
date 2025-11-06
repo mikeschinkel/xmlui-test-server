@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // APIEndpointV2 is the main endpoint struct using JSONV2 inline to flatten the JSON
@@ -104,7 +105,7 @@ func NewAPIEndpointV2(method, path string, args APIEndpointV2Args) *APIEndpointV
 	}
 }
 
-func (ep *APIEndpointV2) Normalize(sourceFile string) {
+func (ep *APIEndpointV2) Normalize(sourceFile dt.Filepath, opts *Options) {
 	if ep.Description == "" {
 		ep.Description = ep.Endpoint()
 	}
@@ -121,7 +122,7 @@ func (ep *APIEndpointV2) Normalize(sourceFile string) {
 		ep.paramsType = reflect.TypeOf(([]APIParamV1)(nil))
 	}
 	if ep.configDir == "" {
-		ep.configDir = filepath.Dir(sourceFile)
+		ep.configDir = filepath.Dir(string(sourceFile))
 	}
 }
 

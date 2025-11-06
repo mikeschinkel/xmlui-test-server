@@ -10,25 +10,25 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/apipkg"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 )
 
 func (svr *Server) handleRootFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		svr.Printf("Request: %s\n", r.URL.Path)
 		if r.URL.Path != "/" {
-			svr.serveFile(w, r, common.Filepath("."+r.URL.Path))
+			svr.serveFile(w, r, dt.EntryPath("."+r.URL.Path))
 			return
 		}
 		svr.serveFile(w, r, "./index.html")
@@ -45,23 +45,58 @@ func (svr *Server) handleHealthCheckFunc() http.HandlerFunc {
 	}
 }
 
-func (svr *Server) serveFile(w http.ResponseWriter, r *http.Request, filePath common.Filepath) {
-	svr.Writer.Printf("Trying to serve: %s\n", filePath)
-	err := common.CheckFileExists(filePath)
-	switch {
-	case errors.Is(os.ErrNotExist, err):
+func (svr *Server) serveFile(w http.ResponseWriter, r *http.Request, ep dt.EntryPath) {
+	svr.Writer.Printf("Trying to serve: %s\n", ep)
+	status, err := ep.Status()
+	if err != nil {
+		goto end
+	}
+	switch status {
+	case dt.IsMissingEntry:
 		svr.Writer.Errorf("File not found\n")
 		http.NotFound(w, r)
-	case errors.Is(ErrPathIsDir, err):
-		svr.serveFile(w, r, common.Filepath(fmt.Sprintf("%s/index.html", filePath)))
-	default:
+	case dt.IsFileEntry:
 		// TODO Make this safe from path traversal exploit
-		http.ServeFile(w, r, filepath.Join(string(svr.api.Webroot), string(filePath)))
+		http.ServeFile(w, r, filepath.Join(string(svr.API.Webroot), string(ep)))
+	case dt.IsDirEntry:
+		svr.serveFile(w, r, dt.EntryPath(fmt.Sprintf("%s/index.html", ep)))
+	case dt.IsSymlinkEntry:
+		target, err := ep.Readlink()
+		if err != nil {
+			goto end
+		}
+		svr.serveFile(w, r, target)
+	case dt.IsDeviceEntry, dt.IsSocketEntry, dt.IsPipeEntry:
+		err = fmt.Errorf("(currently) unsupported resource type: %s", status)
+	case dt.IsEntryError:
+		// Nothing to do, except maybe add metadata to the error?
+	case dt.IsInvalidEntryStatus:
+		// TODO How to make this an HTTP 500?
+		err = fmt.Errorf("internal server error")
+	case dt.IsUnclassifiedEntryStatus:
+		fallthrough
+	default:
+		err = fmt.Errorf("unclassified resource type: %s", status)
 	}
+end:
+	if err != nil {
+		svr.API.SendErrorResponse(apipkg.SendResponseArgs{
+			Content:     nil,
+			HTTPRequest: r,
+			Error:       err,
+			APIResponse: apiresp.NewResponse(apiresp.ResponseArgs{
+				HTTPWriter: w,
+				Request:    r,
+				CLIWriter:  svr.Writer,
+				Logger:     svr.Logger,
+			}),
+		})
+	}
+	return
 }
 
 // Handle direct SQL query requests
-func (svr *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
+func (svr *Server) handleQueryFunc(db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 
@@ -94,26 +129,26 @@ func (svr *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerF
 		}
 
 		// Now call the SQL query
-		args.QueryResult, err = svr.api.GetQueryResult(ctx, args)
+		args.QueryResult, err = svr.API.GetQueryResult(r.Context(), args)
 		if err != nil {
 			goto end
 		}
 
 		// Now get the response content
-		args.Content, err = svr.api.GetResponseContent(args)
+		args.Content, err = svr.API.GetResponseContent(args)
 		if err != nil {
 			goto end
 		}
 
 		// Finally, send the success response. `args.Content` is expected to
 		// contain the value to return as JSON.
-		svr.api.SendSuccessResponse(args.SendResponseArgs(nil))
+		svr.API.SendSuccessResponse(args.SendResponseArgs(nil))
 	end:
 		if err != nil {
 			// Or, send the error if it was an error This assumes that err will have been
 			// joined with a `ResponsePayload` — which by declaration is also an `error` —
 			// one example being rfc9457.Response.
-			svr.api.SendErrorResponse(args.SendResponseArgs(err))
+			svr.API.SendErrorResponse(args.SendResponseArgs(err))
 		}
 		return
 	}
@@ -121,7 +156,7 @@ func (svr *Server) handleQueryFunc(ctx Context, db dbpkg.Database) http.HandlerF
 
 // Handle proxy requests
 func (svr *Server) checkUntrustedQueriesAuthorization(args apipkg.HandlerHelperArgs) (err error) {
-	if !svr.options.AllowUntrustedQueries {
+	if !svr.Options.AllowUntrustedQueries {
 		// Should PresentationStyle not return 404 instead, or it 501 still valid? 501 is
 		// probably valid since this is not a production server and leaking info is not a
 		// big concern for local development and testing.
@@ -153,7 +188,7 @@ var (
 )
 
 func (svr *Server) getHTTPBody(args apipkg.HandlerHelperArgs) (body bytes.Buffer, err error) {
-	errorStyle := svr.options.ErrorStyle
+	errorStyle := svr.Options.ErrorStyle
 
 	// Use io.TeeReader to log the body while still allowing it to be read
 	teeReader := io.TeeReader(args.HTTPRequest.Body, &body)
@@ -206,7 +241,7 @@ func (svr *Server) getDBQuery(args apipkg.HandlerHelperArgs) (qs dbqvars.QuerySt
 			ErrFailedToGetDBQueryFromHTTPRequestBody,
 			ErrInvalidDBQueryString,
 			apiresp.InvalidBodyFormatErrorPayload(args.HTTPRequest, apiresp.PayloadArgs{
-				Detail:     svr.options.ErrorStyle.ErrorMessage("Invalid Database Query", fmt.Sprintf("Query=%s", req.Query), err),
+				Detail:     svr.Options.ErrorStyle.ErrorMessage("Invalid Database Query", fmt.Sprintf("Query=%s", req.Query), err),
 				Suggestion: fmt.Sprintf(apiresp.EnsureYourDBQueryIsValidForDB, svr.displayDBTypeName()),
 			}),
 		)
@@ -223,7 +258,7 @@ func (svr *Server) handleProxyFunc(method common.HTTPMethod) http.HandlerFunc {
 
 		args := apipkg.HandlerHelperArgs{
 			HTTPRequest: r,
-			Database:    svr.db,
+			Database:    svr.Database,
 			APIResponse: apiresp.NewResponse(apiresp.ResponseArgs{
 				HTTPWriter: w,
 				Request:    r,
@@ -244,7 +279,7 @@ func (svr *Server) handleProxyFunc(method common.HTTPMethod) http.HandlerFunc {
 			// Or, send the error if it was an error This assumes that err will have been
 			// joined with a `ResponsePayload` — which by declaration is also an `error` —
 			// one example being rfc9457.Response.
-			svr.api.SendErrorResponse(args.SendResponseArgs(err))
+			svr.API.SendErrorResponse(args.SendResponseArgs(err))
 		}
 		return
 	}

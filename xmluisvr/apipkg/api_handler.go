@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/mikeschinkel/go-rfc9457"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // HandleAPIFunc returns an HTTP handler function that processes API requests.
@@ -23,7 +23,7 @@ import (
 //  5. Returns the results as JSON
 //
 // Returns 404 for unmatched routes and 500 for server errors.
-func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
+func (api *API) HandleAPIFunc(db dbpkg.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var result pathvars.MatchResult
 		var err error
@@ -56,7 +56,7 @@ func (api *API) HandleAPIFunc(ctx Context, db dbpkg.Database) http.HandlerFunc {
 		}
 
 		// Now call the SQL query
-		args.QueryResult, err = api.GetQueryResult(ctx, args)
+		args.QueryResult, err = api.GetQueryResult(r.Context(), args)
 		if err != nil {
 			goto end
 		}

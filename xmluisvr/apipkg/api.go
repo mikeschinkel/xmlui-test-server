@@ -31,7 +31,7 @@
 //
 //	cfg := &cfgldr.APIConfigV2{...}
 //	api, err := apipkg.CreateAPI(apipkg.CreateAPIArgs{
-//		Config: cfg,
+//		APIConfig: cfg,
 //		Writer: writer,
 //		Logger: logger,
 //	})
@@ -50,21 +50,22 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // API represents a configured API instance with endpoints, routing, and metadata.
 // It manages HTTP endpoints that execute SQL queries based on JSON configuration.
 type API struct {
 	Name                 string           // Human-readable name for the API
-	Webroot              common.Filepath  // Root directory for static file serving
-	SourceFile           common.Filepath  // Path to the configuration file
+	Webroot              dt.DirPath       // Root directory for static file serving
+	SourceFile           dt.Filepath      // Path to the configuration file
 	BasePath             common.URLPath   // Common URL prefix for all endpoints
 	Endpoints            []*Endpoint      // List of configured API endpoints
 	Verbose              bool             // Enable verbose logging
@@ -76,11 +77,11 @@ type API struct {
 
 // APIArgs contains the configuration needed to create a new API instance.
 type APIArgs struct {
-	Name       string          // API name
-	Webroot    common.Filepath // Static file root directory
-	SourceFile common.Filepath // Configuration file path
-	BasePath   common.URLPath  // URL prefix for endpoints
-	Endpoints  []*Endpoint     // Parsed endpoint configurations
+	Name       string         // API name
+	Webroot    dt.DirPath     // Static file root directory
+	SourceFile dt.Filepath    // Configuration file path
+	BasePath   common.URLPath // URL prefix for endpoints
+	Endpoints  []*Endpoint    // Parsed endpoint configurations
 	Options    *common.Options
 	CLIWriter  cliutil.Writer // CLI output writer
 	Logger     *slog.Logger   // Structured logger
@@ -88,11 +89,11 @@ type APIArgs struct {
 
 // CreateAPIArgs contains dependencies needed to create an API from configuration.
 type CreateAPIArgs struct {
-	Database dbpkg.Database
-	Config   cfgldr.APIConfig // Loaded API configuration
-	Options  *common.Options
-	Writer   cliutil.Writer // CLI writer for output
-	Logger   *slog.Logger   // Logger instance
+	Database  dbpkg.Database
+	APIConfig cfgldr.APIConfig // Loaded API configuration
+	Options   *common.Options
+	Writer    cliutil.Writer // CLI writer for output
+	Logger    *slog.Logger   // Logger instance
 }
 
 // CreateAPI creates a new API instance from the provided configuration.
@@ -100,11 +101,11 @@ type CreateAPIArgs struct {
 // Currently only supports APIConfigV2 format.
 func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	var basePath common.URLPath
-	var sourceFile common.Filepath
-	var webroot common.Filepath
+	var sourceFile dt.Filepath
+	var webroot dt.DirPath
 	var endpoints []*Endpoint
 
-	cfg := args.Config
+	cfg := args.APIConfig
 
 	cfgV2, ok := cfg.(*cfgldr.APIConfigV2)
 	if !ok {
@@ -114,11 +115,11 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	if err != nil {
 		goto end
 	}
-	webroot, err = common.ParseFilepath(cfgV2.Webroot)
+	webroot, err = common.ParseDirPath(cfgV2.Webroot)
 	if err != nil {
 		goto end
 	}
-	sourceFile, err = common.ParseFilepath(cfgV2.SourceFile)
+	sourceFile, err = dt.ParseFilepath(cfgV2.SourceFile)
 	if err != nil {
 		goto end
 	}

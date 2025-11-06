@@ -3,7 +3,7 @@ package sqlite3pkg
 import "C"
 import (
 	"github.com/mattn/go-sqlite3"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
 )
 
 func isRecognizedOp(op int) bool {

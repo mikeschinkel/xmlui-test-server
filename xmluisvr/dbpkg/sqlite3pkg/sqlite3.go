@@ -3,7 +3,6 @@ package sqlite3pkg
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,11 +11,13 @@ import (
 	"time"
 
 	"github.com/mattn/go-sqlite3"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 func init() {
@@ -144,7 +145,9 @@ func (s *SQLite3) TypeName() string {
 }
 
 func (s *SQLite3) ParseExtension(dbExtCfg dbpkg.DBExtensionConfig) (dbExt dbpkg.DBExtension, err error) {
-	var fp common.Filepath
+	var fp dt.Filepath
+	var status dt.EntryStatus
+
 	sExtCfg, ok := dbExtCfg.(*cfgldr.SQLite3ExtensionConfigV1)
 	if !ok {
 		err = NewErr(
@@ -153,15 +156,15 @@ func (s *SQLite3) ParseExtension(dbExtCfg dbpkg.DBExtensionConfig) (dbExt dbpkg.
 		)
 		goto end
 	}
-	fp, err = common.ParseFilepath(sExtCfg.Filepath)
+	fp, err = dt.ParseFilepath(sExtCfg.Filepath)
 	if err != nil {
 		goto end
 	}
-	err = common.CheckFileExists(fp)
-	switch {
-	case errors.Is(err, common.ErrFileDoesNotExist):
-	case errors.Is(err, common.ErrPathIsDir):
-	default:
+	status, err = fp.Status()
+	if err != nil {
+		goto end
+	}
+	if status == dt.IsFileEntry {
 		dbExt = NewExtension(fp, ExtensionArgs{
 			// TODO Assign sExtCfg args
 		})
@@ -170,13 +173,13 @@ end:
 	return dbExt, err
 }
 
-func (s *SQLite3) CheckConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, connStr common.ConnectString) (err error) {
-	var fp common.Filepath
-	fp, err = common.ParseFilepath(string(connStr))
+func (s *SQLite3) ValidatedConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, connStr common.ConnectString) (err error) {
+	var fp dt.Filepath
+	fp, err = dt.ParseFilepath(string(connStr))
 	if err != nil {
 		goto end
 	}
-	err = s.CheckFileConnection(ctx, dbType, fp, dbpkg.CreatesMissingFileOnOpen)
+	err = s.ValidateFileConnection(ctx, dbType, fp)
 end:
 	return err
 }
@@ -363,7 +366,7 @@ func (s *SQLite3) LoadExtension(dbExt dbpkg.DBExtension) (err error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// TODO Check Filepath for URL and download if applicable
+	// TODO Check dt.Filepath for URL and download if applicable
 
 	filePath = string(ext.filePath)
 	// Get the absolute path to the extension file

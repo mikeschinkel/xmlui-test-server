@@ -1,7 +1,7 @@
 package pathvars
 
 import (
-	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/dtclassifiers"
-	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvconstraints"
-	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+	_ "github.com/xmlui-org/localdev/xmluisvr/pathvars/dtclassifiers"
+	_ "github.com/xmlui-org/localdev/xmluisvr/pathvars/pvconstraints"
+	_ "github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 )

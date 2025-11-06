@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 type HandlerHelperArgs struct {

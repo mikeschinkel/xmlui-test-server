@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 var (

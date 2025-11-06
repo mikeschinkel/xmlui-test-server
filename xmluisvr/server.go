@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/apipkg"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
 )
 
 // InboundProxyProtocol defines the protocol used for inbound proxy requests.
@@ -31,12 +32,12 @@ type API struct{}
 //   - Configurable API endpoints based on JSON configuration
 //   - CORS middleware for cross-origin requests
 type Server struct {
-	db                   dbpkg.Database    // Database connection and operations
-	api                  *apipkg.API       // API configuration and handlers
-	options              *common.Options   // Server configuration options
+	Database             dbpkg.Database    // Database connection and operations
+	API                  *apipkg.API       // API configuration and handlers
+	Options              *common.Options   // Server configuration options
 	port                 common.ServerPort // HTTP server port
-	sourceFile           common.Filepath   // Path to server configuration file
-	mux                  *http.ServeMux    // HTTP request multiplexer
+	SourceFile           dt.Filepath       // Path to server configuration file
+	Mux                  *http.ServeMux    // HTTP request multiplexer
 	cliutil.WriterLogger                   // Embedded logging functionality
 }
 
@@ -45,7 +46,7 @@ type ServerArgs struct {
 	Database   dbpkg.Database    // Database connection
 	API        *apipkg.API       // API configuration
 	Port       common.ServerPort // HTTP server port
-	SourceFile common.Filepath   // Configuration file path
+	SourceFile dt.Filepath       // Configuration file path
 	Options    *common.Options   // Server options
 	Writer     CLIWriter         // CLI output writer
 	Logger     *slog.Logger      // Structured logger
@@ -59,12 +60,12 @@ func NewServer(args ServerArgs) *Server {
 		args.Port = common.DefaultServerPort
 	}
 	return &Server{
-		db:           args.Database,
-		api:          args.API,
+		Database:     args.Database,
+		API:          args.API,
 		port:         args.Port,
-		options:      args.Options,
-		sourceFile:   args.SourceFile,
-		mux:          http.NewServeMux(),
+		Options:      args.Options,
+		SourceFile:   args.SourceFile,
+		Mux:          http.NewServeMux(),
 		WriterLogger: cliutil.NewWriterLogger(args.Writer, args.Logger),
 	}
 }
@@ -74,7 +75,7 @@ func NewServer(args ServerArgs) *Server {
 // This method must be called before ListenAndServe().
 func (svr *Server) Initialize(ctx Context) (err error) {
 	svr.V2().InfoPrint("Initializing server")
-	err = svr.api.Initialize(ctx)
+	err = svr.API.Initialize(ctx)
 	if errors.Is(err, common.ErrNoAPIProvided) {
 		svr.Printf("No APIConfig loaded")
 		err = nil
@@ -87,9 +88,9 @@ func (svr *Server) Initialize(ctx Context) (err error) {
 	// Add URL routes
 	svr.addRoutes(ctx)
 
-	err = svr.db.Open(ctx)
+	err = svr.Database.Open(ctx)
 	if err != nil {
-		err = svr.ErrorError("Failed to open database", "database_type", svr.db.Type(), "error", err)
+		err = svr.ErrorError("Failed to open database", "database_type", svr.Database.Type(), "error", err)
 		goto end
 	}
 
@@ -103,7 +104,7 @@ end:
 // to all requests. This method blocks until the server shuts down or an error occurs.
 func (svr *Server) ListenAndServe(_ Context) (err error) {
 	svr.InfoLoud("Server listening", "on", svr.displayHost())
-	return http.ListenAndServe(svr.Host(), svr.corsMiddleware(svr.mux))
+	return http.ListenAndServe(svr.Host(), svr.corsMiddleware(svr.Mux))
 }
 
 // corsMiddleware applies CORS headers to all HTTP responses to enable
@@ -143,35 +144,35 @@ func (svr *Server) Port() common.ServerPort {
 func (svr *Server) addRoutes(ctx Context) {
 	svr.V2().InfoPrint("Adding HTTP server routes")
 	// Handle APIConfig routes first (to match /apiFile/* before static files)
-	if svr.api != nil {
-		apiBasePath := string(svr.api.BasePath)
+	if svr.API != nil {
+		apiBasePath := string(svr.API.BasePath)
 		if !strings.HasSuffix(apiBasePath, "/") {
 			apiBasePath += "/"
 		}
 		route := fmt.Sprintf("GET  %s", apiBasePath)
 		svr.V3().Printf("  — %s\n", route)
-		svr.mux.HandleFunc(route, svr.api.HandleAPIFunc(ctx, svr.db))
+		svr.Mux.HandleFunc(route, svr.API.HandleAPIFunc(svr.Database))
 	}
 
 	// Handle proxy next
 	svr.V3().Printf("  — ANY  /proxy/\n")
 	for _, method := range common.HTTPMethods {
-		svr.mux.HandleFunc(fmt.Sprintf("%s /proxy/", method), svr.handleProxyFunc(method))
+		svr.Mux.HandleFunc(fmt.Sprintf("%s /proxy/", method), svr.handleProxyFunc(method))
 	}
 
 	// Health check endpoint (bypasses API routing for test readiness checks)
 	route := "GET /healthz"
 	svr.V3().Printf("  — %s\n", route)
-	svr.mux.HandleFunc(route, svr.handleHealthCheckFunc())
+	svr.Mux.HandleFunc(route, svr.handleHealthCheckFunc())
 
 	// Then handle query endpoint
 	route = "POST /query"
 	svr.V3().Printf("  — %s\n", route)
-	svr.mux.HandleFunc(route, svr.handleQueryFunc(ctx, svr.db))
+	svr.Mux.HandleFunc(route, svr.handleQueryFunc(svr.Database))
 
 	route = "GET  /"
 	svr.V3().Printf("  — %s\n", route)
-	svr.mux.HandleFunc(route, svr.handleRootFunc())
+	svr.Mux.HandleFunc(route, svr.handleRootFunc())
 
 	svr.V3().InfoPrint("HTTP server routes added")
 

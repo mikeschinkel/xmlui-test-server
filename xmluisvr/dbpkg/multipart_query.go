@@ -3,7 +3,7 @@ package dbpkg
 import (
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 type MultipartQuery struct {

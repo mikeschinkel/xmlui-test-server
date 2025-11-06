@@ -3,9 +3,9 @@ package apiresp
 import (
 	"fmt"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/mikeschinkel/go-rfc9457"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 type PayloadResult struct {

@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	cliutil "github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-rfc9457"
 )
 
 type Response struct {

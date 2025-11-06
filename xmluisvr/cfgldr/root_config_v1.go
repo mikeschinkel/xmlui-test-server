@@ -5,17 +5,21 @@ import (
 	jsonv2 "encoding/json/v2"
 	"os"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/mikeschinkel/go-cfgstore"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	"github.com/mikeschinkel/go-dt/appinfo"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // TODO — Convince Gent that we should publish schemas on schemas.xmlui.org
 const (
 	RootConfigV1Version = 1
-	RootConfigFile      = common.RootConfigFile
+	RootConfigFile      = common.ConfigFile
 	RootConfigV1Schema  = "https://schemas.xmlui.org/v1/test-server/root-schema.json"
 )
 
@@ -25,6 +29,23 @@ var _ Config = (*RootConfigV1)(nil)
 type RootConfigV1 struct {
 	rootConfigV1Base `json:",inline"`
 	DBConfig         DatabaseConfig `json:"database"`
+}
+
+func (c *RootConfigV1) RootConfig() {}
+func (c *RootConfigV1) IsNil() (isNil bool) {
+	isNil = true
+	if c == nil {
+		goto end
+	}
+	if c.DBConfig == nil {
+		goto end
+	}
+	if c.ServerConfig == nil {
+		goto end
+	}
+	isNil = false
+end:
+	return isNil
 }
 
 // Base struct with non-polymorphic fields
@@ -64,7 +85,8 @@ end:
 
 func (c *RootConfigV1) Config() {}
 
-func (c *RootConfigV1) Normalize(sourceFile string, opts *Options) {
+func (c *RootConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) error {
+	var errs []error
 	c.Schema = RootConfigV1Schema
 	c.Version = RootConfigV1Version
 	if c.ServerConfig == nil {
@@ -73,12 +95,12 @@ func (c *RootConfigV1) Normalize(sourceFile string, opts *Options) {
 			API:  NewAPIConfigV2("."),
 		})
 	}
-	c.ServerConfig.Normalize(sourceFile)
+	errs = AppendErr(errs, c.ServerConfig.Normalize(sourceFile, opts))
 	if c.DBConfig == nil {
 		c.DBConfig = NewSQLite3ConfigV1(DefaultSQLite3Database)
 	}
-	c.DBConfig.Normalize(sourceFile, opts)
-	return
+	errs = AppendErr(errs, c.DBConfig.Normalize(sourceFile, opts))
+	return CombineErrs(errs)
 }
 
 func (c *RootConfigV1) String() string {
@@ -146,15 +168,60 @@ func readFile(file string, mustLoad bool) (data []byte, err error) {
 	return data, err
 }
 
-func LoadRootConfigV1(appName string) (rc *RootConfigV1, err error) {
-	typeMap := cfgstore.GetConfigStoresMap(appName, RootConfigFile)
-	opts, err := GetOptions()
+type LoadRootConfigV1Args struct {
+	AppInfo      appinfo.AppInfo
+	Options      cfgstore.Options
+	DirTypes     []cfgstore.DirType
+	ConfigStores *cfgstore.ConfigStores
+}
+
+var _ cfgstore.RootConfig = (*RootConfigV1Wrapper)(nil)
+
+type RootConfigV1Wrapper struct {
+	RootConfigV1
+}
+
+func (w *RootConfigV1Wrapper) Normalize(sourceFile dt.Filepath, opts cfgstore.Options) (err error) {
+	var co *Options
+	co, err = dtx.AssertType[*Options](opts)
 	if err != nil {
 		goto end
 	}
-	rc, err = LoadRootConfigV1FromConfigStoreMap(typeMap, opts)
+	err = w.RootConfigV1.Normalize(sourceFile, co)
 end:
-	return rc, err
+	return err
+}
+func (w *RootConfigV1Wrapper) MarshalJSON() ([]byte, error) {
+	return jsonv2.Marshal(w.RootConfigV1)
+}
+
+func (w *RootConfigV1Wrapper) UnmarshalJSON(b []byte) error {
+	return jsonv2.Unmarshal(b, &w.RootConfigV1)
+}
+func LoadRootConfigV1(args LoadRootConfigV1Args) (_ *RootConfigV1, err error) {
+	var lrc RootConfigV1Wrapper
+
+	configStores := args.ConfigStores
+	if configStores == nil {
+		configStores = cfgstore.NewConfigStores(cfgstore.ConfigStoresArgs{
+			ConfigStoreArgs: cfgstore.ConfigStoreArgs{
+				ConfigSlug:  args.AppInfo.AppSlug(),
+				RelFilepath: args.AppInfo.ConfigFile(),
+			},
+		})
+	}
+
+	lrc = RootConfigV1Wrapper{
+		RootConfigV1: RootConfigV1{},
+	}
+
+	// Get externally set options such as via the switches on the command line
+	err = configStores.LoadRootConfig(&lrc, cfgstore.RootConfigArgs{
+		DirTypes: args.DirTypes,
+		Options:  args.Options,
+	})
+
+	return &lrc.RootConfigV1, err
 }
 
 func ensureConfig(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV1, err error) {
@@ -178,7 +245,7 @@ func createConfig(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV1, err
 	var api *APIConfigV2
 	var db *SQLite3ConfigV1
 	var server *ServerConfigV1
-	var fp string
+	var fp dt.Filepath
 
 	api = NewAPIConfigV2(DefaultWebroot)
 
@@ -278,7 +345,10 @@ func createConfig(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV1, err
 	if err != nil {
 		goto end
 	}
-	rc.Normalize(fp, opts)
+	err = rc.Normalize(fp, opts)
+	if err != nil {
+		goto end
+	}
 	err = cs.SaveJSON(rc)
 	if err != nil {
 		goto end
@@ -288,7 +358,8 @@ end:
 }
 
 func loadConfigIfExists(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV1, err error) {
-	var fp string
+	var fp dt.Filepath
+
 	if !cs.Exists() {
 		goto end
 	}
@@ -302,58 +373,8 @@ func loadConfigIfExists(cs cfgstore.ConfigStore, opts *Options) (rc *RootConfigV
 	if err != nil {
 		goto end
 	}
-	rc.Normalize(fp, opts)
+	err = rc.Normalize(fp, opts)
 end:
-	return rc, err
-}
-
-// LoadRootConfigV1FromConfigStoreMap also specifying the config stores in a map to enable unit testing
-func LoadRootConfigV1FromConfigStoreMap(stores cfgstore.ConfigStoresMap, opts *Options) (rc *RootConfigV1, err error) {
-	var userConfig, localConfig *RootConfigV1
-	var cs cfgstore.ConfigStore
-	var schemaBytes []byte
-	var apiConfig *APIConfigV2
-
-	cs = stores[cfgstore.DotConfigDir]
-	userConfig, err = ensureConfig(cs, opts)
-	if err != nil {
-		goto end
-	}
-
-	cs = stores[cfgstore.LocalConfigDir]
-	localConfig, err = loadConfigIfExists(cs, opts)
-	if err != nil {
-		goto end
-	}
-
-	// TODO Merge them here instead of just returning userConfig
-	rc = userConfig
-	rc = localConfig
-
-	apiConfig, err = loadAPIFileIfExists(opts.APIFile)
-	if err != nil {
-		goto end
-	}
-	if rc != nil && apiConfig != nil {
-		rc.ServerConfig.APIConfig = apiConfig
-	}
-
-	schemaBytes, err = cfgstore.ReadFileIfExists(opts.DBBootstrapFile)
-	if err != nil {
-		err = NewErr(ErrFailedToLoadDBSchemaFile, "dbschema_file", opts.DBBootstrapFile, err)
-		goto end
-	}
-	if rc != nil && len(schemaBytes) != 0 {
-		rc.DBConfig.SetBootstrapQueries([]string{string(schemaBytes)})
-	}
-
-end:
-	if err != nil {
-		fp, _ := cs.GetFilepath()
-		err = WithErr(err,
-			"filepath", fp,
-		)
-	}
 	return rc, err
 }
 

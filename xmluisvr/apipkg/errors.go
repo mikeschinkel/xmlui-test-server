@@ -3,7 +3,7 @@ package apipkg
 import (
 	"errors"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonxtractr"
+	"github.com/mikeschinkel/go-jsonxtractr"
 )
 
 var (

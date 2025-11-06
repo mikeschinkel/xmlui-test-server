@@ -2,14 +2,15 @@ package dbpkg
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"path/filepath"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	"github.com/mikeschinkel/go-cliutil"
+	. "github.com/mikeschinkel/go-doterr"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 )
 
 type BaseDatabase struct {
@@ -21,7 +22,7 @@ type BaseDatabase struct {
 	BootstrapQueries *MultipartQuery
 	OnOpenQueries    *MultipartQuery
 	extensions       []DBExtension
-	sourceFile       common.Filepath
+	sourceFile       dt.Filepath
 	options          *common.Options
 	AccessMode       AccessMode
 	Initialized      bool
@@ -62,7 +63,7 @@ func (db *BaseDatabase) Close() error {
 	return db.DB.Close()
 }
 
-func (db *BaseDatabase) SourceFile() common.Filepath {
+func (db *BaseDatabase) SourceFile() dt.Filepath {
 	return db.sourceFile
 }
 
@@ -131,37 +132,40 @@ func (db *BaseDatabase) Query(ctx Context, q string, params ...any) (*sql.Rows, 
 	return db.DB.QueryContext(ctx, q, params...)
 }
 
-type MissingFileOpenMode int
-
-const (
-	UnspecifiedCreateMode MissingFileOpenMode = iota
-	CreatesMissingFileOnOpen
-	FailsOnOpenOfMissingFile
-)
-
-// CheckFileConnection checks for file connections which work for SQLite3 and DuckDB.
-func (db *BaseDatabase) CheckFileConnection(ctx Context, dbType DatabaseType, cs common.Filepath, mode MissingFileOpenMode) (err error) {
-	err = common.CheckFileExists(cs)
-	switch {
-	case errors.Is(err, common.ErrFileDoesNotExist):
-		if mode != CreatesMissingFileOnOpen {
-			goto end
-		}
-		// Calls says it will be created on open
-		err = common.EnsureDirExists(common.Dir(cs))
+// ValidateFileConnection checks for file connections which work for SQLite3 and DuckDB.
+func (db *BaseDatabase) ValidateFileConnection(ctx Context, dbType DatabaseType, cs dt.Filepath) (err error) {
+	var status dt.EntryStatus
+	status, err = cs.Status()
+	switch status {
+	case dt.IsEntryError:
+		err = NewErr(err)
+	case dt.IsFileEntry:
+		// What we are looking for; carry on!
+		err = db.PingDB(ctx, dbType, common.ConnectString(cs))
+	case dt.IsSymlinkEntry:
+		// Follow the symlink
+		var newCS dt.Filepath
+		newCS, err = cs.Readlink()
 		if err != nil {
 			goto end
 		}
-	case errors.Is(err, common.ErrPathIsDir):
-		goto end
+		err = db.ValidateFileConnection(ctx, dbType, newCS)
+	case dt.IsMissingEntry:
+		err = dt.ErrFileDoesNotExist
+	default:
+		err = dtx.EntryStatusError(status)
 	}
-	err = db.CheckDBConnection(ctx, dbType, common.ConnectString(cs))
 end:
+	if err != nil {
+		err = WithErr(err,
+			ErrConnectFailed,
+		)
+	}
 	return err
 }
 
-// CheckDBConnection checks for file connections which work for SQLite3 and DuckDB.
-func (db *BaseDatabase) CheckDBConnection(_ Context, dbType DatabaseType, cs common.ConnectString) (err error) {
+// PingDB checks for file connections which work for SQLite3 and DuckDB.
+func (db *BaseDatabase) PingDB(_ Context, dbType DatabaseType, cs common.ConnectString) (err error) {
 	var sqlDB *sql.DB
 
 	defer func() {

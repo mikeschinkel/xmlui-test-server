@@ -5,17 +5,17 @@ import (
 	jsonv2 "encoding/json/v2"
 	"os"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 )
 
-// generateComprehensiveConfig generates the api_comprehensive_test.json configuration file.
+// generateConfig generates the api__test.json configuration file.
 // This function is called from TestMain() to ensure the config exists before tests run.
-// It can also be called manually via TestGenerateComprehensiveConfig for regeneration.
-func generateComprehensiveConfig(outputPath string) error {
+// It can also be called manually via TestGenerateConfig for regeneration.
+func generateConfig(outputPath string) error {
 	api := cfgldr.NewAPIConfigV2("./.xmlui")
-	api.Name = "Comprehensive PathVars Integration Test API"
+	api.Name = " PathVars Integration Test API"
 
 	// Helper function to create params map
 	m := func(pairs ...string) *cfgldr.APIParamsMap {
@@ -40,7 +40,7 @@ func generateComprehensiveConfig(outputPath string) error {
 		}
 	}
 
-	// Add all 27 endpoints from the comprehensive test
+	// Add all 27 endpoints from the  test
 	api.AddEndpoint(cfgldr.NewAPIEndpointV2("GET", "/tasks/by-estimate/{estimate:real}?{min_priority?1:int:range[1..5]}&{status?todo:string:enum[todo,doing,done]}", cfgldr.APIEndpointV2Args{
 		Description: "Real path parameter with optional query parameters with defaults",
 		Query:       "SELECT id, title, status, priority, estimate FROM tasks WHERE estimate >={estimate} AND priority >={min_priority} AND status = {status};",
@@ -316,7 +316,7 @@ func generateComprehensiveConfig(outputPath string) error {
 		API:  api,
 		Notes: []string{
 			"GENERATED FILE: DO NOT EDIT!!!",
-			"Edit ./test/generate_comprehensive_config_test.go instead.",
+			"Edit ./test/generate__config_test.go instead.",
 		},
 	})
 

@@ -1,5 +1,9 @@
 package cfgldr
 
+import (
+	"github.com/mikeschinkel/go-dt"
+)
+
 var _ DatabaseConfig = (*PostgresConfigV1)(nil)
 var _ Config = (*PostgresConfigV1)(nil)
 
@@ -62,9 +66,8 @@ func (c *PostgresConfigV1) DBExtensions() []DBExtensionConfig {
 	panic("implement me")
 }
 
-func (c *PostgresConfigV1) Normalize(sourceFile string, opts *Options) {
-	//TODO implement me
-	panic("implement me")
+func (c *PostgresConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
+	return err
 }
 
 func (*PostgresConfigV1) Config() {}

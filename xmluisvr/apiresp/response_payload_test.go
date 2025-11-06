@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
+	"github.com/mikeschinkel/go-rfc9457"
+	testutil "github.com/mikeschinkel/go-testutil"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 // TestMain sets up package-level configuration before running tests

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 )
 
 // TestArchiveUseCase demonstrates the exact use case requested:

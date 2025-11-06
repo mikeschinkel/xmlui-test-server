@@ -1,7 +1,7 @@
 package xmluisvr
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
+	cliutil "github.com/mikeschinkel/go-cliutil"
 )
 
 // CLIWriter is an alias for cliutil.Writer, providing CLI output functionality

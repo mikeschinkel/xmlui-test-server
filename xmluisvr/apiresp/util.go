@@ -4,8 +4,8 @@ import (
 	"encoding/json/jsontext"
 	"net/http"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	cliutil "github.com/mikeschinkel/go-cliutil"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 )
 
 // Format JSON is a pretty manner

@@ -3,8 +3,8 @@ package cfgldr
 import (
 	"log/slog"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	cfgstore "github.com/mikeschinkel/go-cfgstore"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 var logger *slog.Logger

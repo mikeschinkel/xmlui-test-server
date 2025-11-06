@@ -103,5 +103,5 @@ deps:
 ## doterr: Sync doterr
 .PHONY: doterr
 doterr:
-	@./xmluisvr/doterr/sync.sh
+	@~/Projects/go-pkgs/go-doterr/sync.sh
 

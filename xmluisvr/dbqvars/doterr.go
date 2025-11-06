@@ -61,6 +61,7 @@ var (
 	ErrInvalidArgumentType = errors.New("invalid argument type")
 	ErrOddKeyValueCount    = errors.New("odd number of key-value arguments")
 	ErrCrossPackageError   = errors.New("error from different doterr package")
+	ErrFailedTypeAssertion = errors.New("failed type assertion")
 )
 
 // NewErr builds a standalone structured entry (no primary cause inside).

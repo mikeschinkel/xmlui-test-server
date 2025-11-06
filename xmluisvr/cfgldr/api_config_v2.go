@@ -7,9 +7,10 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 const (
@@ -63,7 +64,7 @@ func NewAPIConfigV2(webroot string) *APIConfigV2 {
 
 func (*APIConfigV2) Config() {}
 
-func (c *APIConfigV2) normalizeEndpoints(sourceFile string) {
+func (c *APIConfigV2) normalizeEndpoints(sourceFile dt.Filepath, opts *Options) (err error) {
 	if c.Endpoints == nil {
 		c.Endpoints = make([]*APIEndpointV2, 0)
 	}
@@ -71,14 +72,14 @@ func (c *APIConfigV2) normalizeEndpoints(sourceFile string) {
 		goto end
 	}
 	for _, ep := range c.Endpoints {
-		ep.Normalize(sourceFile)
+		ep.Normalize(sourceFile, opts)
 	}
 end:
-	return
+	return err
 }
 
-func (c *APIConfigV2) Normalize(sourceFile string) {
-	c.SourceFile = sourceFile
+func (c *APIConfigV2) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
+	c.SourceFile = string(sourceFile)
 	if c.Schema == "" {
 		c.Schema = APIConfigV2Schema
 	}
@@ -91,7 +92,8 @@ func (c *APIConfigV2) Normalize(sourceFile string) {
 	if c.Webroot == "" {
 		c.Webroot = DefaultWebroot
 	}
-	c.normalizeEndpoints(sourceFile)
+	err = c.normalizeEndpoints(sourceFile, opts)
+	return err
 }
 
 func (c *APIConfigV2) AddEndpoint(endpoint *APIEndpointV2) {
@@ -104,12 +106,12 @@ func (c *APIConfigV2) Migrate(oldCfg Config) (newCfg *APIConfigV2) {
 	return new(APIConfigV2)
 }
 
-func LoadAPIConfigV2(apiFile string) (c *APIConfigV2, err error) {
+func LoadAPIConfigV2(apiFile dt.Filepath) (c *APIConfigV2, err error) {
 	var data []byte
 	if apiFile == "" {
 		goto end
 	}
-	data, err = os.ReadFile(string(apiFile))
+	data, err = apiFile.ReadFile()
 	if errors.Is(os.ErrNotExist, err) {
 		err = fmt.Errorf("invalid APIConfig description file: %w", err)
 		goto end

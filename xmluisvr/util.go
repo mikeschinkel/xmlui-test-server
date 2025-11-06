@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // launchBrowser attempts to open a URL in the default web browser.

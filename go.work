@@ -1,7 +1,17 @@
-go 1.25.1
+go 1.25.3
 
 use (
+	./../../go-pkgs/go-cfgstore
+	./../../go-pkgs/go-cliutil
+	./../../go-pkgs/go-doterr
+	./../../go-pkgs/go-dt
+	./../../go-pkgs/go-fsfix
+	./../../go-pkgs/go-jsontest
+	./../../go-pkgs/go-jsonxtractr
+	./../../go-pkgs/go-logutil
+	./../../go-pkgs/go-rfc9457
+	./../../go-pkgs/go-testutil
 	cmd
-	xmluisvr
 	test
+	xmluisvr
 )

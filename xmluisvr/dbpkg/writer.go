@@ -1,7 +1,7 @@
 package dbpkg
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
+	cliutil "github.com/mikeschinkel/go-cliutil"
 )
 
 type CLIWriter = cliutil.Writer

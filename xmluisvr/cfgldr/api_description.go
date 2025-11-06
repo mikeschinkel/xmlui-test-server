@@ -8,9 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 type Context = context.Context
@@ -84,9 +85,9 @@ type MethodDefinition struct {
 	Params      []string `json:"params,omitempty"`
 }
 
-func LoadAPIDescriptionFromFile(file string) (d *APIDescription, err error) {
+func LoadAPIDescriptionFromFile(file dt.Filepath) (d *APIDescription, err error) {
 	var data []byte
-	data, err = os.ReadFile(file)
+	data, err = file.ReadFile()
 	if errors.Is(os.ErrNotExist, err) {
 		goto end
 	}

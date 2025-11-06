@@ -3,8 +3,8 @@ package pathvars_test
 import (
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 )
 
 func newValuesMap(args ...any) pvtypes.ValuesMap {

@@ -3,7 +3,7 @@ package pathvars_test
 import (
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 )
 
 // TestSnowflakeComponentValidation tests that Snowflake IDs are properly decoded and validated

@@ -3,8 +3,8 @@ package test
 import (
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/mikeschinkel/go-rfc9457"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
 )
 
 // TestAPIQueryParams tests query parameter extraction and validation.
@@ -20,7 +20,7 @@ import (
 //   - Validating query parameter types and constraints
 //   - RFC 9457 error responses for invalid query parameters
 func TestAPIQueryParams(t *testing.T) {
-	server := setupComprehensiveTestServer(t)
+	server := SetupTestServer(t)
 	defer server.Cleanup()
 
 	tests := []testRequest{

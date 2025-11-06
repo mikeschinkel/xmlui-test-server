@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // Mode Durability  Performance  Journal Notes

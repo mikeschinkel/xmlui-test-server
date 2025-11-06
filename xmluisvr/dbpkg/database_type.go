@@ -1,9 +1,9 @@
 package dbpkg
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 type DatabaseType string
@@ -17,7 +17,7 @@ func ParseDatabaseType(ctx Context, connStr string) (dt DatabaseType, err error)
 			err = NewErr(ErrInvalidConnectString)
 			goto end
 		}
-		err := db.CheckConnection(ctx, dbType, cs)
+		err := db.ValidatedConnection(ctx, dbType, cs)
 		if err != nil {
 			errs = append(errs, err)
 			continue

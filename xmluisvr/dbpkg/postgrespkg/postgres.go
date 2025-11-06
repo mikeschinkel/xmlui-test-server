@@ -10,13 +10,13 @@ import (
 	"strconv"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	cliutil "github.com/mikeschinkel/go-cliutil"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 func init() {
@@ -105,8 +105,8 @@ func (p *Postgres) Query(ctx dbpkg.Context, q string, params ...any) (*sql.Rows,
 	return p.database.Query(ctx, FormatQueryForPostgres(q), params...)
 }
 
-func (p *Postgres) CheckConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, connStr common.ConnectString) (err error) {
-	return p.CheckDBConnection(nil, dbType, connStr)
+func (p *Postgres) ValidatedConnection(ctx dbpkg.Context, dbType dbpkg.DatabaseType, connStr common.ConnectString) (err error) {
+	return p.PingDB(nil, dbType, connStr)
 }
 
 // ParseConnectString injects or overrides the port in a Postgres connection string (URL or DSN format)

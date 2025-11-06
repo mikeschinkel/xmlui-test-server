@@ -3,8 +3,8 @@ package test
 import (
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/mikeschinkel/go-rfc9457"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
 )
 
 // TestAPIDataTypes tests basic data type validation for path parameters.
@@ -18,7 +18,7 @@ import (
 //   - Date type ({birth_date:date})
 //   - Alphanumeric type ({sensor_id:alphanumeric})
 func TestAPIDataTypes(t *testing.T) {
-	server := setupComprehensiveTestServer(t)
+	server := SetupTestServer(t)
 	defer server.Cleanup()
 
 	tests := []testRequest{

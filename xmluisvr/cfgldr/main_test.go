@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
+	testutil "github.com/mikeschinkel/go-testutil"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 const testDataDir = "./test-data"

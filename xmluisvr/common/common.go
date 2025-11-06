@@ -4,7 +4,8 @@ import (
 	"errors"
 	"io"
 	"os"
-	"path/filepath"
+
+	"github.com/mikeschinkel/go-dt"
 )
 
 func CloseOrLog(c io.Closer) {
@@ -29,7 +30,7 @@ func LogOnError(err error) {
 // CheckFileExists always returns an error indicating the status of the file. It
 // is hte callers responsibility to decide which "errors" are relevant to their
 // use-case.
-func CheckFileExists(path Filepath) error {
+func CheckFileExists(path dt.Filepath) error {
 	info, err := os.Stat(string(path))
 	if errors.Is(err, os.ErrNotExist) {
 		err = NewErr(ErrFileDoesNotExist, err)
@@ -42,25 +43,6 @@ func CheckFileExists(path Filepath) error {
 		err = NewErr(ErrPathIsDir, err)
 	}
 	err = ErrFileExists
-end:
-	return err
-}
-
-func Dir(path Filepath) DirPath {
-	return DirPath(filepath.Dir(string(path)))
-}
-
-func EnsureDirExists(path DirPath) (err error) {
-	info, err := os.Stat(string(path))
-	if errors.Is(err, os.ErrNotExist) {
-		err = os.MkdirAll(string(path), os.ModePerm)
-	}
-	if err != nil {
-		goto end
-	}
-	if !info.IsDir() {
-		err = NewErr(ErrPathIsFile, err)
-	}
 end:
 	return err
 }

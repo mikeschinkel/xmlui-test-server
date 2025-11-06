@@ -1,7 +1,8 @@
 package cfgldr
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 const (
@@ -28,18 +29,18 @@ type ServerConfigV1 struct {
 
 func (*ServerConfigV1) ServerConfig() {}
 
-func (c *ServerConfigV1) Normalize(sourceFile string) {
+func (c *ServerConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
 	c.Schema = ServerConfigV1Schema
 	c.Version = ServerConfigV1Version
-	c.SourceFile = sourceFile
-	if c.Host != "" {
+	c.SourceFile = string(sourceFile)
+	if c.Host == "" {
 		c.Host = common.DefaultServerHost
 	}
 	if c.Port == 0 {
 		c.Port = common.DefaultServerPort
 	}
-	c.APIConfig.Normalize(sourceFile)
-	return
+	err = c.APIConfig.Normalize(sourceFile, opts)
+	return err
 }
 
 type ServerConfigV1Args struct {

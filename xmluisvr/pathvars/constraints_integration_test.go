@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 )
 
 func TestConstraints(t *testing.T) {

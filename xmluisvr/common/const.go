@@ -13,7 +13,7 @@
 // # Core Types
 //
 // The package defines several string-based types for type safety:
-//   - Filepath: File system paths (absolute or relative)
+//   - dt.Filepath: File system paths (absolute or relative)
 //   - URLPath: HTTP URL paths with validation
 //   - Identifier: Safe identifiers for variables and parameters
 //   - ConnectString: Database connection strings
@@ -37,7 +37,14 @@ package common
 
 const (
 	// AppName is the human-readable name of the application.
-	AppName = "XMLUI Local Server"
+	AppName    = "XMLUI Local Server"
+	AppDescr   = "Local development server for building and testing XMLUI web applications"
+	AppSlug    = "xmlui-localdev"
+	ConfigSlug = "xmlui"
+	ConfigFile = "test-server.json" // TODO change to "server.json" or "localdev.json"
+	AppVer     = "v0.0.0"
+	ExeName    = "xmluisvr"
+	LogFile    = "xmlui-localdev.log"
 
 	// GitHubRepoURL provides the GitHub repo for this project for use in error messages
 	// TODO: Be sure to update this when we change the repo name
@@ -51,9 +58,14 @@ const (
 
 	// DefaultServerHost is the default host address for the HTTP server.
 	DefaultServerHost = LocalHostIP
+)
 
-	// AppConfigPath is the default path for application configuration files.
-	AppConfigPath = "xmlui"
+const (
+	InfoURL = GitHubRepoURL
+)
 
-	RootConfigFile = "test-server.json"
+var (
+	ExtraInfo = map[string]any{
+		"github_repo_url": GitHubRepoURL,
+	}
 )

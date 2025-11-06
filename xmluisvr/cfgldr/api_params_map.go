@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 type APIParamsMapKey string

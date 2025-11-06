@@ -13,20 +13,22 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/mikeschinkel/go-cfgstore"
+	"github.com/mikeschinkel/go-cfgstore/cstest"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/appinfo"
 	"github.com/mikeschinkel/go-fsfix"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
+	"github.com/mikeschinkel/go-rfc9457"
+	"github.com/mikeschinkel/go-testutil"
+	"github.com/xmlui-org/localdev/xmluisvr"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 // EnvironmentName identifies the type of test environment configuration.
@@ -35,7 +37,7 @@ import (
 type EnvironmentName string
 
 const (
-	// ComprehensiveTestEnv uses api_comprehensive_test.json which contains all API
+	// TestEnv uses api__test.json which contains all API
 	// endpoints for integration testing. This config includes:
 	//   - All data type validations (int, string, uuid, slug, boolean, real, date, alphanumeric)
 	//   - All constraint types (range, length, enum, regex, notempty, format)
@@ -43,12 +45,14 @@ const (
 	//   - Multi-segment parameters
 	//   - Various response formats (cardinality, row_type)
 	// Used by: api_datatypes_test.go, api_constraints_test.go, api_parameters_test.go, etc.
-	ComprehensiveTestEnv EnvironmentName = "comprehensive"
+	TestEnv EnvironmentName = "test_env"
 
-	// CustomTestEnv indicates a test-specific configuration passed directly to setupTestServer.
-	// Use this when you need a specialized API config that differs from the comprehensive one.
+	// CustomTestEnv indicates a test-specific configuration passed directly to SetupTestServer.
+	// Use this when you need a specialized API config that differs from the  one.
 	// Example: Testing a single endpoint with specific edge cases.
 	CustomTestEnv EnvironmentName = "custom"
+
+	TestUsername = "mikeschinkel"
 )
 
 // testRequest represents a single HTTP request test case
@@ -67,17 +71,19 @@ type testRequest struct {
 // testEnvironment holds the test environment setup for a single test case
 type testEnvironment struct {
 	rootFixture        *fsfix.RootFixture
-	dbPath             string
+	appInfo            appinfo.AppInfo
+	dbPath             dt.Filepath
 	bootstrapFile      *fsfix.FileFixture
 	configFile         *fsfix.FileFixture
-	configStoreMap     cfgstore.ConfigStoresMap
+	configStores       *cfgstore.ConfigStores
 	bufferedLogHandler *testutil.BufferedLogHandler
 	bufferedWriter     *testutil.BufferedWriter
 	logger             *slog.Logger
+	dirsProvider       *cfgstore.DirsProvider
 }
 
-// testServer represents a running test server instance
-type testServer struct {
+// TestServer represents a running test server instance
+type TestServer struct {
 	BaseURL     string
 	Port        int
 	ctx         context.Context
@@ -195,44 +201,65 @@ func assertRFC9457Equal(t *testing.T, got, want *rfc9457.Response) {
 func setupTestEnvironment(t *testing.T, envName EnvironmentName, configContent string) *testEnvironment {
 	t.Helper()
 
+	appInfo := xmluisvr.AppInfo()
+
 	// Create ONE root fixture for this test environment
-	rootFix := fsfix.NewRootFixture(string(envName))
+	rootFix := fsfix.NewRootFixture(fmt.Sprintf("%s-api", appInfo.AppSlug()))
 
+	args := &cstest.TestDirsProviderArgs{
+		Username:   TestUsername,
+		ProjectDir: common.AppSlug,
+		ConfigSlug: common.ConfigSlug,
+		TestRootFunc: func() dt.DirPath {
+			return rootFix.Dir()
+		},
+	}
+
+	dirsProvider := cstest.NewTestDirsProvider(args)
 	// Get the config stores map
-	csMap := cfgstore.GetConfigStoresMap(common.AppConfigPath, common.RootConfigFile)
-	dotCS := csMap[cfgstore.DefaultConfigDirType]
-	localCS := csMap[cfgstore.LocalConfigDir]
-
+	css := cfgstore.NewConfigStores(cfgstore.ConfigStoresArgs{
+		ConfigStoreArgs: cfgstore.ConfigStoreArgs{
+			ConfigSlug:   common.ConfigSlug,
+			RelFilepath:  common.ConfigFile,
+			DirsProvider: dirsProvider,
+		},
+	})
+	cliStore := css.CLIConfigStore()
+	cliDir, err := cstest.GetRelConfigDir(cliStore, args)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Create .config directory for user config
-	dotFix := rootFix.AddDirFixture(t, ".config", &fsfix.DirFixtureArgs{Parent: rootFix})
-	configFile := dotFix.AddFileFixture(t, common.RootConfigFile, &fsfix.FileFixtureArgs{
-		Name:    common.RootConfigFile,
+	cliFix := rootFix.AddDirFixture(t, cliDir, nil)
+	configFile := cliFix.AddFileFixture(t, common.ConfigFile, &fsfix.FileFixtureArgs{
 		Content: configContent,
 	})
+	dbFix := cliFix.AddDirFixture(t, "db", nil)
+	sqlite3Fix := dbFix.AddDirFixture(t, "sqlite3", nil)
+	// Create bootstrap file in the test data directory
+	bootstrapFile := sqlite3Fix.AddFileFixture(t, "bootstrap.sql", &fsfix.FileFixtureArgs{
+		Content: BootstrapSQL(),
+	})
 
+	projectStore := css.ProjectConfigStore()
+	projectDir, err := cstest.GetRelConfigDir(projectStore, args)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Create project directory for project config (same content for simplicity)
-	localFix := rootFix.AddDirFixture(t, "project", &fsfix.DirFixtureArgs{Parent: rootFix})
-	localFix.AddFileFixture(t, common.RootConfigFile, &fsfix.FileFixtureArgs{
-		Name:    common.RootConfigFile,
+	projectFix := rootFix.AddDirFixture(t, projectDir, nil)
+	projectFix.AddFileFixture(t, common.ConfigFile, &fsfix.FileFixtureArgs{
 		Content: configContent,
 	})
 
 	// Create the fixture directory structure on disk
 	rootFix.Create(t)
 
-	// Configure the config stores to use our fixture directories
-	localCS.SetConfigDir(localFix.Dir())
-	dotCS.SetConfigDir(dotFix.Dir())
-
-	// Create bootstrap file in the test data directory
-	bootstrapFile := &fsfix.FileFixture{
-		Name:     "bootstrap.sql",
-		Content:  BootstrapSQL(),
-		Filepath: filepath.Join(DataDir(), "bootstrap.sql"),
-	}
+	css.CLIConfigStore().SetConfigDir(cliFix.Dir())
+	css.ProjectConfigStore().SetConfigDir(projectFix.Dir())
 
 	// Generate unique database path
-	dbPath := filepath.Join(rootFix.Dir(), "test.db")
+	dbPath := dt.FilepathJoin(rootFix.Dir(), "test.db")
 
 	// Setup buffered logger and CLI writer
 	logger, handler := testutil.GetBufferedLogger()
@@ -243,12 +270,14 @@ func setupTestEnvironment(t *testing.T, envName EnvironmentName, configContent s
 
 	return &testEnvironment{
 		rootFixture:        rootFix,
+		appInfo:            appInfo,
 		dbPath:             dbPath,
 		bootstrapFile:      bootstrapFile,
 		configFile:         configFile,
-		configStoreMap:     csMap,
+		configStores:       css,
 		bufferedLogHandler: handler,
 		bufferedWriter:     bufferedWriter,
+		dirsProvider:       dirsProvider,
 		logger:             logger,
 	}
 }
@@ -258,11 +287,16 @@ func (env *testEnvironment) cleanup(t *testing.T) {
 	t.Helper()
 	env.rootFixture.Cleanup()
 	// Remove database file if it exists
-	if _, err := os.Stat(env.dbPath); err == nil {
-		if err := os.Remove(env.dbPath); err != nil {
-			t.Logf("Warning: failed to remove database file: %v", err)
-		}
+	_, err := env.dbPath.Stat()
+	if err != nil {
+		goto end
 	}
+	err = env.dbPath.Remove()
+	if err != nil {
+		t.Errorf("Warning: failed to remove database file: %v", err)
+	}
+end:
+	return
 }
 
 // =============================================================================
@@ -270,7 +304,7 @@ func (env *testEnvironment) cleanup(t *testing.T) {
 // =============================================================================
 
 // setupTestServer creates and starts a test server instance
-func setupTestServer(t *testing.T, envName EnvironmentName, configContent string) *testServer {
+func setupTestServer(t *testing.T, envName EnvironmentName, configContent string) *TestServer {
 	t.Helper()
 
 	env := setupTestEnvironment(t, envName, configContent)
@@ -282,32 +316,53 @@ func setupTestServer(t *testing.T, envName EnvironmentName, configContent string
 	}
 
 	// Configure options
-	options := &cfgldr.Options{
+	cfgOpts := &cfgldr.Options{
 		HTTPPort:        port,
-		ConnectString:   env.dbPath,
-		DBBootstrapFile: env.bootstrapFile.Filepath,
+		ConnectString:   string(env.dbPath),
+		DBBootstrapFile: string(env.bootstrapFile.Filepath),
 		Timeout:         300,
 		Verbosity:       3, // Max verbosity for debugging
-		ErrorStype:      string(common.DevelopmentStyle),
+		ErrorStyle:      string(common.DevelopmentStyle),
 	}
 
 	// Load root config
-	rootConfig, err := cfgldr.LoadRootConfigV1FromConfigStoreMap(env.configStoreMap, options)
+	rootConfig, err := cfgldr.LoadRootConfigV1(cfgldr.LoadRootConfigV1Args{
+		AppInfo:      env.appInfo,
+		Options:      cfgOpts,
+		ConfigStores: env.configStores,
+	})
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
+	options, err := xmluisvr.ParseOptions(cfgOpts)
+	if err != nil {
+		t.Fatalf("Failed to parse options: %v", err)
+	}
+
+	context.WithTimeout(context.Background(), 1000*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	config, err := xmluisvr.ParseConfig(ctx, rootConfig, xmluisvr.ParseConfigArgs{
+		Options:      options,
+		Logger:       env.logger,
+		Writer:       env.bufferedWriter,
+		DirsProvider: env.dirsProvider,
+	})
+	if err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+
 	// Setup run arguments
 	runArgs := &xmluisvr.RunArgs{
-		CLIArgs:   []string{},
-		Options:   options,
-		Config:    rootConfig,
-		CLIWriter: env.bufferedWriter,
-		Logger:    env.logger,
+		CLIArgs: []string{},
+		AppInfo: env.appInfo,
+		Options: options,
+		Config:  config,
 	}
 
 	// Start server in goroutine
-	ctx, cancel := context.WithCancel(context.Background())
 	var serverError error
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -341,7 +396,7 @@ func setupTestServer(t *testing.T, envName EnvironmentName, configContent string
 		t.Fatalf("Server did not become ready within timeout")
 	}
 
-	server := &testServer{
+	server := &TestServer{
 		BaseURL:     baseURL,
 		Port:        port,
 		ctx:         ctx,
@@ -356,7 +411,7 @@ func setupTestServer(t *testing.T, envName EnvironmentName, configContent string
 }
 
 // Cleanup shuts down the server and cleans up resources
-func (s *testServer) Cleanup() {
+func (s *TestServer) Cleanup() {
 	s.t.Helper()
 
 	// Stop server
@@ -390,7 +445,7 @@ func (s *testServer) Cleanup() {
 // =============================================================================
 
 // runTestRequest executes a test request against the server and validates the response
-func (s *testServer) runTestRequest(req testRequest) {
+func (s *TestServer) runTestRequest(req testRequest) {
 	s.t.Helper()
 
 	s.t.Run(req.name, func(t *testing.T) {
@@ -598,20 +653,20 @@ func closeOrError(t *testing.T, closer io.Closer) {
 	}
 }
 
-// setupComprehensiveTestServer sets up a test server using the comprehensive test config.
-// This is a convenience wrapper that loads api_comprehensive_test.json which contains
+// SetupTestServer sets up a test server using the  test config.
+// This is a convenience wrapper that loads api__test.json which contains
 // all API endpoints for integration testing (data types, constraints, parameters, etc.).
-func setupComprehensiveTestServer(t *testing.T) *testServer {
+func SetupTestServer(t *testing.T) *TestServer {
 	t.Helper()
 
-	// Read the comprehensive test config that has all endpoints defined
-	configBytes, err := os.ReadFile("./test-data/api_comprehensive_test.json")
+	// Read the  test config that has all endpoints defined
+	configBytes, err := os.ReadFile("./test-data/api__test.json")
 	if err != nil {
-		t.Fatalf("Failed to read comprehensive test config: %v", err)
+		t.Fatalf("Failed to read  test config: %v", err)
 	}
 
-	// Use the ComprehensiveTestEnv constant for type safety and documentation
-	return setupTestServer(t, ComprehensiveTestEnv, string(configBytes))
+	// Use the TestEnv constant for type safety and documentation
+	return setupTestServer(t, TestEnv, string(configBytes))
 }
 
 // runTestRequest executes a test request and validates the response

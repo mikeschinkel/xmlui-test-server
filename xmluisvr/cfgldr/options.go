@@ -8,8 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/mikeschinkel/go-cliutil"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 )
 
 const (
@@ -20,9 +21,12 @@ const (
 	DefaultDBBootstrapFile       = "bootstrap.sql"
 	DefaultQuiet                 = false
 	DefaultAllowUntrustedQueries = false
-	DefaultVerbosity             = int(common.DefaultVerbosity)
-	DefaultErrorStyle            = string(common.DefaultErrorStyle)
+	DefaultVerbosity             = cliutil.DefaultVerbosity
 	DefaultDBAccessMode          = int(dbqvars.DBReadWriteMode)
+)
+
+const (
+	DefaultErrorStyle = string(common.DefaultErrorStyle)
 )
 
 const (
@@ -42,11 +46,13 @@ type Options struct {
 	DBBootstrapFile       string
 	Quiet                 bool
 	Verbosity             int
-	ErrorStype            string
+	ErrorStyle            string
 	AllowUntrustedQueries bool
 	DBAccessMode          int
 	DBExtensionFiles      []string
 }
+
+func (*Options) Options() {}
 
 type OptionsArgs struct {
 	Timeout               *int
@@ -57,7 +63,7 @@ type OptionsArgs struct {
 	DBBootstrapFile       *string
 	Quiet                 *bool
 	Verbosity             *int
-	ErrorStype            *string
+	ErrorStyle            *string
 	DBAccessMode          *int
 	AllowUntrustedQueries *bool
 	DBExtensionFiles      []string
@@ -90,11 +96,8 @@ func NewOptions(args OptionsArgs) *Options {
 	if args.Verbosity != nil {
 		opts.Verbosity = *args.Verbosity
 	}
-	if args.ErrorStype != nil {
-		opts.ErrorStype = *args.ErrorStype
-	}
-	if args.Timeout != nil {
-		opts.Timeout = *args.Timeout
+	if args.ErrorStyle != nil {
+		opts.ErrorStyle = *args.ErrorStyle
 	}
 	if args.DBAccessMode != nil {
 		opts.DBAccessMode = *args.DBAccessMode
@@ -108,8 +111,10 @@ func NewOptions(args OptionsArgs) *Options {
 var options *Options
 
 func GetOptions() (opts *Options, err error) {
+	var verbosity cliutil.Verbosity
 
 	if options != nil {
+		opts = options
 		goto end
 	}
 	{ // Block scope used here to get around the infernal limitation in Go
@@ -183,22 +188,30 @@ func GetOptions() (opts *Options, err error) {
 
 		flag.Parse()
 
-		options = NewOptions(OptionsArgs{
+		// Parse Verbosity because it is the only one that gets used immediately that
+		// needs to be parsed.
+		verbosity, err = cliutil.ParseVerbosity(*flags.verbosity)
+
+		opts = NewOptions(OptionsArgs{
 			HTTPPort:              flags.port,
 			APIFile:               flags.apiFile,
 			ConnectString:         flags.connStr,
 			DBPort:                flags.dbPort,
 			DBBootstrapFile:       flags.dbBootstrapFile,
 			Quiet:                 flags.quiet,
-			Verbosity:             flags.verbosity,
+			Verbosity:             intPtr(int(verbosity)),
 			DBExtensionFiles:      flags.dbExtensions.values(),
 			Timeout:               flags.timeout,
-			ErrorStype:            flags.errorStyle,
+			ErrorStyle:            flags.errorStyle,
 			AllowUntrustedQueries: flags.allowUntrustedQueries,
 		})
 	}
+	options = opts
 end:
-	return options, err
+	return opts, err
+}
+func intPtr(n int) *int {
+	return &n
 }
 
 type stringSliceFlag []string

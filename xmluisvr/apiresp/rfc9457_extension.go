@@ -1,7 +1,7 @@
 package apiresp
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/mikeschinkel/go-rfc9457"
 )
 
 func init() {

@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-jsontest"
 	_ "github.com/mikeschinkel/go-jsontest/pipefuncs"
 	"github.com/stretchr/testify/require"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 // TestCreateGoldenData is not a real test but a convenience to write a "Golden" file we can cherry pick from
@@ -101,14 +101,18 @@ func TestLoadRootConfigV1(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wd, _ := os.Getwd()
-			rootFix, csMap := testutil.SetupConfigDirFixtures(t, testDataDir,
-				filepath.Join(wd, "./test-data/user-config.test-server.json"),
-				filepath.Join(wd, "./test-data/project-config.test-server.json"),
-			)
+			wd, _ := dt.Getwd()
+			rootFix, css := SetupFixtures(t, SetupFixturesArgs{
+				TestDataDir: dt.DirPathJoin(wd, testDataDir),
+				UserFile:    "./user-config.test-server.json",
+				ProjectFile: "./project-config.test-server.json",
+			})
 			defer rootFix.Cleanup()
 			opts := cfgldr.NewOptions(cfgldr.OptionsArgs{})
-			gotRc, err := cfgldr.LoadRootConfigV1FromConfigStoreMap(csMap, opts)
+			gotRc, err := cfgldr.LoadRootConfigV1(cfgldr.LoadRootConfigV1Args{
+				Options:      opts,
+				ConfigStores: css,
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadRootConfigV1() error = %v, wantErr %v", err, tt.wantErr)
 				return

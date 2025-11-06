@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/mikeschinkel/go-cliutil"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
 )
 
 var mutex sync.Mutex

@@ -8,13 +8,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/mikeschinkel/go-cliutil"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 // TODO: Add functionality to set logfile with environment var or flags
 const logFile = "./xmlui-local-server.log"
+
+const (
+	FailedLoadingConfigFile = iota + 1
+	FailedParsingOptions
+	FailedParsingConfig
+	FaileWithKnownServerError
+	FaileWithUnknownServerError
+)
 
 // RunCLI is the main CLI entry point for the xmlui-test-server application.
 // It handles command-line argument parsing, configuration loading, and starts the server.
@@ -28,49 +36,85 @@ const logFile = "./xmlui-local-server.log"
 func RunCLI() {
 	var err error
 	var logger *slog.Logger
-	var config *cfgldr.RootConfigV1
-	var options *cfgldr.Options
+	var cfg *cfgldr.RootConfigV1
+	var opts *common.Options
+	var cfgOpts *cfgldr.Options
+	var config *Config
+	var wl cliutil.WriterLogger
 
-	options, err = cfgldr.GetOptions()
+	cfgOpts, err = cfgldr.GetOptions()
 	if err != nil {
 		fprintf(os.Stderr, "Invalid option(s): %v\n", strings.Replace(err.Error(), "\n", "; ", -1))
-		os.Exit(4)
+		os.Exit(1)
 	}
-	writer := cliutil.NewWriter(cliutil.WriterArgs{
-		Quiet:     options.Quiet,
-		Verbosity: options.Verbosity,
+
+	//goland:noinspection GoDfaErrorMayBeNotNil
+	writer := cliutil.NewWriter(&cliutil.WriterArgs{
+		Quiet:     cfgOpts.Quiet,
+		Verbosity: cliutil.Verbosity(cfgOpts.Verbosity),
 	})
 	logger, err = createFileLogger(logFile)
 	if err != nil {
-		writer.Errorf("Failed to create and/or open log file %s: %v\n", logFile, err)
-		writer.Errorf("Continuing without writing logs to disk\n")
+		writer.Errorf(
+			"Failed to create and/or open log file %s: %v\n",
+			"Continuing without writing logs to disk",
+			logFile, err,
+		)
 	}
-	// TODO Incorporate loaded environment vars into GetOptions
-	config, err = cfgldr.LoadRootConfigV1(common.AppConfigPath)
+	wl = cliutil.NewWriterLogger(writer, logger)
+
+	cfg, err = cfgldr.LoadRootConfigV1(cfgldr.LoadRootConfigV1Args{
+		AppInfo: AppInfo(),
+		Options: cfgOpts,
+	})
 	if err != nil {
 		writer.Errorf("Failed to load config file(s); %v\n", err)
-		os.Exit(1)
+		os.Exit(FailedLoadingConfigFile)
 	}
+
+	// TODO Incorporate loaded environment vars into GetOptions
+	opts, err = ParseOptions(cfgOpts)
+	if err != nil {
+		fprintf(os.Stderr, "Failed while parsing options: %v\n", err)
+		os.Exit(FailedParsingOptions)
+	}
+
 	// TODO: Make 10 second timeout configurable
 	context.WithTimeout(context.Background(), 10*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	err = Run(ctx, &RunArgs{
-		Options:   options,
-		Config:    config,
-		CLIWriter: writer,
-		Logger:    logger,
+
+	config, err = ParseConfig(ctx, cfg, ParseConfigArgs{
+		Options:      opts,
+		Logger:       logger,
+		Writer:       writer,
+		DirsProvider: nil, // This should be nil, use a provider only for testing
 	})
+	if err != nil {
+		_ = wl.ErrorError("Failed to parse configuration", "error", err)
+		os.Exit(FailedParsingConfig)
+	}
+	defer common.CloseOrLog(config.Database)
+
+	err = Run(ctx, &RunArgs{
+		CLIArgs: nil,
+		AppInfo: AppInfo(),
+		Config:  config,
+		Options: opts,
+	})
+
 	switch {
 	case err == nil:
 		writer.Printf("%s terminated gracefully", common.AppName)
 	case errors.Is(err, ErrServerError):
-		writer.Errorf("%s terminated with error: %v", common.AppName, err)
-		logger.Error("Server terminated with an error", "error", err)
-		os.Exit(2)
+		_ = wl.ErrorError("CLI terminated with error:",
+			"cli_name", common.AppName,
+			"exe_name", common.ExeName,
+			"error", err,
+		)
+		os.Exit(FaileWithKnownServerError)
 	default:
-		writer.Errorf("Error running %s: %v", common.AppName, err)
-		logger.Error("Server terminated with an unexpected error", "error", err)
-		os.Exit(3)
+		_ = wl.ErrorError("Server terminated with an unexpected error", "error", err)
+		os.Exit(FaileWithUnknownServerError)
 	}
 }

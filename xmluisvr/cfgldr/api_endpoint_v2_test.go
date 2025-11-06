@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
 )
 
 func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {
@@ -388,7 +388,7 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.endpoint.Normalize("")
+			tt.endpoint.Normalize("", nil)
 			tt.check(t, tt.endpoint)
 		})
 	}

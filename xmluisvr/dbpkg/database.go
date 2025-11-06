@@ -7,14 +7,15 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
+	"github.com/mikeschinkel/go-cfgstore"
+	"github.com/mikeschinkel/go-doterr"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 //type ConnectStyle string
@@ -37,12 +38,12 @@ type Database interface {
 	TypeName() string
 	ConnectString() string
 	SetConnectString(string)
-	SourceFile() common.Filepath
+	SourceFile() dt.Filepath
 	SetBaseDatabase(db *BaseDatabase)
 	Open(Context) error
 	Close() error
 	Query(Context, string, ...any) (*sql.Rows, error)
-	CheckConnection(Context, DatabaseType, common.ConnectString) error
+	ValidatedConnection(Context, DatabaseType, common.ConnectString) error
 	ParseConnectString(string) (common.ConnectString, error)
 	ParseQueryString(query string) (dbqvars.QueryString, error)
 	QueryFileExt() string
@@ -65,7 +66,7 @@ type DatabaseArgs struct {
 	OnOpenQueries    *MultipartQuery
 	Options          *common.Options
 	AccessMode       AccessMode
-	SourceFile       common.Filepath
+	SourceFile       dt.Filepath
 	CLIWriter        CLIWriter
 	Logger           *slog.Logger
 	Config           cfgldr.DatabaseConfig
@@ -74,14 +75,15 @@ type DatabaseArgs struct {
 type ParseQueriesArgs struct {
 	Database     Database
 	BaseFilename string
-	ConfigSource common.Filepath
+	ConfigSource dt.Filepath
+	DirsProvider *cfgstore.DirsProvider
 }
 
 func ParseQueries(queries []string, args ParseQueriesArgs) (mpq *MultipartQuery, err error) {
 	var queryBytes []byte
 	var fileQuery string
 	var elemCnt, lineCnt int
-	var csFilepath string
+	var csFilepath dt.Filepath
 
 	mpq = NewMultipartQuery()
 	elemCnt = len(queries)
@@ -92,10 +94,15 @@ func ParseQueries(queries []string, args ParseQueriesArgs) (mpq *MultipartQuery,
 	}
 
 	db := args.Database
-	cs := cfgstore.NewConfigStoreWithFilename(common.AppConfigPath,
-		fmt.Sprintf("%s/%s%s", db.Type(), args.BaseFilename, db.QueryFileExt()),
-		cfgstore.DefaultConfigDirType,
-	)
+	cs := cfgstore.NewConfigStore(cfgstore.CLIConfigDir, cfgstore.ConfigStoreArgs{
+		ConfigSlug:   common.ConfigSlug,
+		RelFilepath:  dt.RelFilepathJoin3(ConfigSlug, db.Type(), args.BaseFilename+db.QueryFileExt()),
+		DirsProvider: args.DirsProvider,
+	})
+	//cs := cfgstore.NewConfigStore(common.AppConfigSlug,
+	//	fmt.Sprintf("%s/%s%s", db.Type(), args.BaseFilename, db.QueryFileExt()),
+	//	cfgstore.DefaultConfigDirType,
+	//)
 	queryBytes, err = cs.Load()
 	if errors.Is(err, cfgstore.ErrFileDoesNotExist) {
 		err = nil
@@ -117,7 +124,7 @@ func ParseQueries(queries []string, args ParseQueriesArgs) (mpq *MultipartQuery,
 			elemCnt+1,
 			elemCnt+lineCnt,
 			common.QueryString(fileQuery),
-			common.Filepath(csFilepath),
+			dt.Filepath(csFilepath),
 		),
 	)
 end:
@@ -125,25 +132,37 @@ end:
 }
 
 type ParseDatabaseArgs struct {
-	Options *common.Options
-	Writer  CLIWriter
-	Logger  *slog.Logger
+	Options      *common.Options
+	Writer       CLIWriter
+	Logger       *slog.Logger
+	DirsProvider *cfgstore.DirsProvider
 }
 
+var ErrNoDatabaseConnectString = errors.New("no database connection string")
+
 func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArgs) (db Database, err error) {
-	var dt DatabaseType
+	var dbType DatabaseType
 	var exts []DBExtension
 	var bootstrapQueries, onOpenQueries *MultipartQuery
-	var sourceFile common.Filepath
+	var sourceFile dt.Filepath
 
-	dt, err = ParseDatabaseType(ctx, cfg.ConnectString())
+	switch {
+	case cfg.DatabaseType() != "":
+		dbType = DatabaseType(cfg.DatabaseType())
+	case args.Options.ConnectString != "":
+		dbType, err = ParseDatabaseType(ctx, string(args.Options.ConnectString))
+	case cfg.ConnectString() != "":
+		dbType, err = ParseDatabaseType(ctx, cfg.ConnectString())
+	default:
+		err = NewErr(ErrNoDatabaseConnectString)
+	}
 	if err != nil {
 		goto end
 	}
 
-	db, err = GetRegisteredDatabase(dt)
+	db, err = GetRegisteredDatabase(dbType)
 	if db == nil {
-		err = NewErr(ErrUnsupportedDBType, "database_type", dt, err)
+		err = NewErr(ErrUnsupportedDBType, "database_type", dbType, err)
 		goto end
 	}
 
@@ -152,7 +171,7 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 		goto end
 	}
 
-	sourceFile, err = common.ParseFilepath(cfg.SourceFile())
+	sourceFile, err = dt.ParseFilepath(cfg.SourceFile())
 	if err != nil {
 		goto end
 	}
@@ -161,6 +180,7 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 		Database:     db,
 		BaseFilename: "bootstrap",
 		ConfigSource: sourceFile,
+		DirsProvider: args.DirsProvider,
 	})
 	if err != nil {
 		goto end
@@ -170,13 +190,14 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 		Database:     db,
 		BaseFilename: "on_open",
 		ConfigSource: sourceFile,
+		DirsProvider: args.DirsProvider,
 	})
 	if err != nil {
 		goto end
 	}
 
 	db, err = db.CreateNew(DatabaseArgs{
-		DatabaseType:     dt,
+		DatabaseType:     dbType,
 		ConnectString:    cfg.ConnectString(),
 		Port:             cfg.Port(),
 		Extensions:       exts,

@@ -1,12 +1,12 @@
 package xmluisvr
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+
+	"github.com/mikeschinkel/go-cliutil"
+
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // Run starts the xmlui-test-server with the provided configuration and context.
@@ -24,47 +24,17 @@ import (
 // Returns ErrServerError if the server terminates with an error condition.
 func Run(ctx Context, args *RunArgs) (err error) {
 	var server *Server
-	var db dbpkg.Database
-	var api *apipkg.API
-	var opts *common.Options
 
-	rawOpts := args.Options
+	writer := args.Config.Writer
 
-	writer := args.CLIWriter
-
-	writer.Loud().Printf("%s starting\n", common.AppName)
+	writer.Loud().Printf("%s starting\n", args.AppInfo.AppName())
 
 	err = Initialize(ctx, args)
 	if err != nil {
 		goto end
 	}
 
-	opts, err = ParseOptions(args.Options)
-	if err != nil {
-		goto end
-	}
-
-	db, err = args.parseDatabase(ctx, opts)
-	if err != nil {
-		goto end
-	}
-	defer common.CloseOrLog(db)
-
-	api, err = args.parseAPI(rawOpts.APIFile, db, opts)
-	if err != nil {
-		goto end
-	}
-
-	server, err = args.parseServer(parseServerArgs{
-		db:      db,
-		api:     api,
-		rawOpts: rawOpts,
-		opts:    opts,
-		config:  args.Config.ServerConfig,
-	})
-	if err != nil {
-		goto end
-	}
+	server = args.Config.Server
 
 	err = server.Initialize(ctx)
 	if err != nil {
@@ -86,14 +56,14 @@ end:
 // This must be called before other package functions to ensure proper logging
 // and output formatting.
 func Initialize(_ Context, args *RunArgs) (err error) {
-
+	cfg := args.Config
 	// Setting the writer allows the shorthand of being able to call cliutil.Printf()
 	// and cliutil.Errorf() without having a writer injected into every func.
-	cliutil.SetWriter(args.CLIWriter)
+	cliutil.SetWriter(cfg.Writer)
 
 	// Setting the logger sets the package level logger variable so it is accessible
 	// throughout the package.
-	common.SetLogger(args.Logger)
+	common.SetLogger(cfg.Logger)
 
 	apiresp.SetGitHubRepoURL(common.GitHubRepoURL)
 

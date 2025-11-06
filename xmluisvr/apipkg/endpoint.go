@@ -7,18 +7,20 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/jsonxtractr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/mikeschinkel/go-jsonxtractr"
+	"github.com/mikeschinkel/go-rfc9457"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 // ParseEndpoints converts a slice of configuration endpoint definitions
@@ -84,10 +86,16 @@ func ParseEndpoint(cfg *cfgldr.APIEndpointV2, basePath common.URLPath, db dbpkg.
 	// TODO Allow or disallow root-based URLs that ignore basepath; which to choose?
 	//      Need override setting to explicitly allow
 	// 			UNTIL THEN, we strip any leading slash (`/`)
-	relPath.Normalize()
-
-	ep.path = pathvars.Template(fmt.Sprintf("%s/%s", basePath, relPath))
-	ep.Params, err = ParseEndpointParams(cfg.Params, ep.path)
+	// Only normalize and use relPath if parsing succeeded
+	if relPath != nil {
+		relPath.Normalize()
+		ep.path = pathvars.Template(fmt.Sprintf("%s/%s", basePath, relPath))
+		// Only parse params if we have a valid path
+		ep.Params, err = ParseEndpointParams(cfg.Params, ep.path)
+	} else {
+		// Path parsing failed - use empty params to avoid cascading errors
+		ep.Params = []EndpointParam{}
+	}
 	errs = AppendErr(errs, err)
 	ep.pathParsed = true
 	ep.Cardinality, err = dbqvars.ParseCardinality(cfg.Cardinality)
@@ -117,7 +125,7 @@ type EndPointString string
 type Endpoint struct {
 	Description   string               // Human-readable description of the endpoint
 	ParsedQuery   dbqvars.ParsedQuery  // Query to execute parsed by dbqvars.ParseBytes()
-	queryFilepath common.Filepath      // Resolved absolute path to SQL file
+	queryFilepath dt.Filepath          // Resolved absolute path to SQL file
 	Params        []EndpointParam      // Parameters that can be extracted from requests
 	Cardinality   dbqvars.Cardinality  // Expected number of result rows (one, many, etc.)
 	RowType       dbqvars.DBRowType    // Format for returning results (json, columns, etc.)
@@ -433,7 +441,7 @@ func (ep *Endpoint) ParsePathVarParameters() (params []pathvars.Parameter, err e
 //// GetQuery returns the SQL query for this endpoint, loading from a file if necessary.
 //// If QueryFile is specified, it loads the SQL from the file relative to the provided directory.
 //// Otherwise, it returns the inline Query string.
-//func (ep *Endpoint) GetQuery(dir common.DirPath) (q common.QueryString, queryFile common.Filepath, err error) {
+//func (ep *Endpoint) GetQuery(dir dt.DirPath) (q common.QueryString, queryFile dt.Filepath, err error) {
 //	panic("FIX THIS")
 //	return q, "", err
 //}

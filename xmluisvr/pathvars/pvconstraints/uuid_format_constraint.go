@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 )
 
 // Note: UUIDFormatConstraint is not registered directly.

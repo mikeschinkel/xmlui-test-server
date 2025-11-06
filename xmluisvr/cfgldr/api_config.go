@@ -3,8 +3,12 @@ package cfgldr
 import (
 	"errors"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/de"
+	"github.com/mikeschinkel/go-dt/dtx"
+
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 type APIConfig interface {
@@ -12,49 +16,75 @@ type APIConfig interface {
 	IsNil() bool
 }
 
-func LoadAPIFileIfExists(apiFile string) (_ APIConfig, err error) {
+var ErrLoadingFile = errors.New("error loading file")
+
+func LoadAPIFileIfExists(apiFile dt.Filepath) (api APIConfig, err error) {
 	var apiV1 *APIDescription
 	var apiV2 *APIConfigV2
+	var status dt.EntryStatus
+	var target dt.Filepath
+
 	// LoadJSON the APIConfig description if provided
 	if apiFile == "" {
 		goto end
 	}
-	err = common.CheckFileExists(common.Filepath(apiFile))
-	switch {
-	case errors.Is(err, common.ErrFileDoesNotExist):
-		cliutil.Printf("APIConfig description file %s does not exist", apiFile)
-	case errors.Is(err, common.ErrPathIsDir):
-		cliutil.Printf("APIConfig description file specified %s is a directory", apiFile)
-	case err != nil:
-		cliutil.Printf("Unexpected error loading APIConfig description file %s: %v", apiFile, err)
-		logger.Error("Error loading APIConfig description file", "api_file", apiFile, "error", err)
+	// Ignoring error because status==dt.IsEntryError will catch it
+	status, _ = apiFile.Status()
+	switch status {
+	case dt.IsFileEntry:
+		// All good! Load it below
+	case dt.IsSymlinkEntry:
+		target, err = apiFile.Readlink()
+		if err != nil {
+			err = NewErr(de.ErrFailedReadingSymlink, err)
+			goto end
+		}
+		api, err = LoadAPIFileIfExists(target)
+		if err == nil {
+			apiV2, err = dtx.AssertType[*APIConfigV2](api)
+			if err != nil {
+				goto end
+			}
+		}
+		goto end
+	default:
+		err = dtx.EntryStatusError(status)
+		goto end
 	}
 	err = nil
 	apiV2, err = LoadAPIConfigV2(apiFile)
 	if err != nil {
-		cliutil.Errorf("Failed to load APIConfig v2 description file: %v", err)
-		logger.Error("Error loading APIConfig v2 description file", "api_file", apiFile, "error", err)
+		err = NewErr(
+			de.ErrFailedToLoadFile,
+			"config_version", "v2",
+			err,
+		)
 		goto end
 	}
 	if apiV2 != nil {
 		goto end
 	}
 	apiV1, err = LoadAPIDescriptionFromFile(apiFile)
-	if err != nil {
-		cliutil.Errorf("Failed to load APIConfig v1 description file: %v", err)
-		logger.Error("Error loading APIConfig v1 description file", "api_file", apiFile, "error", err)
+	if err != nil || apiV1 == nil {
+		err = NewErr(
+			de.ErrFailedToLoadFile,
+			"config_version", "v1",
+			err,
+		)
 		goto end
 	}
-	if apiV1 != nil {
-		apiV2 = apiV1.Migrate()
-		goto end
-	}
-	cliutil.Errorf("Failed to load APIConfig description file %s", apiFile)
+	apiV2 = apiV1.Migrate()
 end:
 	if apiV2 != nil {
 		cliutil.Printf("APIConfig loaded successfully: %s (v%d)",
 			apiV2.Name,
 			apiV2.Version,
+		)
+	}
+	if err != nil {
+		err = WithErr(err,
+			ErrLoadingFile,
+			"api_file", apiFile,
 		)
 	}
 	return apiV2, err

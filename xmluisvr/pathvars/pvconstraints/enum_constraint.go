@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {

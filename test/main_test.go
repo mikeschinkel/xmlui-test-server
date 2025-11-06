@@ -1,4 +1,4 @@
-// Package test provides comprehensive integration tests for XMLUI Local Server.
+// Package test provides  integration tests for XMLUI Local Server.
 //
 // This package contains end-to-end tests that validate server functionality.
 package test
@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/testutil"
+	testutil "github.com/mikeschinkel/go-testutil"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 var (
@@ -56,10 +56,10 @@ func setup() error {
 	wd, _ := os.Getwd()
 	testDataDir = filepath.Join(wd, "test-data")
 
-	// Generate the comprehensive test config file
-	configPath := filepath.Join(testDataDir, "api_comprehensive_test.json")
-	if err = generateComprehensiveConfig(configPath); err != nil {
-		return fmt.Errorf("failed to generate comprehensive config: %w", err)
+	// Generate the  test config file
+	configPath := filepath.Join(testDataDir, "api__test.json")
+	if err = generateConfig(configPath); err != nil {
+		return fmt.Errorf("failed to generate  config: %w", err)
 	}
 
 	// Pre-load the bootstrap SQL that all tests will use

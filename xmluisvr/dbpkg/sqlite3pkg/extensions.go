@@ -12,11 +12,12 @@ import (
 	"strings"
 
 	"github.com/mattn/go-sqlite3"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
 
-	. "github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	. "github.com/mikeschinkel/go-doterr"
 )
 
 type (
@@ -33,7 +34,7 @@ type Extension struct {
 	docsURL      common.FullURL
 	repoURL      common.FullURL
 	downloadURLs []common.FullURL
-	filePath     common.Filepath // Absolute or relative filepath, defaults to well-known directory structure
+	filePath     dt.Filepath // Absolute or relative filepath, defaults to well-known directory structure
 	loadOrder    common.LoadOrder
 	entryPoint   EntryPoint
 	dependsOn    []DependsOn
@@ -48,7 +49,7 @@ type Extension struct {
 type ExtensionArgs struct {
 }
 
-func NewExtension(filePath common.Filepath, args ExtensionArgs) *Extension {
+func NewExtension(filePath dt.Filepath, args ExtensionArgs) *Extension {
 	name := filepath.Base(string(filePath))
 	name = name[:len(name)-len(filepath.Ext(name))]
 	return &Extension{

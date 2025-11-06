@@ -4,7 +4,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/doterr"
+	"github.com/mikeschinkel/go-doterr"
+	"github.com/mikeschinkel/go-dt"
 )
 
 func ParseHost(h string) (_ Host, err error) {
@@ -49,17 +50,11 @@ end:
 	return sp, err
 }
 
-func ParseFilepath(f string) (fp Filepath, err error) {
-	// TODO Add some validation here
-	fp = Filepath(f)
-	return fp, err
-}
-
-func ParseFilepaths(files []string) (fps []Filepath, _ error) {
+func ParseFilepaths(files []string) (fps []dt.Filepath, _ error) {
 	var errs []error
-	fps = make([]Filepath, 0, len(files))
+	fps = make([]dt.Filepath, 0, len(files))
 	for _, file := range files {
-		fp, err := ParseFilepath(file)
+		fp, err := dt.ParseFilepath(file)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -75,9 +70,9 @@ func ParseConnectString(s string) (cs ConnectString, err error) {
 	return cs, err
 }
 
-func ParseDirPath(f string) (dp DirPath, err error) {
+func ParseDirPath(f string) (dp dt.DirPath, err error) {
 	// TODO Add some validation here
-	dp = DirPath(f)
+	dp = dt.DirPath(f)
 	return dp, err
 }
 

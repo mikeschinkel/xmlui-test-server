@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cliutil"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/mikeschinkel/go-cliutil"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 func (svr *Server) showConfig() {
@@ -21,12 +21,12 @@ func (svr *Server) showConfig() {
 	cliutil.Printf("- Database:     %s\n", svr.displayDBTypeName())
 	cliutil.Printf("  - Connection: %v\n", svr.displayDBName())
 	cliutil.Printf("  - Config:     %s\n", svr.displayDBSourceFile())
-	if svr.api != nil {
-		cliutil.Printf("- API:          %s\n", svr.api.Name)
-		cliutil.Printf("  - URL Path:   %s\n", svr.api.BasePath)
+	if svr.API != nil {
+		cliutil.Printf("- API:          %s\n", svr.API.Name)
+		cliutil.Printf("  - URL Path:   %s\n", svr.API.BasePath)
 		cliutil.Printf("  - Config:     %s\n", svr.displayAPISourceFile())
 	}
-	if len(svr.db.Extensions()) != 0 {
+	if len(svr.Database.Extensions()) != 0 {
 		cliutil.Printf("- Extension:   %s\n", svr.displayExtensionPaths())
 	}
 	cliutil.Loud().Printf("\n")
@@ -48,20 +48,20 @@ func (svr *Server) displayWebroot() (wr string) {
 		wr = "Working directory unavailable"
 		goto end
 	}
-	wd = filepath.Join(wd, string(svr.api.Webroot))
+	wd = filepath.Join(wd, string(svr.API.Webroot))
 	wr = common.HomeRelative(wd)
 end:
 	return wr
 }
 
 func (svr *Server) displayAPISourceFile() string {
-	return common.HomeRelative(string(svr.api.SourceFile))
+	return common.HomeRelative(string(svr.API.SourceFile))
 }
 func (svr *Server) displayDBSourceFile() string {
-	return common.HomeRelative(string(svr.db.SourceFile()))
+	return common.HomeRelative(string(svr.Database.SourceFile()))
 }
 func (svr *Server) displayServerSourceFile() string {
-	return common.HomeRelative(string(svr.sourceFile))
+	return common.HomeRelative(string(svr.SourceFile))
 }
 
 func (svr *Server) displayDir() (d string) {
@@ -81,18 +81,18 @@ end:
 }
 
 func (svr *Server) displayDBName() (name string) {
-	if svr.db == nil {
+	if svr.Database == nil {
 		return ""
 	}
-	return svr.db.String()
+	return svr.Database.String()
 }
 func (svr *Server) displayDBTypeName() (name string) {
-	return svr.db.TypeName()
+	return svr.Database.TypeName()
 }
 
 func (svr *Server) displayExtensionPaths() (paths string) {
 	var sb strings.Builder
-	for _, ext := range svr.db.Extensions() {
+	for _, ext := range svr.Database.Extensions() {
 		sb.WriteString(ext.Name())
 		sb.WriteString(". ")
 	}

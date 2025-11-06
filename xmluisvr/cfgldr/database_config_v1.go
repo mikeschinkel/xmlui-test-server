@@ -1,7 +1,8 @@
 package cfgldr
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgstore"
+	"github.com/mikeschinkel/go-cfgstore"
+	"github.com/mikeschinkel/go-dt"
 )
 
 type DatabaseConfig interface {
@@ -16,7 +17,7 @@ type DatabaseConfig interface {
 	OnOpenQueries() []string
 	SourceFile() string
 	DBExtensions() []DBExtensionConfig
-	Normalize(string, *Options) // TODO MAYBE Change to accept an any parameter
+	Normalize(dt.Filepath, *Options) error
 }
 
 type DBExtensionConfig interface {

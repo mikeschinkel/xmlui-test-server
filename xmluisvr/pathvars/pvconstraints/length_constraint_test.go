@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvconstraints"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvconstraints"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 
-	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/dtclassifiers"
+	_ "github.com/xmlui-org/localdev/xmluisvr/pathvars/dtclassifiers"
 )
 
 var _ pvtypes.Constraint = (*pvconstraints.LengthConstraint)(nil)

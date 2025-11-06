@@ -1,12 +1,13 @@
 package sqlite3pkg
 
 import (
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 type DependsOn struct {
 	ExtensionId common.ExtensionId
-	Filepath    common.Filepath
+	Filepath    dt.Filepath
 }
 
 func (d DependsOn) String() string {

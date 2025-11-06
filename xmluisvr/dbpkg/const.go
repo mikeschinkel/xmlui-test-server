@@ -1,5 +1,7 @@
 package dbpkg
 
+const ConfigSlug = "db"
+
 const (
 	DuckDBDatabase   DatabaseType = "duckdb"
 	MariaDBDatabase  DatabaseType = "mariadb"

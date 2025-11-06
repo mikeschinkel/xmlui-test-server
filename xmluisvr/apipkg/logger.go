@@ -3,8 +3,8 @@ package apipkg
 import (
 	"log/slog"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/rfc9457"
+	"github.com/mikeschinkel/go-rfc9457"
+	"github.com/xmlui-org/localdev/xmluisvr/common"
 )
 
 // logger provides package-level logging functionality using the common logger instance.

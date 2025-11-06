@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
 )
 
 // ParseTemplate parses a template string like "/users/{id:int}/posts?{limit?10:int}"
