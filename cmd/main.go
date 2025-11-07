@@ -14,5 +14,5 @@ import (
 
 // main is the application entry point that starts the xmlui-test-server CLI.
 func main() {
-	xmluisvr.RunCLI()
+	xmluisvr.RunCLI(nil)
 }

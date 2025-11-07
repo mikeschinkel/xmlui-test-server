@@ -90,7 +90,7 @@ func (svr *Server) Initialize(ctx Context) (err error) {
 
 	err = svr.Database.Open(ctx)
 	if err != nil {
-		err = svr.ErrorError("Failed to open database", "database_type", svr.Database.Type(), "error", err)
+		//err = svr.ErrorError("Failed to open database", "database_type", svr.Database.Type(), "error", err)
 		goto end
 	}
 

@@ -37,8 +37,7 @@ func (db *BaseDatabase) ConvertValue(value any, dt dbqvars.DBDataType) any {
 }
 
 func (db *BaseDatabase) String() string {
-	//TODO implement me
-	panic("implement me")
+	return fmt.Sprintf("%s://%s", db.dbType, db.conn)
 }
 
 func NewBaseDatabase(parent Database, args DatabaseArgs) *BaseDatabase {

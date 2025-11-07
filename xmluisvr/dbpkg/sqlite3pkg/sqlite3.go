@@ -103,17 +103,17 @@ func (*SQLite3) CreateNew(args dbpkg.DatabaseArgs) (ndb dbpkg.Database, err erro
 
 	db := &SQLite3{}
 	db.JournalMode, err = ParseJournalMode(slCfg.JournalMode)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	db.Synchronous, err = ParseSynchronous(slCfg.Synchronous)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	db.ForeignKeyMode, err = ParseForeignKeyMode(slCfg.ForeignKeys)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	db.AutoCheckpoint, err = ParseAutoCheckpoint(slCfg.AutoCheckpoint)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	db.BusyTimeout, err = ParseBusyTimeout(slCfg.BusyTimeout)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 	args.AccessMode, err = dbpkg.ParseAccessMode(slCfg.AccessMode)
-	errs = append(errs, err)
+	errs = AppendErr(errs, err)
 
 	err = CombineErrs(errs)
 	if err != nil {
@@ -205,7 +205,10 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 	// Simple connection string with extension loading enabled
 	s.DB, err = sql.Open("sqlite3_ext", s.ConnectString()+"?_allow_load_extension=1")
 	if err != nil {
-		err = WithErr(dbpkg.ErrConnectFailed, err)
+		err = WithErr(
+			dbpkg.ErrFailedToPingDatabase,
+			err,
+		)
 		goto end
 	}
 
@@ -228,17 +231,31 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 	s.V3().Printf("Pinging database to confirm connection\n")
 	err = s.DB.PingContext(ctx)
 	if err != nil {
+		err = NewErr(
+			dbpkg.ErrFailedToPingDatabase,
+			err,
+		)
 		goto end
 	}
 	s.V3().Printf("Connection confirmed\n")
 
 	err = s.execQueriesIfExists("bootstrap", s.BootstrapQueries)
 	if err != nil {
+		err = NewErr(
+			dbpkg.ErrFailedToExecuteQueries,
+			"query_type", "bootstrap",
+			err,
+		)
 		goto end
 	}
 
 	err = s.execQueriesIfExists("on_open", s.OnOpenQueries)
 	if err != nil {
+		err = NewErr(
+			dbpkg.ErrFailedToExecuteQueries,
+			"query_type", "on_open",
+			err,
+		)
 		goto end
 	}
 
@@ -246,6 +263,12 @@ func (s *SQLite3) Open(ctx context.Context) (err error) {
 
 end:
 	denyUnlessAuthorized = true
+	if err != nil {
+		err = WithErr(err,
+			dbpkg.ErrFailedToOpenDatabase,
+			"db_file", s.HomeRelativeFile(),
+		)
+	}
 	return err
 }
 

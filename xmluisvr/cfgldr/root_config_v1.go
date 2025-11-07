@@ -32,21 +32,6 @@ type RootConfigV1 struct {
 }
 
 func (c *RootConfigV1) RootConfig() {}
-func (c *RootConfigV1) IsNil() (isNil bool) {
-	isNil = true
-	if c == nil {
-		goto end
-	}
-	if c.DBConfig == nil {
-		goto end
-	}
-	if c.ServerConfig == nil {
-		goto end
-	}
-	isNil = false
-end:
-	return isNil
-}
 
 // Base struct with non-polymorphic fields
 type rootConfigV1Base struct {
@@ -136,7 +121,11 @@ func (c *RootConfigV1) UnmarshalJSON(data []byte) (err error) {
 	// Copy non-polymorphic fields from temp
 	c.rootConfigV1Base = temp.rootConfigV1Base
 
-	// Handle polymorphic database field
+	// Handle polymorphic database field (skip if not present)
+	if len(temp.Database) == 0 {
+		goto end
+	}
+
 	err = jsonv2.Unmarshal(temp.Database, &typeInfo)
 	if err != nil {
 		goto end
@@ -205,7 +194,8 @@ func LoadRootConfigV1(args LoadRootConfigV1Args) (_ *RootConfigV1, err error) {
 	if configStores == nil {
 		configStores = cfgstore.NewConfigStores(cfgstore.ConfigStoresArgs{
 			ConfigStoreArgs: cfgstore.ConfigStoreArgs{
-				ConfigSlug:  args.AppInfo.AppSlug(),
+				//ConfigSlug: args.AppInfo.AppSlug(),
+				ConfigSlug:  args.AppInfo.ConfigSlug(),
 				RelFilepath: args.AppInfo.ConfigFile(),
 			},
 		})

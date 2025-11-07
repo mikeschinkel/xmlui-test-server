@@ -28,24 +28,28 @@ const (
 // It handles command-line argument parsing, configuration loading, and starts the server.
 // This function sets up logging, loads configuration files, and delegates to Run().
 //
+// If cfgOpts is nil, it will parse command-line flags itself (standalone mode).
+// If cfgOpts is provided, it will use those options (composed mode with xmlui CLI).
+//
 // Exit codes:
 //   - 1: Configuration loading failure
 //   - 2: Server terminated with error
 //   - 3: Unexpected error during server execution
 //   - 4: Invalid command-line options
-func RunCLI() {
+func RunCLI(cfgOpts *cfgldr.Options) {
 	var err error
 	var logger *slog.Logger
 	var cfg *cfgldr.RootConfigV1
 	var opts *common.Options
-	var cfgOpts *cfgldr.Options
 	var config *Config
 	var wl cliutil.WriterLogger
 
-	cfgOpts, err = cfgldr.GetOptions()
-	if err != nil {
-		fprintf(os.Stderr, "Invalid option(s): %v\n", strings.Replace(err.Error(), "\n", "; ", -1))
-		os.Exit(1)
+	if cfgOpts == nil {
+		cfgOpts, err = cfgldr.GetOptions()
+		if err != nil {
+			fprintf(os.Stderr, "Invalid option(s): %v\n", strings.Replace(err.Error(), "\n", "; ", -1))
+			os.Exit(1)
+		}
 	}
 
 	//goland:noinspection GoDfaErrorMayBeNotNil
@@ -114,7 +118,7 @@ func RunCLI() {
 		)
 		os.Exit(FaileWithKnownServerError)
 	default:
-		_ = wl.ErrorError("Server terminated with an unexpected error", "error", err)
+		_ = wl.ErrorError("Server terminated with an unexpected error", err)
 		os.Exit(FaileWithUnknownServerError)
 	}
 }

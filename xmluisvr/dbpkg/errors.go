@@ -19,3 +19,9 @@ var (
 	ErrOneRowExpectedManyReturned   = errors.New("one row expected but many rows returned")
 	ErrManyRowsExpectedZeroReturned = errors.New("many rows expected but zero rows returned")
 )
+
+var (
+	ErrFailedToPingDatabase   = errors.New("failed to ping database")
+	ErrFailedToOpenDatabase   = errors.New("failed to open database")
+	ErrFailedToExecuteQueries = errors.New("failed to execute query(s)")
+)
