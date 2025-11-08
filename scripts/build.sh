@@ -7,7 +7,7 @@ set -e
 
 # Get script directory and source variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/vars.sh"
+source "$SCRIPT_DIR/shared.sh"
 
 main() {
     log "Building standard $BINARY_NAME..."

@@ -5,12 +5,12 @@
 
 .DEFAULT_GOAL := help
 
-# Import variables from scripts/vars.sh (single source of truth)
-BIN_DIR := $(shell bash -c 'source scripts/vars.sh && echo $$BIN_DIR')
-BINARY_NAME := $(shell bash -c 'source scripts/vars.sh && echo $$BINARY_NAME')
-BINARY_PATH := $(shell bash -c 'source scripts/vars.sh && echo $$BINARY_PATH')
-STEAMPIPE_EXTENSION := $(shell bash -c 'source scripts/vars.sh && echo $$STEAMPIPE_EXTENSION')
-TEST_DIRS := $(shell bash -c 'source scripts/vars.sh && get_test_directories $(filter-out test,$(MAKECMDGOALS))')
+# Import variables from scripts/shared.sh (single source of truth)
+BIN_DIR := $(shell bash -c 'source scripts/shared.sh && echo $$BIN_DIR')
+BINARY_NAME := $(shell bash -c 'source scripts/shared.sh && echo $$BINARY_NAME')
+BINARY_PATH := $(shell bash -c 'source scripts/shared.sh && echo $$BINARY_PATH')
+STEAMPIPE_EXTENSION := $(shell bash -c 'source scripts/shared.sh && echo $$STEAMPIPE_EXTENSION')
+TEST_DIRS := $(shell bash -c 'source scripts/shared.sh && get_test_directories $(filter-out test,$(MAKECMDGOALS))')
 
 # Prevent Make from interpreting test directory arguments as targets
 # It creates a rule that matches any argument that isn't "test" (like xmluisvr/cfgldr)
