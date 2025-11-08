@@ -357,15 +357,15 @@ func (ep *Endpoint) ValidateQueryParameters(r *http.Request, matchResult pathvar
 		value := values[0] // Use first value if multiple provided
 
 		// Convert EndpointParam to pathvars.Parameter for validation
-		dt := epParam.Type
-		if dt == pathvars.UnspecifiedDataType {
-			dt, _ = pathvars.ParseParameterDataType(string(epParam.Props.Name), string(epParam.Type.Slug()))
+		paramType := epParam.Type
+		if paramType == pathvars.UnspecifiedDataType {
+			paramType, _ = pathvars.ParseParameterDataType(string(epParam.Props.Name), string(epParam.Type.Slug()))
 		}
 
 		param := pathvars.NewParameter(pathvars.ParameterArgs{
 			NameProps:   epParam.Props,
 			Location:    epParam.Location,
-			DataType:    dt,
+			DataType:    paramType,
 			Constraints: epParam.Constraints,
 			Original:    epParam.RawValue(),
 		})
