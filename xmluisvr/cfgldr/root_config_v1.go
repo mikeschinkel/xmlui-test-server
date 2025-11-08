@@ -10,8 +10,8 @@ import (
 	"github.com/mikeschinkel/go-dt/dtx"
 
 	"github.com/mikeschinkel/go-dt/appinfo"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
-	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

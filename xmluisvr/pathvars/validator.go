@@ -8,7 +8,7 @@ package pathvars
 //	"regexp"
 //	"strconv"
 //
-//	"github.com/xmlui-org/localdev/xmluisvr/pathvars/dtclassifiers"
+//	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/dtclassifiers"
 //)
 
 //// validateDataType validates a value against a specified data type.

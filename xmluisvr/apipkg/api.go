@@ -52,10 +52,10 @@ import (
 
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
-	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

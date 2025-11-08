@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
-	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
-	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 )
 
 func init() {

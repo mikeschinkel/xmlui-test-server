@@ -4,7 +4,7 @@
 package pathvars
 
 import (
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 )
 
 // MatchAttempt represents the result of attempting to match a request against a route template.

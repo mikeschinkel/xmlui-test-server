@@ -9,10 +9,10 @@ import (
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-dt/dtx"
-	"github.com/xmlui-org/localdev/xmluisvr/apipkg"
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
-	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localsvr/xmluisvr/apipkg"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

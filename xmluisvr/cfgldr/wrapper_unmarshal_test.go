@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 )
 
 // TestWrapperUnmarshalJSON tests if RootConfigV1Wrapper.UnmarshalJSON works correctly

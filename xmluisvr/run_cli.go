@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
 // TODO: Add functionality to set logfile with environment var or flags

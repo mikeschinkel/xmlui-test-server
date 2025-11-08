@@ -3,7 +3,7 @@ package pvconstraints_test
 import (
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 )
 
 func TestUUIDConstraintRegistry(t *testing.T) {

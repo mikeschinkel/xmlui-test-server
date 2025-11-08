@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
 )
 
 func TestExtractParameterSpec(t *testing.T) {

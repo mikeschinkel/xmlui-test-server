@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {

@@ -8,7 +8,7 @@ import (
 	"reflect"
 
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

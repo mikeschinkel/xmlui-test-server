@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 )
 
 func TestConsistentBraceHandling(t *testing.T) {

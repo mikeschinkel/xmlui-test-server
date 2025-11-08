@@ -3,7 +3,7 @@ package pvconstraints
 import (
 	"fmt"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 )
 
 func init() {

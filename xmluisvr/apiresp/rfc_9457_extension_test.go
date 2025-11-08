@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
 )
 
 // assertExtensionEqual compares two RFC9457Extension structs field by field

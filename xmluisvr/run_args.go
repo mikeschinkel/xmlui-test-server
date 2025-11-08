@@ -2,7 +2,7 @@ package xmluisvr
 
 import (
 	"github.com/mikeschinkel/go-dt/appinfo"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
 // RunArgs contains all the configuration and dependencies needed to run the server.

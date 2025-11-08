@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 )
 
 func TestAPIEndpointV2_UnmarshalJSON_ArrayParams(t *testing.T) {

@@ -1,7 +1,7 @@
 package dbpkg
 
 import (
-	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 )
 
 // Constants for AccessMode values

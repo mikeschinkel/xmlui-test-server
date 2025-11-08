@@ -2,7 +2,7 @@ package cfgldr
 
 import (
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
 const (

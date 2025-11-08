@@ -5,7 +5,7 @@ import (
 
 	"github.com/mikeschinkel/go-dt"
 	"github.com/stretchr/testify/require"
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 )
 
 // TestCfgStoreMerge tests the cfgstore merging behavior to diagnose why endpoints disappear

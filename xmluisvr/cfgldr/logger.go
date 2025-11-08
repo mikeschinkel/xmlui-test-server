@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	cfgstore "github.com/mikeschinkel/go-cfgstore"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
 var logger *slog.Logger

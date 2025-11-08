@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/mikeschinkel/go-rfc9457"
-	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
+	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
 )
 
 // TestAPIQueryParams tests query parameter extraction and validation.

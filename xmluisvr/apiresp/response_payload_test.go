@@ -9,8 +9,8 @@ import (
 
 	"github.com/mikeschinkel/go-rfc9457"
 	testutil "github.com/mikeschinkel/go-testutil"
-	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
 // TestMain sets up package-level configuration before running tests

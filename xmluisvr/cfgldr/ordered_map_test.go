@@ -3,7 +3,7 @@ package cfgldr_test
 import (
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 )
 
 func TestOrderedMap_NewOrderedMap(t *testing.T) {

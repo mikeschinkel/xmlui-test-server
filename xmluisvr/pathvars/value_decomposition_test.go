@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
 )
 
 // TestValueDecomposition tests that multi-segment parameters are automatically

@@ -4,8 +4,8 @@ import (
 	"log/slog"
 
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/xmlui-org/localdev/xmluisvr/apipkg"
-	"github.com/xmlui-org/localdev/xmluisvr/dbpkg"
+	"github.com/xmlui-org/localsvr/xmluisvr/apipkg"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
 )
 
 type Config struct {

@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

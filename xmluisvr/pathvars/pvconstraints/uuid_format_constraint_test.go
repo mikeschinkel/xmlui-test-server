@@ -3,7 +3,7 @@ package pvconstraints
 import (
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 )
 
 func TestUUIDFormatConstraintParsing(t *testing.T) {

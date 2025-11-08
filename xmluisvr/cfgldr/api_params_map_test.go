@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 )
 
 func TestAPIParamsMap_UnmarshalJSON_ValidCases(t *testing.T) {

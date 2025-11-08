@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 )
 
 // Built-in date/time format aliases

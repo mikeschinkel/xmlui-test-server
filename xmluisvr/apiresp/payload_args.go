@@ -5,9 +5,9 @@ import (
 	"unsafe"
 
 	"github.com/mikeschinkel/go-rfc9457"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
-	"github.com/xmlui-org/localdev/xmluisvr/dbqvars"
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

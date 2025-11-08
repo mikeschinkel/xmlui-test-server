@@ -2,7 +2,7 @@ module xmluisvr
 
 go 1.25.3
 
-require github.com/xmlui-org/localdev/xmluisvr v0.0.0-00010101000000-000000000000
+require github.com/xmlui-org/localsvr/xmluisvr v0.0.0-00010101000000-000000000000
 
 require (
 	github.com/lib/pq v1.10.9 // indirect
@@ -31,5 +31,5 @@ replace (
 	github.com/mikeschinkel/go-jsonxtractr => ../../../go-pkgs/go-jsonxtractr
 	github.com/mikeschinkel/go-rfc9457 => ../../../go-pkgs/go-rfc9457
 	github.com/mikeschinkel/go-testutil => ../../../go-pkgs/go-testutil
-	github.com/xmlui-org/localdev/xmluisvr => ../xmluisvr
+	github.com/xmlui-org/localsvr/xmluisvr => ../xmluisvr
 )

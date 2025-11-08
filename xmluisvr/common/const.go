@@ -39,12 +39,12 @@ const (
 	// AppName is the human-readable name of the application.
 	AppName    = "XMLUI Local Server"
 	AppDescr   = "Local development server for building and testing XMLUI web applications"
-	AppSlug    = "xmlui-localdev"
+	AppSlug    = "xmlui-localsvr"
 	ConfigSlug = "xmlui"
-	ConfigFile = "test-server.json" // TODO change to "server.json" or "localdev.json"
+	ConfigFile = "test-server.json" // TODO change to "server.json" or "localsvr.json"
 	AppVer     = "v0.0.0"
 	ExeName    = "xmluisvr"
-	LogFile    = "xmlui-localdev.log"
+	LogFile    = "xmlui-localsvr.log"
 
 	// GitHubRepoURL provides the GitHub repo for this project for use in error messages
 	// TODO: Be sure to update this when we change the repo name

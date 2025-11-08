@@ -25,10 +25,10 @@ import (
 	"github.com/mikeschinkel/go-fsfix"
 	"github.com/mikeschinkel/go-rfc9457"
 	"github.com/mikeschinkel/go-testutil"
-	"github.com/xmlui-org/localdev/xmluisvr"
-	"github.com/xmlui-org/localdev/xmluisvr/apiresp"
-	"github.com/xmlui-org/localdev/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr"
+	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
+	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
 // EnvironmentName identifies the type of test environment configuration.

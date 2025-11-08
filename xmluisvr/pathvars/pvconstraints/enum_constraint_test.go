@@ -3,10 +3,10 @@ package pvconstraints_test
 import (
 	"testing"
 
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvconstraints"
-	"github.com/xmlui-org/localdev/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvconstraints"
+	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
 
-	_ "github.com/xmlui-org/localdev/xmluisvr/pathvars/dtclassifiers"
+	_ "github.com/xmlui-org/localsvr/xmluisvr/pathvars/dtclassifiers"
 )
 
 var _ pvtypes.Constraint = (*pvconstraints.EnumConstraint)(nil)

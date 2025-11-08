@@ -1,4 +1,4 @@
-# sqlite3pkg — XML LocalDev server-specific Sqlite3 package
+# sqlite3pkg — XML localsvr server-specific Sqlite3 package
 
 SQLite3 database implementation for xmlui-test-server with operation-level access control.
 

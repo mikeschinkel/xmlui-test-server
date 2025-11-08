@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/xmlui-org/localdev/xmluisvr/common"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
 // logger is the package-level logger instance.

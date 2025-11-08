@@ -21,7 +21,7 @@
 //
 // For embedding in other applications:
 //
-//	import "github.com/xmlui-org/localdev/xmluisvr"
+//	import "github.com/xmlui-org/localsvr/xmluisvr"
 //
 //	ctx := context.Background()
 //	args := &xmluisvr.RunArgs{
