@@ -410,13 +410,13 @@ func (ep *Endpoint) ParsePathVarParameters() (params []pathvars.Parameter, err e
 	var errs []error
 	params = make([]pathvars.Parameter, 0, len(ep.Params))
 	for i, p := range ep.Params {
-		var dt pathvars.PVDataType
+		var dataType pathvars.PVDataType
 		props := p.Props
 		if props.DataType != nil {
-			dt = *props.DataType
+			dataType = *props.DataType
 		}
-		if dt == pathvars.UnspecifiedDataType {
-			dt, err = pathvars.ParseParameterDataType(string(props.Name), string(p.Type.Slug()))
+		if dataType == pathvars.UnspecifiedDataType {
+			dataType, err = pathvars.ParseParameterDataType(string(props.Name), string(p.Type.Slug()))
 		}
 		if err != nil {
 			errs = append(errs, err)
@@ -430,7 +430,7 @@ func (ep *Endpoint) ParsePathVarParameters() (params []pathvars.Parameter, err e
 			Position:    i,
 			NameProps:   props,
 			Location:    p.Location,
-			DataType:    dt,
+			DataType:    dataType,
 			Constraints: p.Constraints,
 			Original:    p.RawValue(),
 		}))
@@ -509,14 +509,14 @@ func (ep *Endpoint) convertValuesForSQL(parameters dbqvars.Parameters, values []
 		}
 
 		// Look up the parameter type
-		dt, exists := tm[string(param.Name)]
+		dataType, exists := tm[string(param.Name)]
 		if !exists {
 			// If type not found, keep original value
 			converted[i] = value
 			continue
 		}
 		// Convert if needed
-		converted[i] = convertValueForSQL(value, dt, args)
+		converted[i] = convertValueForSQL(value, dataType, args)
 	}
 	return converted
 }

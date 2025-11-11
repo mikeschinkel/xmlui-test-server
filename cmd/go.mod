@@ -13,7 +13,7 @@ require (
 	github.com/mikeschinkel/go-dt v0.0.0-20251105233453-a7985f775567 // indirect
 	github.com/mikeschinkel/go-dt/appinfo v0.0.0-20251106125543-42540c8e051a // indirect
 	github.com/mikeschinkel/go-dt/de v0.0.0-20251105233453-a7985f775567 // indirect
-	github.com/mikeschinkel/go-dt/dtx v0.0.0-20251106125543-42540c8e051a // indirect
+	github.com/mikeschinkel/go-dt/dtx v0.0.0-20251107040413-53a1559d69c5 // indirect
 	github.com/mikeschinkel/go-jsonxtractr v0.0.0-00010101000000-000000000000 // indirect
 	github.com/mikeschinkel/go-rfc9457 v0.0.0-00010101000000-000000000000 // indirect
 )

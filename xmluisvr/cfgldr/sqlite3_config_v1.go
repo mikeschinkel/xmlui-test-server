@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
 	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 
 	. "github.com/mikeschinkel/go-doterr"
@@ -119,7 +118,7 @@ func (c *SQLite3ConfigV1) DatabaseType() DatabaseType {
 }
 
 func (c *SQLite3ConfigV1) AddExtension(ext *SQLite3ExtensionConfigV1, opts *Options) (err error) {
-	err = ext.Normalize(common.ConfigSlug, opts)
+	err = ext.Normalize(dt.Filepath(c.SourceFile()), opts)
 	if err != nil {
 		goto end
 	}

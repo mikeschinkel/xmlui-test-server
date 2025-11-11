@@ -10,6 +10,7 @@ import (
 var _ interface{ Options() } = (*Options)(nil)
 
 type Options struct {
+	*cliutil.GlobalOptions
 	Timeout               time.Duration
 	HTTPPort              ServerPort
 	DBExtensionFiles      []dt.Filepath
@@ -17,10 +18,6 @@ type Options struct {
 	ConnectString         ConnectString
 	DBPort                ServerPort
 	DBBootstrapFile       dt.Filepath
-	Verbosity             cliutil.Verbosity
 	ErrorStyle            ErrorStyle
 	AllowUntrustedQueries bool
-	Quiet                 bool
 }
-
-func (Options) Options() {}

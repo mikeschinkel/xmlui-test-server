@@ -22,8 +22,16 @@ import (
 // for all XMLUI Test Server options.
 func ParseOptions(cfgOpts *cfgldr.Options) (opts *common.Options, err error) {
 	var errs []error
+	var cliOpts *cliutil.GlobalOptions
+
+	cliOpts, err = cliutil.NewGlobsalOptions(cliutil.GlobalOptionsArgs{
+		Quiet:     &cfgOpts.Quiet,
+		Verbosity: &cfgOpts.Verbosity,
+	})
+	errs = AppendErr(errs, err)
 
 	opts = &common.Options{
+		GlobalOptions:         cliOpts,
 		AllowUntrustedQueries: cfgOpts.AllowUntrustedQueries,
 	}
 	opts.Timeout, err = common.ParseTimeDurationEx(strconv.Itoa(cfgOpts.Timeout))
@@ -39,8 +47,6 @@ func ParseOptions(cfgOpts *cfgldr.Options) (opts *common.Options, err error) {
 	opts.DBPort, err = common.ParseServerPort(cfgOpts.DBPort, common.ZeroOk)
 	errs = AppendErr(errs, err)
 	opts.DBBootstrapFile, err = dt.ParseFilepath(cfgOpts.DBBootstrapFile)
-	errs = AppendErr(errs, err)
-	opts.Verbosity, err = cliutil.ParseVerbosity(cfgOpts.Verbosity)
 	errs = AppendErr(errs, err)
 	opts.ErrorStyle, err = common.ParseErrorStyle(cfgOpts.ErrorStyle)
 	errs = AppendErr(errs, err)

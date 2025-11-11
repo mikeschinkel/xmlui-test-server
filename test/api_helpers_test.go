@@ -208,7 +208,7 @@ func setupTestEnvironment(t *testing.T, envName EnvironmentName, configContent s
 
 	args := &cstest.TestDirsProviderArgs{
 		Username:   TestUsername,
-		ProjectDir: common.AppSlug,
+		ProjectDir: dt.DirPath(common.AppSlug),
 		ConfigSlug: common.ConfigSlug,
 		TestRootFunc: func() dt.DirPath {
 			return rootFix.Dir()

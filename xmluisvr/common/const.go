@@ -35,21 +35,12 @@
 // error wrapping and context.
 package common
 
+import (
+	"github.com/mikeschinkel/go-dt"
+)
+
+// Server Specific consts
 const (
-	// AppName is the human-readable name of the application.
-	AppName    = "XMLUI Local Server"
-	AppDescr   = "Local development server for building and testing XMLUI web applications"
-	AppSlug    = "xmlui-localsvr"
-	ConfigSlug = "xmlui"
-	ConfigFile = "test-server.json" // TODO change to "server.json" or "localsvr.json"
-	AppVer     = "v0.0.0"
-	ExeName    = "xmluisvr"
-	LogFile    = "xmlui-localsvr.log"
-
-	// GitHubRepoURL provides the GitHub repo for this project for use in error messages
-	// TODO: Be sure to update this when we change the repo name
-	GitHubRepoURL = "https://github.com/xmlui-org/xmlui-test-server"
-
 	// DefaultServerPort is the default HTTP port when none is specified.
 	DefaultServerPort = 8080
 
@@ -60,8 +51,41 @@ const (
 	DefaultServerHost = LocalHostIP
 )
 
+// AppInfo consts
 const (
-	InfoURL = GitHubRepoURL
+	AppVer dt.Version = "v0.0.0" // TODO To be changed soon
+
+	// AppName is the human-readable name of the application.
+	AppName                 = "XMLUI Local Server"
+	AppDescr                = "Local development server for building and testing XMLUI web applications"
+	AppSlug  dt.PathSegment = "xmlui-localsvr"
+
+	// ConfigSlug provides the directory under ~/.config/ where configuration will be
+	// stored. This is not xmlui-localsvr as everything XMLUI goes under the one location.
+	ConfigSlug dt.PathSegment = "xmlui"
+
+	// ConfigFile is the path for where the config file will be stored in the config
+	// directory, e.g. ~/.config/xmlui/localsvr.json
+	ConfigFile dt.RelFilepath = "localsvr.json"
+
+	// ExeName is the standalone name for this app when compiled as a standalone.
+	// HOWEVER, the `xmlui` CLI should really be the only executable we put on a
+	// user's machine; everything else gets loaded by the one CLI executable. We
+	// are merely enabling this app to be separately compiled into an executable
+	// for our own convenince andwe do not expect to distribute it.
+	ExeName dt.Filename = "xmlui-svr"
+
+	// GitHubRepoURL provides the GitHub repo for this project for use in error messages
+	// TODO: Can we change this Github URL to be "https://github.com/xmlui-org/localsvr"?
+	GitHubRepoURL = "https://github.com/xmlui-org/xmlui-test-server"
+)
+
+// Derived AppInfo consts
+const (
+	// InfoURL is Just a URL to display to users "for more information"
+	InfoURL dt.URL = GitHubRepoURL
+
+	LogFile dt.Filename = dt.Filename(string(AppSlug) + ".log")
 )
 
 var (

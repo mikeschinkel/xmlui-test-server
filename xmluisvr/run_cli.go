@@ -16,14 +16,6 @@ import (
 // TODO: Add functionality to set logfile with environment var or flags
 const logFile = "./xmlui-local-server.log"
 
-const (
-	FailedLoadingConfigFile = iota + 1
-	FailedParsingOptions
-	FailedParsingConfig
-	FaileWithKnownServerError
-	FaileWithUnknownServerError
-)
-
 // RunCLI is the main CLI entry point for the xmlui-test-server application.
 // It handles command-line argument parsing, configuration loading, and starts the server.
 // This function sets up logging, loads configuration files, and delegates to Run().
@@ -32,10 +24,11 @@ const (
 // If cfgOpts is provided, it will use those options (composed mode with xmlui CLI).
 //
 // Exit codes:
-//   - 1: Configuration loading failure
-//   - 2: Server terminated with error
-//   - 3: Unexpected error during server execution
-//   - 4: Invalid command-line options
+//   - 1: Options parsing failure
+//   - 2: Configuration loading failure
+//   - 3: Configuration parsing failure
+//   - 4: Known runtime error
+//   - 5: Unknown runtime error
 func RunCLI(cfgOpts *cfgldr.Options) {
 	var err error
 	var logger *slog.Logger
@@ -48,7 +41,7 @@ func RunCLI(cfgOpts *cfgldr.Options) {
 		cfgOpts, err = cfgldr.GetOptions()
 		if err != nil {
 			fprintf(os.Stderr, "Invalid option(s): %v\n", strings.Replace(err.Error(), "\n", "; ", -1))
-			os.Exit(1)
+			os.Exit(cliutil.ExitOptionsParseError)
 		}
 	}
 
@@ -73,14 +66,14 @@ func RunCLI(cfgOpts *cfgldr.Options) {
 	})
 	if err != nil {
 		writer.Errorf("Failed to load config file(s); %v\n", err)
-		os.Exit(FailedLoadingConfigFile)
+		os.Exit(cliutil.ExitConfigLoadError)
 	}
 
 	// TODO Incorporate loaded environment vars into GetOptions
 	opts, err = ParseOptions(cfgOpts)
 	if err != nil {
 		fprintf(os.Stderr, "Failed while parsing options: %v\n", err)
-		os.Exit(FailedParsingOptions)
+		os.Exit(cliutil.ExitOptionsParseError)
 	}
 
 	// TODO: Make 10 second timeout configurable
@@ -96,7 +89,7 @@ func RunCLI(cfgOpts *cfgldr.Options) {
 	})
 	if err != nil {
 		_ = wl.ErrorError("Failed to parse configuration", "error", err)
-		os.Exit(FailedParsingConfig)
+		os.Exit(cliutil.ExitConfigParseError)
 	}
 	defer common.CloseOrLog(config.Database)
 
@@ -116,9 +109,9 @@ func RunCLI(cfgOpts *cfgldr.Options) {
 			"exe_name", common.ExeName,
 			"error", err,
 		)
-		os.Exit(FaileWithKnownServerError)
+		os.Exit(cliutil.ExitKnownRuntimeError)
 	default:
 		_ = wl.ErrorError("Server terminated with an unexpected error", err)
-		os.Exit(FaileWithUnknownServerError)
+		os.Exit(cliutil.ExitUnknownRuntimeError)
 	}
 }
