@@ -226,13 +226,12 @@ func (c *SQLite3ExtensionConfigV1) AddEnvVar(name, value string) {
 }
 
 var (
-	ErrFailedToGetFilepath       = errors.New("failed to get filepath")
 	ErrFailedToNormalize         = errors.New("failed to normalize")
 	ErrInsufficientConfiguration = errors.New("insufficient configuration")
 	ErrMustSpecifyOneOf          = errors.New("must specify one of")
 )
 
-func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
+func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile dt.Filepath, _ *Options) (err error) {
 	var filePath dt.Filepath
 	c.SourceFile = string(sourceFile)
 

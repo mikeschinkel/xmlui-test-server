@@ -287,7 +287,7 @@ func (ep *Endpoint) getParameterQueryValue(epp EndpointParam, valuesMap pvtypes.
 // Path parameters are already validated by Router.Match() and are skipped here.
 // Returns a TemplateError if validation fails, allowing consistent error handling with
 // template-defined parameter validation.
-func (ep *Endpoint) ValidateQueryParameters(r *http.Request, matchResult pathvars.MatchResult) (err error) {
+func (ep *Endpoint) ValidateQueryParameters(matchResult pathvars.MatchResult) (err error) {
 	type paramValidationError struct {
 		param    pathvars.Parameter
 		value    string
@@ -474,22 +474,6 @@ end:
 func (ep *Endpoint) RawMethod() common.HTTPMethod {
 	return ep.method
 }
-
-// splitEndPoint separates an endpoint string like "GET /path" into method and path components.
-// If no method is specified, the entire string is treated as the path.
-func splitEndPoint(ep string) (method, path string) {
-	method, path, found := strings.Cut(ep, " ")
-	if !found {
-		path = ep
-		goto end
-	}
-end:
-	return method, path
-}
-
-var (
-	ErrConvertingValuesForSQL = errors.New("converting values for SQL")
-)
 
 // convertValuesForSQL converts parameter values to SQL-compatible types.
 // Currently handles boolean to integer conversion for SQLite compatibility.

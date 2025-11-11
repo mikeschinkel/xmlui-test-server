@@ -86,17 +86,18 @@ var ErrUnhandledParameterError = errors.New("unhandled parameter error")
 
 func (api *API) getQueryValues(args HandlerHelperArgs) (queryValues []any, err error) {
 	var missing []apiresp.MissingParameter
+	var r *http.Request
 
-	r := args.HTTPRequest
 	result := args.MatchResult
 	endpoint := args.Endpoint
 
 	// Validate Params-defined query parameters BEFORE extracting values for SQL
 	// Template-defined query params are already validated by Router.Match()
-	err = endpoint.ValidateQueryParameters(r, result)
+	err = endpoint.ValidateQueryParameters(result)
 	if err != nil {
 		goto end
 	}
+	r = args.HTTPRequest
 
 	queryValues, missing, err = endpoint.GetParameterValues(ParameterValuesArgs{
 		ValuesMap:  result.ValuesMap(),
