@@ -1,13 +1,13 @@
 {
-	"$schema": "https://schemas.xmlui.org/v1/test-server/root-schema.json",
+	"$schema": "https://schemas.xmlui.org/v1/localsvr/root-schema.json",
 	"$schemaVersion": 1,
 	"server": {
-		"$schema": "https://schemas.xmlui.org/v1/test-server/server-schema.json",
+		"$schema": "https://schemas.xmlui.org/v1/localsvr/server-schema.json",
 		"$schemaVersion": 1,
 		"host": "127.0.0.1",
 		"port": 8080,
 		"api": {
-			"$schema": "https://schemas.xmlui.org/v2/test-server/api-schema.json",
+			"$schema": "https://schemas.xmlui.org/v2/localsvr/api-schema.json",
 			"version": 2,
 			"name": "User-definable XMLUI Local Server API",
 			"base_path": "/api",
@@ -77,7 +77,7 @@
 		}
 	},
 	"database": {
-		"$schema": "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json",
+		"$schema": "https://schemas.xmlui.org/v1/localsvr/sqlite3-schema.json",
 		"$schemaVersion": 1,
 		"filepath": "./dbroot/data.db",
 		"type": "sqlite3",

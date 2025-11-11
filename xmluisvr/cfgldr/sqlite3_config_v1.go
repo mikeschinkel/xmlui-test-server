@@ -12,7 +12,7 @@ import (
 
 const (
 	SQLite3ConfigV1Version = 1
-	SQLite3ConfigV1Schema  = "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json"
+	SQLite3ConfigV1Schema  = "https://xmlui.org/schemas/v1/localsvr/sqlite3-schema.json"
 )
 
 func init() {

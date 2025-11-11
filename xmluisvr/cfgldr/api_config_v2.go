@@ -15,7 +15,7 @@ import (
 
 const (
 	APIConfigV2Version = 2
-	APIConfigV2Schema  = "https://schemas.xmlui.org/v2/test-server/api-schema.json"
+	APIConfigV2Schema  = "https://xmlui.org/schemas/v2/localsvr/api-schema.json"
 )
 
 var _ APIConfig = (*APIConfigV2)(nil)

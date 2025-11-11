@@ -1,5 +1,5 @@
 {
-   "type": "https://schema.xmlui.org/errors/test-server/api/validation/invalid-parameter-type",
+   "type": "https://schema.xmlui.org/errors/localsvr/api/validation/invalid-parameter-type",
    "title": "Invalid Parameter Type",
    "status": 422,
    "detail": "Parameter 'id' must be an integer, received '12.34'",

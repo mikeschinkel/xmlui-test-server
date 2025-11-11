@@ -7,7 +7,7 @@ import (
 
 const (
 	ServerConfigV1Version = 1
-	ServerConfigV1Schema  = "https://schemas.xmlui.org/v1/test-server/server-schema.json"
+	ServerConfigV1Schema  = "https://xmlui.org/schemas/v1/localsvr/server-schema.json"
 )
 
 type ServerConfig interface {

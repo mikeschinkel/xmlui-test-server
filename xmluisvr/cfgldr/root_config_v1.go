@@ -20,7 +20,7 @@ import (
 const (
 	RootConfigV1Version = 1
 	RootConfigFile      = common.ConfigFile
-	RootConfigV1Schema  = "https://schemas.xmlui.org/v1/test-server/root-schema.json"
+	RootConfigV1Schema  = "https://xmlui.org/schemas/v1/localsvr/root-schema.json"
 )
 
 var _ Config = (*RootConfigV1)(nil)

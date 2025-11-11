@@ -592,15 +592,15 @@ func waitForServerReady(t *testing.T, baseURL string, timeout time.Duration) boo
 // getRootConfig wraps an API endpoint definition in a full root config structure
 func getRootConfig(endpointJSON string) string {
 	return fmt.Sprintf(`{
-		"$schema": "https://schemas.xmlui.org/v1/test-server/root-schema.json",
+		"$schema": "https://xmlui.org/schemas/v1/localsvr/root-schema.json",
 		"version": 1,
 		"server": {
-			"$schema": "https://schemas.xmlui.org/v1/test-server/server-schema.json",
+			"$schema": "https://xmlui.org/schemas/v1/localsvr/server-schema.json",
 			"version": 1,
 			"host": "127.0.0.1",
 			"port": 8080,
 			"api": {
-				"$schema": "https://schemas.xmlui.org/v2/test-server/api-schema.json",
+				"$schema": "https://xmlui.org/schemas/v2/localsvr/api-schema.json",
 				"version": 2,
 				"name": "Test XMLUI Local Server API",
 				"base_path": "/api",
@@ -611,7 +611,7 @@ func getRootConfig(endpointJSON string) string {
 			}
 		},
 		"database": {
-			"$schema": "https://schemas.xmlui.org/v1/test-server/sqlite3-schema.json",
+			"$schema": "https://xmlui.org/schemas/v1/localsvr/sqlite3-schema.json",
 			"version": 1,
 			"type": "sqlite3",
 			"filepath": "test.db",
