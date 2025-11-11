@@ -31,28 +31,8 @@ import (
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
-// EnvironmentName identifies the type of test environment configuration.
-// This determines the directory name for test fixtures and provides context
-// for debugging test failures.
-type EnvironmentName string
-
 const (
-	// TestEnv uses api__test.json which contains all API
-	// endpoints for integration testing. This config includes:
-	//   - All data type validations (int, string, uuid, slug, boolean, real, date, alphanumeric)
-	//   - All constraint types (range, length, enum, regex, notempty, format)
-	//   - Query parameters and implicit type inference
-	//   - Multi-segment parameters
-	//   - Various response formats (cardinality, row_type)
-	// Used by: api_datatypes_test.go, api_constraints_test.go, api_parameters_test.go, etc.
-	TestEnv EnvironmentName = "test_env"
-
-	// CustomTestEnv indicates a test-specific configuration passed directly to SetupTestServer.
-	// Use this when you need a specialized API config that differs from the  one.
-	// Example: Testing a single endpoint with specific edge cases.
-	CustomTestEnv EnvironmentName = "custom"
-
-	TestUsername = "mikeschinkel"
+	TestUsername = "gracehopper"
 )
 
 // testRequest represents a single HTTP request test case
@@ -198,7 +178,7 @@ func assertRFC9457Equal(t *testing.T, got, want *rfc9457.Response) {
 // =============================================================================
 
 // setupTestEnvironment creates an isolated test environment for a single test case
-func setupTestEnvironment(t *testing.T, envName EnvironmentName, configContent string) *testEnvironment {
+func setupTestEnvironment(t *testing.T, configContent string) *testEnvironment {
 	t.Helper()
 
 	appInfo := xmluisvr.AppInfo()
@@ -304,10 +284,10 @@ end:
 // =============================================================================
 
 // setupTestServer creates and starts a test server instance
-func setupTestServer(t *testing.T, envName EnvironmentName, configContent string) *TestServer {
+func setupTestServer(t *testing.T, configContent string) *TestServer {
 	t.Helper()
 
-	env := setupTestEnvironment(t, envName, configContent)
+	env := setupTestEnvironment(t, configContent)
 
 	// Find available port
 	port, err := findAvailablePort()
@@ -666,7 +646,7 @@ func SetupTestServer(t *testing.T) *TestServer {
 	}
 
 	// Use the TestEnv constant for type safety and documentation
-	return setupTestServer(t, TestEnv, string(configBytes))
+	return setupTestServer(t, string(configBytes))
 }
 
 // runTestRequest executes a test request and validates the response
