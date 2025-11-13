@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.xmlui-org/v2/localsvr/api-schema.json",
+  "$id": "https://xmlui.org/schemas/v2/localsvr/api-schema.json",
   "title": "XMLUI Test Server API Configuration v2",
   "description": "JSON schema for API endpoints configuration (version 2)",
   "type": "object",

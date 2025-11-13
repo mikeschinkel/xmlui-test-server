@@ -75,6 +75,8 @@ const (
 	// for our own convenince andwe do not expect to distribute it.
 	ExeName dt.Filename = "xmlui-svr"
 
+	LogPath dt.PathSegments = "logs"
+
 	// GitHubRepoURL provides the GitHub repo for this project for use in error messages
 	// TODO: Can we change this Github URL to be "https://github.com/xmlui-org/localsvr"?
 	GitHubRepoURL = "https://github.com/xmlui-org/xmlui-test-server"

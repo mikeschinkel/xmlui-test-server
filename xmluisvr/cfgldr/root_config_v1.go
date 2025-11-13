@@ -16,7 +16,7 @@ import (
 	. "github.com/mikeschinkel/go-doterr"
 )
 
-// TODO — Convince Gent that we should publish schemas on schemas.xmlui.org
+// TODO — Convince Gent that we should publish schemas on xmlui.org/schemas/
 const (
 	RootConfigV1Version = 1
 	RootConfigFile      = common.ConfigFile
@@ -162,6 +162,7 @@ type LoadRootConfigV1Args struct {
 	Options      cfgstore.Options
 	DirTypes     []cfgstore.DirType
 	ConfigStores *cfgstore.ConfigStores
+	DirsProvider *cfgstore.DirsProvider
 }
 
 var _ cfgstore.RootConfig = (*RootConfigV1Wrapper)(nil)
@@ -194,9 +195,9 @@ func LoadRootConfigV1(args LoadRootConfigV1Args) (_ *RootConfigV1, err error) {
 	if configStores == nil {
 		configStores = cfgstore.NewConfigStores(cfgstore.ConfigStoresArgs{
 			ConfigStoreArgs: cfgstore.ConfigStoreArgs{
-				//ConfigSlug: args.AppInfo.AppSlug(),
-				ConfigSlug:  args.AppInfo.ConfigSlug(),
-				RelFilepath: args.AppInfo.ConfigFile(),
+				ConfigSlug:   args.AppInfo.ConfigSlug(),
+				RelFilepath:  args.AppInfo.ConfigFile(),
+				DirsProvider: args.DirsProvider,
 			},
 		})
 	}
@@ -391,4 +392,56 @@ end:
 		)
 	}
 	return api, err
+}
+
+type GenerateConfigArgs struct {
+	Webroot     string   // Path to webroot directory (default: "./webroot")
+	DBPath      string   // Path to database file (default: "dbroot/data.db")
+	DBBootstrap string   // Path to bootstrap SQL file (default: "dbroot/bootstrap.sql")
+	Port        int      // HTTP port (default: 8080)
+	Host        string   // HTTP host (default: "127.0.0.1")
+	OnOpenSQL   []string // SQL statements to run on database open
+}
+
+// GenerateConfig creates a minimal, sensible RootConfigV1 with the specified parameters.
+// Any zero-value parameters will use defaults from the cfgldr constants.
+func GenerateConfig(args GenerateConfigArgs) *RootConfigV1 {
+	// Apply defaults
+	if args.Webroot == "" {
+		args.Webroot = DefaultWebroot
+	}
+	if args.DBPath == "" {
+		args.DBPath = DefaultSQLite3Database
+	}
+	if args.DBBootstrap == "" {
+		args.DBBootstrap = DefaultDBBootstrapFilepath
+	}
+	if args.Port == 0 {
+		args.Port = common.DefaultServerPort
+	}
+	if args.Host == "" {
+		args.Host = common.DefaultServerHost
+	}
+
+	// Create minimal API config with just webroot
+	api := NewAPIConfigV2(args.Webroot)
+
+	// Create database config
+	db := NewSQLite3ConfigV1(args.DBPath)
+	db.Extensions = nil
+	if args.OnOpenSQL != nil {
+		db.OnOpenSQL = args.OnOpenSQL
+	}
+
+	// Create server config
+	server := NewServerConfigV1(args.Host, ServerConfigV1Args{
+		Port: args.Port,
+		API:  api,
+	})
+
+	// Create and return root config
+	return NewRootConfigV1(RootConfigV1Args{
+		ServerConfig: server,
+		DBConfig:     db,
+	})
 }

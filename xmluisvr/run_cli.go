@@ -3,7 +3,6 @@ package xmluisvr
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -12,9 +11,6 @@ import (
 	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
-
-// TODO: Add functionality to set logfile with environment var or flags
-const logFile = "./xmlui-local-server.log"
 
 // RunCLI is the main CLI entry point for the xmlui-test-server application.
 // It handles command-line argument parsing, configuration loading, and starts the server.
@@ -31,11 +27,8 @@ const logFile = "./xmlui-local-server.log"
 //   - 5: Unknown runtime error
 func RunCLI(cfgOpts *cfgldr.Options) {
 	var err error
-	var logger *slog.Logger
-	var cfg *cfgldr.RootConfigV1
-	var opts *common.Options
-	var config *Config
 	var wl cliutil.WriterLogger
+	var runArgs *RunArgs
 
 	if cfgOpts == nil {
 		cfgOpts, err = cfgldr.GetOptions()
@@ -45,60 +38,37 @@ func RunCLI(cfgOpts *cfgldr.Options) {
 		}
 	}
 
-	//goland:noinspection GoDfaErrorMayBeNotNil
+	//goland:noinspection GoDfaErrorMayBeNotNil,GoMaybeNil
 	writer := cliutil.NewWriter(&cliutil.WriterArgs{
 		Quiet:     cfgOpts.Quiet,
 		Verbosity: cliutil.Verbosity(cfgOpts.Verbosity),
 	})
-	logger, err = createFileLogger(logFile)
-	if err != nil {
-		writer.Errorf(
-			"Failed to create and/or open log file %s: %v\n",
-			"Continuing without writing logs to disk",
-			logFile, err,
-		)
-	}
-	wl = cliutil.NewWriterLogger(writer, logger)
-
-	cfg, err = cfgldr.LoadRootConfigV1(cfgldr.LoadRootConfigV1Args{
-		AppInfo: AppInfo(),
-		Options: cfgOpts,
-	})
-	if err != nil {
-		writer.Errorf("Failed to load config file(s); %v\n", err)
-		os.Exit(cliutil.ExitConfigLoadError)
-	}
-
-	// TODO Incorporate loaded environment vars into GetOptions
-	opts, err = ParseOptions(cfgOpts)
-	if err != nil {
-		fprintf(os.Stderr, "Failed while parsing options: %v\n", err)
-		os.Exit(cliutil.ExitOptionsParseError)
-	}
 
 	// TODO: Make 10 second timeout configurable
 	context.WithTimeout(context.Background(), 10*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	config, err = ParseConfig(ctx, cfg, ParseConfigArgs{
-		Options:      opts,
-		Logger:       logger,
-		Writer:       writer,
-		DirsProvider: nil, // This should be nil, use a provider only for testing
-	})
+	runArgs = &RunArgs{
+		AppInfo: AppInfo(),
+		Config: &Config{
+			Writer: writer,
+		},
+	}
+
+	runArgs, err = ParseRunArgs(ctx, cfgOpts, runArgs)
 	if err != nil {
-		_ = wl.ErrorError("Failed to parse configuration", "error", err)
+		wl = cliutil.NewWriterLogger(writer, nil)
+		_ = wl.ErrorError("Failed to parse run arguments", "error", err)
 		os.Exit(cliutil.ExitConfigParseError)
 	}
-	defer common.CloseOrLog(config.Database)
+	//goland:noinspection GoMaybeNil
+	defer common.CloseOrLog(runArgs.Config.Database)
 
-	err = Run(ctx, &RunArgs{
-		CLIArgs: nil,
-		AppInfo: AppInfo(),
-		Config:  config,
-		Options: opts,
-	})
+	common.SetLogger(runArgs.Config.Logger)
+	wl = cliutil.NewWriterLogger(writer, runArgs.Config.Logger)
+
+	err = Run(ctx, runArgs)
 
 	switch {
 	case err == nil:

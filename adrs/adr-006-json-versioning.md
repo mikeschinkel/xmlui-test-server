@@ -24,7 +24,7 @@ Adopt `version` as the universal property name for all JSON configuration versio
 **Example**:
 ```json
 {
-  "$schema": "https://schemas.xmlui.org/v2/api-schema.json",
+  "$schema": "https://xmlui.org/schemas/v2/api-schema.json",
   "version": 2,
   "name": "Example API configuration",
   "base_path": "/api",
