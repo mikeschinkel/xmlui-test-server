@@ -27,7 +27,7 @@ func Run(ctx Context, args *RunArgs) (err error) {
 
 	writer := args.Config.Writer
 
-	writer.Loud().Printf("%s starting\n", args.AppInfo.AppName())
+	writer.Loud().Printf("%s starting\n", args.AppInfo.Name())
 
 	err = Initialize(ctx, args)
 	if err != nil {
