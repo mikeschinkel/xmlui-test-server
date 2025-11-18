@@ -1,4 +1,4 @@
-// Package apipkg provides the API endpoint management system for xmlui-test-server.
+// Package apipkg provides the API endpoint management system for xmlui-localsvr.
 //
 // This package handles the configuration-driven API endpoint system that allows
 // defining HTTP endpoints through JSON configuration files. It supports:
@@ -43,12 +43,9 @@
 package apipkg
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
@@ -64,7 +61,7 @@ import (
 // It manages HTTP endpoints that execute SQL queries based on JSON configuration.
 type API struct {
 	Name                 string           // Human-readable name for the API
-	Webroot              dt.DirPath       // Root directory for static file serving
+	Webroot              dt.DirPath       // Root directory for static file serving // TODO: Move this to Server 🤦‍♂️
 	SourceFile           dt.Filepath      // Path to the configuration file
 	BasePath             common.URLPath   // Common URL prefix for all endpoints
 	Endpoints            []*Endpoint      // List of configured API endpoints
@@ -115,10 +112,6 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	if err != nil {
 		goto end
 	}
-	webroot, err = common.ParseDirPath(cfgV2.Webroot)
-	if err != nil {
-		goto end
-	}
 	sourceFile, err = dt.ParseFilepath(cfgV2.SourceFile)
 	if err != nil {
 		goto end
@@ -127,6 +120,18 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	if err != nil {
 		goto end
 	}
+	webroot, err = common.ParseDirPath(cfgV2.Webroot)
+	if err != nil {
+		goto end
+	}
+
+	if !isEmptyOrDot(args.Options.Webroot) {
+		// TODO: Review this to see is this works for the general use-case — CLIConfig
+		//  vs. project/demo config — and also if there is not a more appropriate place
+		//  set webroot
+		webroot = dt.DirPathJoin(args.Options.Webroot, webroot)
+	}
+
 	api = NewAPI(APIArgs{
 		Name:       cfgV2.Name,
 		Webroot:    webroot,
@@ -139,6 +144,10 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	})
 end:
 	return api, err
+}
+
+func isEmptyOrDot(path dt.DirPath) bool {
+	return path == "" || path == "."
 }
 
 // NewAPI creates a new API instance with the provided arguments.
@@ -201,25 +210,25 @@ func (api *API) initializeRouter() (err error) {
 	return err
 }
 
-// extractBodyJSON extracts JSON from the request body into a common.JSONBytes
-// variable. It uses a TeeReader to preserve the request body for potential
-// future use. On error it returns nil result and a populated error.
-func extractBodyJSON(r *http.Request) (json common.JSONBytes, err error) {
-	var buffer bytes.Buffer
-	var jsonBytes []byte
-	if r.Body == nil {
-		goto end
-	}
-
-	jsonBytes, err = io.ReadAll(io.TeeReader(r.Body, &buffer))
-	if err != nil {
-		goto end
-	}
-
-	// Reset r.Body for potential future use
-	r.Body = io.NopCloser(&buffer)
-	json = jsonBytes
-
-end:
-	return json, err
-}
+//// extractBodyJSON extracts JSON from the request body into a common.JSONBytes
+//// variable. It uses a TeeReader to preserve the request body for potential
+//// future use. On error it returns nil result and a populated error.
+//func extractBodyJSON(r *http.Request) (json common.JSONBytes, err error) {
+//	var buffer bytes.Buffer
+//	var jsonBytes []byte
+//	if r.Body == nil {
+//		goto end
+//	}
+//
+//	jsonBytes, err = io.ReadAll(io.TeeReader(r.Body, &buffer))
+//	if err != nil {
+//		goto end
+//	}
+//
+//	// Reset r.Body for potential future use
+//	r.Body = io.NopCloser(&buffer)
+//	json = jsonBytes
+//
+//end:
+//	return json, err
+//}

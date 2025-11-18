@@ -1,7 +1,7 @@
 {
   "$schema": "https://xmlui.org/schemas/v2/api-schema.json",
   "version": 2,
-  "name": "Example API configuration for xmlui-test-server",
+  "name": "Example API configuration for xmlui-localsvr",
   "base_path": "/api",
   "webroot": ".",
   "endpoints": [

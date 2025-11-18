@@ -315,6 +315,9 @@ end:
 
 func (p Parameter) ValidateForDataType(value string) (err error) {
 	var newer, v DataTypeClassifier
+	if p.Optional && value == "" {
+		goto end
+	}
 	newer, err = GetDataTypeClassifier(p.dataType)
 	if err != nil {
 		goto end

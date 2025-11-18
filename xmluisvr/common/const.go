@@ -1,4 +1,4 @@
-// Package common provides shared utilities, types, and constants used throughout xmlui-test-server.
+// Package common provides shared utilities, types, and constants used throughout xmlui-localsvr.
 //
 // This package contains foundational utilities that are used across all other packages:
 //
@@ -36,6 +36,8 @@
 package common
 
 import (
+	"path/filepath"
+
 	"github.com/mikeschinkel/go-dt"
 )
 
@@ -94,4 +96,39 @@ var (
 	ExtraInfo = map[string]any{
 		"github_repo_url": GitHubRepoURL,
 	}
+)
+
+const (
+	DemosPath         dt.PathSegment = "demos"
+	WebrootPath       dt.PathSegment = "."
+	DBRootPath        dt.PathSegment = "./dbroot"
+	DBFilename        dt.Filename    = "data.db"
+	BootstrapFilename dt.Filename    = "bootstrap.sql"
+)
+
+const (
+	ConfigPath     = "." + ConfigSlug
+	ConfigFilename = dt.Filename(ConfigFile)
+)
+
+const UnknownVersion = "v0.0.0"
+
+const (
+	DefaultSQLite3ExtensionEntryPoint = "sqlite3_extension_init"
+	DefaultOnFailurePolicy            = "warn"
+	DefaultVarScope                   = "app"
+	DefaultAPIBasePath                = "/api"
+	DefaultAPIConfigFile              = "./api.json"
+)
+
+const (
+	DefaultWebroot         = string(WebrootPath)
+	DefaultDBRoot          = string(DBRootPath)
+	DefaultSQLite3DBFile   = string(DBFilename)
+	DefaultDBBootstrapFile = string(BootstrapFilename)
+)
+
+var (
+	DefaultSQLite3Database     = filepath.Join(DefaultDBRoot, DefaultSQLite3DBFile)
+	DefaultDBBootstrapFilepath = filepath.Join(DefaultDBRoot, DefaultDBBootstrapFile)
 )

@@ -46,3 +46,6 @@ var (
 	ErrEndpointParsingFailed            = errors.New("endpoint parsing failed")
 	ErrParsingOfMultipleEndpointsFailed = errors.New("parsing of multiple endpoints failed")
 )
+
+var ErrMissingQueryParameters = errors.New("missing query parameters")
+var ErrUnhandledParameterError = errors.New("unhandled parameter error")

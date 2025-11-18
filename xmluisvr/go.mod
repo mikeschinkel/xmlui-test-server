@@ -8,7 +8,7 @@ require (
 	github.com/mikeschinkel/go-cfgstore v0.0.0-00010101000000-000000000000
 	github.com/mikeschinkel/go-cliutil v0.0.0-20251105231813-8ce963ade5dd
 	github.com/mikeschinkel/go-doterr v0.0.0-00010101000000-000000000000
-	github.com/mikeschinkel/go-dt v0.0.0-20251105233453-a7985f775567
+	github.com/mikeschinkel/go-dt v0.0.0
 	github.com/mikeschinkel/go-dt/appinfo v0.0.0-20251107040413-53a1559d69c5
 	github.com/mikeschinkel/go-dt/de v0.0.0-20251107040413-53a1559d69c5
 	github.com/mikeschinkel/go-dt/dtx v0.0.0-20251107040413-53a1559d69c5
@@ -19,9 +19,14 @@ require (
 	github.com/stretchr/testify v1.11.1
 )
 
-require github.com/mikeschinkel/go-testutil v0.0.0-20251106134052-52de2775d498
+require (
+	github.com/mikeschinkel/go-dt/dtglob v0.0.0-20251114061726-3dcb15b4f264
+	github.com/mikeschinkel/go-logutil v0.0.0-20251114061427-941d1cab1f2a
+	github.com/mikeschinkel/go-testutil v0.0.0-20251106134052-52de2775d498
+)
 
 require (
+	github.com/bmatcuk/doublestar/v4 v4.7.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect

@@ -1,4 +1,4 @@
-// Package xmluisvr provides the core HTTP server implementation for xmlui-test-server.
+// Package xmluisvr provides the core HTTP server implementation for xmlui-localsvr.
 //
 // This package implements a lightweight HTTP server that serves multiple purposes:
 //
@@ -15,7 +15,7 @@
 //
 // The most common usage is through the CLI:
 //
-//	./xmlui-test-server --port 3000 --api config.json
+//	./xmlui-localsvr --port 3000 --api config.json
 //
 // # Usage as Library
 //

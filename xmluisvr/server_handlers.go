@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,12 +25,17 @@ import (
 
 func (svr *Server) handleRootFunc() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		svr.Printf("Request: %s\n", r.URL.Path)
-		if r.URL.Path != "/" {
-			svr.serveFile(w, r, dt.EntryPath("."+r.URL.Path))
+		rp := r.URL.Path
+		if strings.Contains(rp, "..") {
+			http.Error(w, "403 forbidden", http.StatusForbidden)
 			return
 		}
-		svr.serveFile(w, r, "./index.html")
+		svr.Printf("Request: %s\n", rp)
+		if strings.HasSuffix(rp, "/") {
+			svr.serveFile(w, r, dt.EntryPath(rp+"index.html"))
+			return
+		}
+		svr.serveFile(w, r, dt.EntryPath(rp))
 	}
 }
 
@@ -53,17 +56,7 @@ func (svr *Server) serveFile(w http.ResponseWriter, r *http.Request, ep dt.Entry
 		// TODO: Change this to a 500 error when we have time
 		http.NotFound(w, r)
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		// TODO: Change this to a 500 error when we have time
-		err = fmt.Errorf("failed to get working directory; %w", err)
-	}
-	switch {
-	case svr.API.Webroot == "" || svr.API.Webroot == ".":
-		ep = dt.EntryPath(filepath.Join(wd, string(ep)))
-	case svr.API.Webroot[0] == '.':
-		ep = dt.EntryPath(filepath.Join(wd, string(svr.API.Webroot), string(ep)))
-	}
+	ep = dt.EntryPathJoin(svr.API.Webroot, ep)
 	status, err := ep.Status()
 	if err != nil {
 		goto end
@@ -76,7 +69,7 @@ func (svr *Server) serveFile(w http.ResponseWriter, r *http.Request, ep dt.Entry
 		// TODO Make this safe from path traversal exploit
 		http.ServeFile(w, r, string(ep))
 	case dt.IsDirEntry:
-		svr.serveFile(w, r, dt.EntryPath(fmt.Sprintf("%s/index.html", ep)))
+		http.NotFound(w, r) // This should not happen since the caller handles directories
 	case dt.IsSymlinkEntry:
 		target, err := ep.Readlink()
 		if err != nil {

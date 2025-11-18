@@ -1,6 +1,6 @@
 package dbpkg
 
-const ConfigSlug = "db"
+const ConfigSlug = "dbroot"
 
 const (
 	DuckDBDatabase   DatabaseType = "duckdb"

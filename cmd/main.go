@@ -1,4 +1,4 @@
-// Package main/cmd provides the entry point for the xmlui-test-server CLI application.
+// Package main/cmd provides the entry point for the xmlui-localsvr CLI application.
 //
 // This is a lightweight HTTP server that provides:
 //   - Static file serving from the current directory
@@ -12,7 +12,7 @@ import (
 	"github.com/xmlui-org/localsvr/xmluisvr"
 )
 
-// main is the application entry point that starts the xmlui-test-server CLI.
+// main is the application entry point that starts the xmlui-localsvr CLI.
 func main() {
 	xmluisvr.RunCLI(nil)
 }

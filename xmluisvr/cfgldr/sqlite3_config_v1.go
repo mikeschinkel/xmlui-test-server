@@ -3,8 +3,11 @@ package cfgldr
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 
+	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 
 	. "github.com/mikeschinkel/go-doterr"
@@ -12,7 +15,7 @@ import (
 
 const (
 	SQLite3ConfigV1Version = 1
-	SQLite3ConfigV1Schema  = "https://xmlui.org/schemas/v1/localsvr/sqlite3-schema.json"
+	SQLite3ConfigV1Schema  = "https://xmlui.org/schemas/v1/localsvr/db/sqlite3-schema.json"
 )
 
 func init() {
@@ -118,7 +121,11 @@ func (c *SQLite3ConfigV1) DatabaseType() DatabaseType {
 }
 
 func (c *SQLite3ConfigV1) AddExtension(ext *SQLite3ExtensionConfigV1, opts *Options) (err error) {
-	err = ext.Normalize(dt.Filepath(c.SourceFile()), opts)
+	err = ext.Normalize(cfgstore.NormalizeArgs{
+		SourceFile: dt.Filepath(c.SourceFile()),
+		Options:    opts,
+		DirType:    0, // TODO Address this, if needed
+	})
 	if err != nil {
 		goto end
 	}
@@ -130,22 +137,22 @@ end:
 func (c *SQLite3ConfigV1) SetExtensions(exts []*SQLite3ExtensionConfigV1) {
 	c.Extensions = exts
 }
-func (c *SQLite3ConfigV1) normalizeExtensions(sourceFile dt.Filepath, opts *Options) (err error) {
+func (c *SQLite3ConfigV1) normalizeExtensions(args cfgstore.NormalizeArgs) (err error) {
 	var errs []error
 	if len(c.Extensions) == 0 {
 		c.Extensions = make([]*SQLite3ExtensionConfigV1, 0)
 		goto end
 	}
 	for _, ext := range c.Extensions {
-		errs = AppendErr(errs, ext.Normalize(sourceFile, opts))
+		errs = AppendErr(errs, ext.Normalize(args))
 	}
 	err = CombineErrs(errs)
 end:
 	return err
 }
 
-func (c *SQLite3ConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
-	c.sourceFile = string(sourceFile)
+func (c *SQLite3ConfigV1) Normalize(args cfgstore.NormalizeArgs) (err error) {
+	c.sourceFile = string(args.SourceFile)
 	if c.Schema == "" {
 		c.Schema = SQLite3ConfigV1Schema
 	}
@@ -161,8 +168,17 @@ func (c *SQLite3ConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err 
 	if len(c.OnOpenSQL) == 0 {
 		c.OnOpenSQL = make([]string, 0)
 	}
+	opts := args.Options.(*Options)
 	if opts.ConnectString != "" {
-		c.SetConnectString(opts.ConnectString)
+		// SourceFile = /Users/<user>/.config/xmlui/localsvr.json
+		dir := args.SourceFile.Dir()
+		// CLIConfigDir = ~/.config/xmlui/
+		if args.DirType == cfgstore.ProjectConfigDir {
+			// ProjectDir = <projectDir>/.xmlui
+			dir = dir.Dir()
+			// After = <projectDir>/
+		}
+		c.SetConnectString(filepath.Join(string(dir), string(opts.ConnectString)))
 	}
 	if opts.DBAccessMode != int(dbqvars.UnspecifiedDBAccessMode) {
 		c.AccessMode = opts.DBAccessMode
@@ -170,11 +186,11 @@ func (c *SQLite3ConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err 
 	if c.AccessMode == int(dbqvars.UnspecifiedDBAccessMode) {
 		c.AccessMode = DefaultDBAccessMode
 	}
-	err = c.normalizeExtensions(sourceFile, opts)
+	err = c.normalizeExtensions(args)
 	if err != nil {
 		err = WithErr(err,
 			ErrFailedToNormalize,
-			"source_config", sourceFile,
+			"source_config", args.SourceFile,
 		)
 	}
 	return err
@@ -231,9 +247,9 @@ var (
 	ErrMustSpecifyOneOf          = errors.New("must specify one of")
 )
 
-func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile dt.Filepath, _ *Options) (err error) {
+func (c *SQLite3ExtensionConfigV1) Normalize(args cfgstore.NormalizeArgs) (err error) {
 	var filePath dt.Filepath
-	c.SourceFile = string(sourceFile)
+	c.SourceFile = string(args.SourceFile)
 
 	switch {
 	case c.Filepath != "":
@@ -261,16 +277,16 @@ func (c *SQLite3ExtensionConfigV1) Normalize(sourceFile dt.Filepath, _ *Options)
 		c.Name = c.Id
 	}
 	if c.Version == "" {
-		c.Version = UnknownVersion
+		c.Version = common.UnknownVersion
 	}
 	if c.EntryPoint == "" {
-		c.EntryPoint = DefaultSQLite3ExtensionEntryPoint
+		c.EntryPoint = common.DefaultSQLite3ExtensionEntryPoint
 	}
 	if c.OnFailure == "" {
-		c.OnFailure = DefaultOnFailurePolicy
+		c.OnFailure = common.DefaultOnFailurePolicy
 	}
 	if c.VarScope == "" {
-		c.VarScope = DefaultVarScope
+		c.VarScope = common.DefaultVarScope
 	}
 	if c.DownloadURLs == nil {
 		c.DownloadURLs = make([]string, 0)

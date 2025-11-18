@@ -13,8 +13,8 @@ func TestCfgStoreMerge(t *testing.T) {
 	wd, _ := dt.Getwd()
 	rootFix, css := SetupFixtures(t, SetupFixturesArgs{
 		TestDataDir: dt.DirPathJoin(wd, testDataDir),
-		UserFile:    "./user-config.test-server.json",
-		ProjectFile: "./project-config.test-server.json",
+		UserFile:    "./user-config.localsvr.json",
+		ProjectFile: "./project-config.localsvr.json",
 	})
 	defer rootFix.Cleanup()
 

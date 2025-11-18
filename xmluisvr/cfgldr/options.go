@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	DefaultTimeout               = 3
-	DefaultHTTPPort              = 8080
-	DefaultAPIFile               = ""
-	DefaultDBPort                = 0
-	DefaultDBBootstrapFile       = "bootstrap.sql"
+	DefaultTimeout  = 3
+	DefaultHTTPPort = 8080
+	DefaultAPIFile  = ""
+	DefaultDBPort   = 0
+
 	DefaultQuiet                 = false
 	DefaultAllowUntrustedQueries = false
 	DefaultVerbosity             = cliutil.DefaultVerbosity
@@ -34,13 +34,14 @@ const (
 )
 
 var (
-	DefaultConnectString = DefaultSQLite3Database
+	DefaultConnectString = common.DefaultSQLite3Database
 )
 
 type Options struct {
 	Timeout               int
 	HTTPPort              int
 	APIFile               string
+	Webroot               string
 	ConnectString         string
 	DBPort                int
 	DBBootstrapFile       string
@@ -58,6 +59,7 @@ type OptionsArgs struct {
 	Timeout               *int
 	HTTPPort              *int
 	APIFile               *string
+	Webroot               *string
 	ConnectString         *string
 	DBPort                *int
 	DBBootstrapFile       *string
@@ -114,6 +116,7 @@ type OptionsFlagSet struct {
 	timeout               *int
 	port                  *int
 	apiFile               *string
+	webroot               *string
 	connStr               *string
 	dbPort                *int
 	dbBootstrapFile       *string
@@ -132,6 +135,7 @@ func NewOptionsFlagSet(name string) *OptionsFlagSet {
 		timeout:               new(int),
 		port:                  new(int),
 		apiFile:               new(string),
+		webroot:               new(string),
 		connStr:               new(string),
 		dbPort:                new(int),
 		dbBootstrapFile:       new(string),
@@ -149,10 +153,11 @@ func NewOptionsFlagSet(name string) *OptionsFlagSet {
 
 	ofs.fs.IntVar(ofs.timeout, "timeout", DefaultTimeout, "Timeout(in seconds) (TODO explain what this controls)")
 
+	ofs.fs.StringVar(ofs.webroot, "webroot", common.DefaultWebroot, "Directory to serve from")
 	ofs.fs.StringVar(ofs.apiFile, "api", DefaultAPIFile, "Path to API description file")
 	ofs.fs.StringVar(ofs.connStr, "db", DefaultConnectString, "Path to SQLite database file or PostgreSQL connection string or DB description file")
-	ofs.fs.StringVar(ofs.dbBootstrapFile, "db-bootstrap", DefaultDBBootstrapFilepath,
-		fmt.Sprintf("Path to database query file containing idempotent queries to run on start of server (default %s)", DefaultDBBootstrapFilepath),
+	ofs.fs.StringVar(ofs.dbBootstrapFile, "db-bootstrap", common.DefaultDBBootstrapFilepath,
+		fmt.Sprintf("Path to database query file containing idempotent queries to run on start of server (default %s)", common.DefaultDBBootstrapFilepath),
 	)
 	ofs.fs.IntVar(ofs.dbPort, "db-port", 0, "PostgreSQL port (optional, overrides port in --db if provided)")
 	ofs.fs.Var(&ofs.dbExtensions, "db-ext", "One or more paths to database extensions to load (currently only SQLite3.)")
@@ -194,6 +199,7 @@ func (ofs *OptionsFlagSet) Options() (opts *Options, err error) {
 	opts = NewOptions(OptionsArgs{
 		HTTPPort:              ofs.port,
 		APIFile:               ofs.apiFile,
+		Webroot:               ofs.webroot,
 		ConnectString:         ofs.connStr,
 		DBPort:                ofs.dbPort,
 		DBBootstrapFile:       ofs.dbBootstrapFile,

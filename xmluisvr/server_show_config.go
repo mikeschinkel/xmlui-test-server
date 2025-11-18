@@ -3,10 +3,10 @@ package xmluisvr
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-dt"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
@@ -38,18 +38,21 @@ func (svr *Server) displayHost() string {
 }
 
 func (svr *Server) displayWebroot() (wr string) {
-	// Print current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		wr = err.Error()
-		goto end
+	dp := svr.API.Webroot
+	if !dp.IsAbs() {
+		// Print current working directory
+		wd, err := os.Getwd()
+		if err != nil {
+			wr = fmt.Sprintf("%s (ERROR: %s)", wr, err.Error())
+			goto end
+		}
+		if wd == "" {
+			wr = fmt.Sprintf("%s (ERROR: Working directory unavailable)", wr)
+			goto end
+		}
+		dp = dt.DirPathJoin(wd, svr.API.Webroot)
 	}
-	if wd == "" {
-		wr = "Working directory unavailable"
-		goto end
-	}
-	wd = filepath.Join(wd, string(svr.API.Webroot))
-	wr = common.HomeRelative(wd)
+	wr = common.HomeRelative(string(dp))
 end:
 	return wr
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 
@@ -55,16 +56,16 @@ func NewAPIConfigV2(webroot string) *APIConfigV2 {
 		Version:    APIConfigV2Version,
 		Notes:      make([]string, 0),
 		Name:       fmt.Sprintf("User-definable %s APIConfig", common.AppName),
-		BasePath:   DefaultAPIBasePath,
+		BasePath:   common.DefaultAPIBasePath,
 		Webroot:    webroot,
 		Endpoints:  make([]*APIEndpointV2, 0),
-		SourceFile: DefaultAPIConfigFile,
+		SourceFile: common.DefaultAPIConfigFile,
 	}
 }
 
 func (*APIConfigV2) Config() {}
 
-func (c *APIConfigV2) normalizeEndpoints(sourceFile dt.Filepath, opts *Options) (err error) {
+func (c *APIConfigV2) normalizeEndpoints(args cfgstore.NormalizeArgs) (err error) {
 	if c.Endpoints == nil {
 		c.Endpoints = make([]*APIEndpointV2, 0)
 	}
@@ -72,14 +73,14 @@ func (c *APIConfigV2) normalizeEndpoints(sourceFile dt.Filepath, opts *Options) 
 		goto end
 	}
 	for _, ep := range c.Endpoints {
-		ep.Normalize(sourceFile, opts)
+		ep.Normalize(args)
 	}
 end:
 	return err
 }
 
-func (c *APIConfigV2) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
-	c.SourceFile = string(sourceFile)
+func (c *APIConfigV2) Normalize(args cfgstore.NormalizeArgs) (err error) {
+	c.SourceFile = string(args.SourceFile)
 	if c.Schema == "" {
 		c.Schema = APIConfigV2Schema
 	}
@@ -87,12 +88,12 @@ func (c *APIConfigV2) Normalize(sourceFile dt.Filepath, opts *Options) (err erro
 		c.Version = APIConfigV2Version
 	}
 	if c.BasePath == "" {
-		c.BasePath = DefaultAPIBasePath
+		c.BasePath = common.DefaultAPIBasePath
 	}
 	if c.Webroot == "" {
-		c.Webroot = DefaultWebroot
+		c.Webroot = common.DefaultWebroot
 	}
-	err = c.normalizeEndpoints(sourceFile, opts)
+	err = c.normalizeEndpoints(args)
 	return err
 }
 

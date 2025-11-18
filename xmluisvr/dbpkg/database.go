@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/mikeschinkel/go-cfgstore"
@@ -72,18 +73,47 @@ type DatabaseArgs struct {
 	Config           cfgldr.DatabaseConfig
 }
 
+func (args *DatabaseArgs) Normalize() (err error) {
+	var entry dt.EntryPath
+	var errs []error
+
+	opts := args.Options
+	entry = dt.EntryPath(args.ConnectString)
+	errs = AppendErr(errs, args.absolutize(&entry, opts.Webroot))
+	args.ConnectString = string(entry)
+	//entry = dt.EntryPath(args..DBBootstrapFile)
+	//errs = AppendErr(errs, args.absolutize(&entry, opts.Webroot))
+	//opts.DBBootstrapFile = dt.Filepath(entry)
+
+	return CombineErrs(errs)
+}
+
+func (args *DatabaseArgs) absolutize(ep *dt.EntryPath, base dt.DirPath) error {
+	abs, err := ep.Abs()
+	if err != nil {
+		goto end
+	}
+	if abs != *ep {
+		*ep = dt.EntryPathJoin(base, *ep)
+	}
+end:
+	return err
+}
+
 type ParseQueriesArgs struct {
-	Database     Database
-	BaseFilename string
-	ConfigSource dt.Filepath
-	DirsProvider *cfgstore.DirsProvider
+	Database       Database
+	BaseFilename   string
+	ConfigSource   dt.Filepath
+	DirsProvider   *cfgstore.DirsProvider
+	PrimaryDirType cfgstore.DirType
 }
 
 func ParseQueries(queries []string, args ParseQueriesArgs) (mpq *MultipartQuery, err error) {
 	var queryBytes []byte
 	var fileQuery string
 	var elemCnt, lineCnt int
-	var csFilepath dt.Filepath
+	//var csFilepath dt.Filepath
+	var baseDir dt.DirPath
 
 	mpq = NewMultipartQuery()
 	elemCnt = len(queries)
@@ -94,18 +124,19 @@ func ParseQueries(queries []string, args ParseQueriesArgs) (mpq *MultipartQuery,
 	}
 
 	db := args.Database
-	cs := cfgstore.NewConfigStore(cfgstore.CLIConfigDir, cfgstore.ConfigStoreArgs{
-		ConfigSlug:   common.ConfigSlug,
-		RelFilepath:  dt.RelFilepathJoin3(ConfigSlug, db.Type(), args.BaseFilename+db.QueryFileExt()),
-		DirsProvider: args.DirsProvider,
-	})
-	//cs := cfgstore.NewConfigStore(common.AppConfigSlug,
-	//	fmt.Sprintf("%s/%s%s", db.Type(), args.BaseFilename, db.QueryFileExt()),
-	//	cfgstore.DefaultConfigDirType,
-	//)
-	queryBytes, err = cs.Load()
-	if errors.Is(err, cfgstore.ErrFileDoesNotExist) {
+	var fp dt.Filepath
+	filename := args.BaseFilename + db.QueryFileExt()
+	if args.PrimaryDirType == cfgstore.ProjectConfigDir {
+		baseDir, err = args.DirsProvider.ProjectDirFunc()
+		fp = dt.FilepathJoin3(baseDir, ConfigSlug, filename)
+	} else {
+		baseDir, err = args.DirsProvider.CLIConfigDir()
+		fp = dt.FilepathJoin4(baseDir, ConfigSlug, db.Type(), filename)
+	}
+	queryBytes, err = fp.ReadFile()
+	if os.IsNotExist(err) {
 		err = nil
+		goto end
 	}
 	if err != nil {
 		goto end
@@ -115,16 +146,17 @@ func ParseQueries(queries []string, args ParseQueriesArgs) (mpq *MultipartQuery,
 		goto end
 	}
 	lineCnt = strings.Count(fileQuery, "\n") + 1
-	csFilepath, err = cs.GetFilepath()
-	if err != nil {
-		goto end
-	}
+	//csFilepath, err = cs.GetFilepath()
+	//if err != nil {
+	//	goto end
+	//}
 	mpq.AddQuerySource(
 		NewQuerySource(
 			elemCnt+1,
 			elemCnt+lineCnt,
 			common.QueryString(fileQuery),
-			dt.Filepath(csFilepath),
+			fp,
+			//csFilepath,
 		),
 	)
 end:
@@ -132,10 +164,11 @@ end:
 }
 
 type ParseDatabaseArgs struct {
-	Options      *common.Options
-	Writer       CLIWriter
-	Logger       *slog.Logger
-	DirsProvider *cfgstore.DirsProvider
+	Options        *common.Options
+	Writer         CLIWriter
+	Logger         *slog.Logger
+	DirsProvider   *cfgstore.DirsProvider
+	PrimaryDirType cfgstore.DirType
 }
 
 var ErrNoDatabaseConnectString = errors.New("no database connection string")
@@ -177,20 +210,22 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 	}
 
 	bootstrapQueries, err = ParseQueries(cfg.BootstrapQueries(), ParseQueriesArgs{
-		Database:     db,
-		BaseFilename: "bootstrap",
-		ConfigSource: sourceFile,
-		DirsProvider: args.DirsProvider,
+		Database:       db,
+		BaseFilename:   "bootstrap",
+		ConfigSource:   sourceFile,
+		DirsProvider:   args.DirsProvider,
+		PrimaryDirType: args.PrimaryDirType,
 	})
 	if err != nil {
 		goto end
 	}
 
 	onOpenQueries, err = ParseQueries(cfg.OnOpenQueries(), ParseQueriesArgs{
-		Database:     db,
-		BaseFilename: "on_open",
-		ConfigSource: sourceFile,
-		DirsProvider: args.DirsProvider,
+		Database:       db,
+		BaseFilename:   "on_open",
+		ConfigSource:   sourceFile,
+		DirsProvider:   args.DirsProvider,
+		PrimaryDirType: args.PrimaryDirType,
 	})
 	if err != nil {
 		goto end

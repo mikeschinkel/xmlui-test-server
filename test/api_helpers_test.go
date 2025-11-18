@@ -611,7 +611,7 @@ func getRootConfig(endpointJSON string) string {
 			}
 		},
 		"database": {
-			"$schema": "https://xmlui.org/schemas/v1/localsvr/sqlite3-schema.json",
+			"$schema": "https://xmlui.org/schemas/v1/localsvr/db/sqlite3-schema.json",
 			"version": 1,
 			"type": "sqlite3",
 			"filepath": "test.db",

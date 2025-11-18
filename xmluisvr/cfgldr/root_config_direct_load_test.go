@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/stretchr/testify/require"
 	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 )
@@ -14,7 +15,7 @@ import (
 // to isolate whether the issue is in JSON unmarshaling or in cfgstore merging.
 func TestDirectJSONLoad(t *testing.T) {
 	// Load the project config file that has 5 endpoints
-	data, err := os.ReadFile("./test-data/project-config.test-server.json")
+	data, err := os.ReadFile("./test-data/project-config.localsvr.json")
 	require.NoError(t, err, "Failed to read project config file")
 
 	var rc cfgldr.RootConfigV1
@@ -47,7 +48,11 @@ func TestDirectJSONLoad(t *testing.T) {
 
 	// Now test what happens after Normalize
 	opts := cfgldr.NewOptions(cfgldr.OptionsArgs{})
-	err = rc.Normalize("./test-data/project-config.test-server.json", opts)
+	err = rc.Normalize(cfgstore.NormalizeArgs{
+		DirType:    cfgstore.CLIConfigDir,
+		SourceFile: "./test-data/project-config.localsvr.json",
+		Options:    opts,
+	})
 	require.NoError(t, err, "Normalize should not error")
 
 	// Check again after normalize

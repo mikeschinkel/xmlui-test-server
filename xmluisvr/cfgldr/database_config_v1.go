@@ -2,7 +2,6 @@ package cfgldr
 
 import (
 	"github.com/mikeschinkel/go-cfgstore"
-	"github.com/mikeschinkel/go-dt"
 )
 
 type DatabaseConfig interface {
@@ -17,7 +16,7 @@ type DatabaseConfig interface {
 	OnOpenQueries() []string
 	SourceFile() string
 	DBExtensions() []DBExtensionConfig
-	Normalize(dt.Filepath, *Options) error
+	Normalize(cfgstore.NormalizeArgs) error
 }
 
 type DBExtensionConfig interface {

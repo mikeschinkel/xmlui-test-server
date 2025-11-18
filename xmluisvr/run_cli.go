@@ -12,7 +12,7 @@ import (
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
-// RunCLI is the main CLI entry point for the xmlui-test-server application.
+// RunCLI is the main CLI entry point for the xmlui-localsvr application.
 // It handles command-line argument parsing, configuration loading, and starts the server.
 // This function sets up logging, loads configuration files, and delegates to Run().
 //

@@ -30,3 +30,7 @@ var (
 	ErrFailedToUnmarshalAPIConfigFile = errors.New("failed to unmarshal APIConfig config file")
 	ErrFailedToLoadDBSchemaFile       = errors.New("failed to load DB schema file")
 )
+
+// ErrFailedToReadQueryFile indicates that an SQL file referenced by an endpoint could not be read.
+var ErrFailedToReadQueryFile = errors.New("failed to read query file")
+var ErrEitherQueryOrQueryFile = errors.New("both query file and query cannot have values")

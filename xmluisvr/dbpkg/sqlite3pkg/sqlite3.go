@@ -115,11 +115,14 @@ func (*SQLite3) CreateNew(args dbpkg.DatabaseArgs) (ndb dbpkg.Database, err erro
 	args.AccessMode, err = dbpkg.ParseAccessMode(slCfg.AccessMode)
 	errs = AppendErr(errs, err)
 
+	errs = AppendErr(errs, args.Normalize())
+
 	err = CombineErrs(errs)
 	if err != nil {
 		db = nil
 		goto end
 	}
+
 	ndb = NewSQLite3(SQLite3Args{
 		DatabaseArgs:   args,
 		JournalMode:    db.JournalMode,
@@ -355,8 +358,8 @@ func (s *SQLite3) authorizer() authorizerFunc {
 			goto end
 		}
 
-		// Test the cases where mode+ops are the only criteria
-		if isRecognizedOp(op) {
+		// Test to see if an op is recognized
+		if !isRecognizedOp(op) {
 			s.WarnError("Unrecognized SQLite operation", "op", op)
 		}
 

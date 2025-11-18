@@ -41,7 +41,7 @@ func TestCreateGoldenData(t *testing.T) {
 		ServerConfig: server,
 		DBConfig:     db,
 	})
-	err = writeJSONFile("./test-data/test-server.json", root, 0644, 0755)
+	err = writeJSONFile("./test-data/localsvr.json", root, 0644, 0755)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -72,7 +72,7 @@ func TestLoadRootConfigV1(t *testing.T) {
 				"server.api.version":                        2,
 				"server.api.name":                           "User-definable XMLUI Local Server API",
 				"server.api.base_path":                      "/api",
-				"server.api.webroot":                        "./webroot",
+				"server.api.webroot":                        ".",
 				"server.api.endpoints|exists()":             true,
 				"server.api.endpoints|len()":                5,
 				"server.api.endpoints.0.method":             "GET",
@@ -85,7 +85,7 @@ func TestLoadRootConfigV1(t *testing.T) {
 				"server.api.endpoints.0.row_type":           "columns",
 				"server.api.endpoints.0.column_types|len()": 5,
 				"database|exists()":                         true,
-				"database.$schema":                          "https://xmlui.org/schemas/v1/localsvr/sqlite3-schema.json",
+				"database.$schema":                          "https://xmlui.org/schemas/v1/localsvr/db/sqlite3-schema.json",
 				"database.version":                          1,
 				"database.type":                             "sqlite3",
 				"database.filepath":                         "./dbroot/data.db",
@@ -104,8 +104,8 @@ func TestLoadRootConfigV1(t *testing.T) {
 			wd, _ := dt.Getwd()
 			rootFix, css := SetupFixtures(t, SetupFixturesArgs{
 				TestDataDir: dt.DirPathJoin(wd, testDataDir),
-				UserFile:    "./user-config.test-server.json",
-				ProjectFile: "./project-config.test-server.json",
+				UserFile:    "./user-config.localsvr.json",
+				ProjectFile: "./project-config.localsvr.json",
 			})
 			defer rootFix.Cleanup()
 			opts := cfgldr.NewOptions(cfgldr.OptionsArgs{})
@@ -123,10 +123,6 @@ func TestLoadRootConfigV1(t *testing.T) {
 			require.NoError(t, err, "Config did not match expected values")
 		})
 	}
-}
-
-func ptr[T any](t T) *T {
-	return &t
 }
 
 func writeJSONFile(file string, value any, filePerms, dirPerms os.FileMode) (err error) {

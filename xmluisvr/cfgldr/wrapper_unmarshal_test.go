@@ -11,7 +11,7 @@ import (
 // TestWrapperUnmarshalJSON tests if RootConfigV1Wrapper.UnmarshalJSON works correctly
 func TestWrapperUnmarshalJSON(t *testing.T) {
 	// Load the project config file
-	data, err := os.ReadFile("./test-data/project-config.test-server.json")
+	data, err := os.ReadFile("./test-data/project-config.localsvr.json")
 	require.NoError(t, err, "Failed to read project config file")
 
 	// Test unmarshaling into the wrapper

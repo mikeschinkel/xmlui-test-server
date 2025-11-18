@@ -9,7 +9,7 @@ import (
 	. "github.com/mikeschinkel/go-doterr"
 )
 
-// Run starts the xmlui-test-server with the provided configuration and context.
+// Run starts the xmlui-localsvr with the provided configuration and context.
 // This is the main server execution function that initializes all components
 // and starts the HTTP server.
 //

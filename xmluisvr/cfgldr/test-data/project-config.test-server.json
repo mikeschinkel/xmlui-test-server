@@ -77,7 +77,7 @@
 		}
 	},
 	"database": {
-		"$schema": "https://xmlui.org/schemas/v1/localsvr/sqlite3-schema.json",
+		"$schema": "https://xmlui.org/schemas/v1/localsvr/db/sqlite3-schema.json",
 		"$schemaVersion": 1,
 		"filepath": "./dbroot/data.db",
 		"type": "sqlite3",

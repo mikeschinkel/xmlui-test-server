@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mikeschinkel/go-dt"
+	"github.com/xmlui-org/localsvr/xmluisvr/common"
 	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 
 	. "github.com/mikeschinkel/go-doterr"
@@ -37,7 +38,7 @@ func (d *APIDescription) Migrate() *APIConfigV2 {
 		Version:    APIConfigV2Version,
 		Name:       d.Description,
 		BasePath:   d.BasePath,
-		Webroot:    DefaultWebroot,
+		Webroot:    common.DefaultWebroot,
 		Endpoints:  endpoints,
 		SourceFile: "",
 	}

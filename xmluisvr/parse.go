@@ -22,16 +22,16 @@ import (
 // for all XMLUI Test Server options.
 func ParseOptions(cfgOpts *cfgldr.Options) (opts *common.Options, err error) {
 	var errs []error
-	var cliOpts *cliutil.GlobalOptions
+	var cliOpts *cliutil.CLIOptions
 
-	cliOpts, err = cliutil.NewGlobsalOptions(cliutil.GlobalOptionsArgs{
+	cliOpts, err = cliutil.NewCLIOptions(cliutil.CLIOptionsArgs{
 		Quiet:     &cfgOpts.Quiet,
 		Verbosity: &cfgOpts.Verbosity,
 	})
 	errs = AppendErr(errs, err)
 
 	opts = &common.Options{
-		GlobalOptions:         cliOpts,
+		CLIOptions:            cliOpts,
 		AllowUntrustedQueries: cfgOpts.AllowUntrustedQueries,
 	}
 	opts.Timeout, err = common.ParseTimeDurationEx(strconv.Itoa(cfgOpts.Timeout))
@@ -49,6 +49,8 @@ func ParseOptions(cfgOpts *cfgldr.Options) (opts *common.Options, err error) {
 	opts.DBBootstrapFile, err = dt.ParseFilepath(cfgOpts.DBBootstrapFile)
 	errs = AppendErr(errs, err)
 	opts.ErrorStyle, err = common.ParseErrorStyle(cfgOpts.ErrorStyle)
+	errs = AppendErr(errs, err)
+	opts.Webroot, err = dt.ParseDirPath(cfgOpts.Webroot)
 	errs = AppendErr(errs, err)
 
 	return opts, CombineErrs(errs)
@@ -99,11 +101,12 @@ end:
 }
 
 type ParseDatabaseArgs struct {
-	Writer       cliutil.Writer
-	Logger       *slog.Logger
-	Options      *common.Options
-	DBConfig     cfgldr.DatabaseConfig
-	DirsProvider *cfgstore.DirsProvider
+	Writer         cliutil.Writer
+	Logger         *slog.Logger
+	Options        *common.Options
+	DBConfig       cfgldr.DatabaseConfig
+	DirsProvider   *cfgstore.DirsProvider
+	PrimaryDirType cfgstore.DirType
 }
 
 // ParseDatabase initializes the database connection using the provided configuration and options.
@@ -111,7 +114,7 @@ type ParseDatabaseArgs struct {
 func ParseDatabase(ctx Context, args ParseDatabaseArgs) (db dbpkg.Database, err error) {
 
 	if args.Options.ConnectString == "" {
-		args.Options.ConnectString = common.ConnectString(cfgldr.DefaultSQLite3Database)
+		args.Options.ConnectString = common.ConnectString(common.DefaultSQLite3Database)
 	}
 
 	if common.IsNil(args.DBConfig) {
@@ -123,10 +126,11 @@ func ParseDatabase(ctx Context, args ParseDatabaseArgs) (db dbpkg.Database, err 
 	}
 
 	db, err = dbpkg.ParseDatabase(ctx, args.DBConfig, dbpkg.ParseDatabaseArgs{
-		Options:      args.Options,
-		Writer:       args.Writer,
-		Logger:       args.Logger,
-		DirsProvider: args.DirsProvider,
+		Options:        args.Options,
+		Writer:         args.Writer,
+		Logger:         args.Logger,
+		DirsProvider:   args.DirsProvider,
+		PrimaryDirType: args.PrimaryDirType,
 	})
 	if err != nil {
 		goto end
@@ -223,11 +227,12 @@ func ParseConfig(ctx Context, cfg *cfgldr.RootConfigV1, args ParseConfigArgs) (c
 	}
 
 	config.Database, err = ParseDatabase(ctx, ParseDatabaseArgs{
-		DBConfig:     cfg.DBConfig,
-		Options:      args.Options,
-		Writer:       args.Writer,
-		Logger:       args.Logger,
-		DirsProvider: args.DirsProvider,
+		DBConfig:       cfg.DBConfig,
+		Options:        args.Options,
+		Writer:         args.Writer,
+		Logger:         args.Logger,
+		DirsProvider:   args.DirsProvider,
+		PrimaryDirType: cfg.PrimaryDirType,
 	})
 	if err != nil {
 		err = NewErr(

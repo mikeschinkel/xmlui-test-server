@@ -15,6 +15,8 @@ func isRecognizedOp(op int) bool {
 // they are DENIED. Operations are allowed when the current access mode is GREATER
 // than the denied mode.
 //
+// See: https://sqlite.org/c3ref/c_alter_table.html
+//
 // # Authorization Algorithm
 //
 // The check is: allowed = currentAccessMode > accessModeOpsDenied[operation]
@@ -51,6 +53,7 @@ var accessModeOpsDenied = map[int]dbpkg.AccessMode{
 	sqlite3.SQLITE_COPY:                dbpkg.ReadOnlyMode,
 	sqlite3.SQLITE_REINDEX:             dbpkg.ReadOnlyMode,
 	sqlite3.SQLITE_SAVEPOINT:           dbpkg.ReadOnlyMode,
+	33:                                 dbpkg.ReadOnlyMode, // Recursive, see https://sqlite.org/c3ref/c_alter_table.html
 	sqlite3.SQLITE_ALTER_TABLE:         dbpkg.ReadWriteMode,
 	sqlite3.SQLITE_CREATE_INDEX:        dbpkg.ReadWriteMode,
 	sqlite3.SQLITE_CREATE_TABLE:        dbpkg.ReadWriteMode,

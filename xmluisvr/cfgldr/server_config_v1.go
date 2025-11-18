@@ -1,7 +1,7 @@
 package cfgldr
 
 import (
-	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 )
 
@@ -29,17 +29,17 @@ type ServerConfigV1 struct {
 
 func (*ServerConfigV1) ServerConfig() {}
 
-func (c *ServerConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
+func (c *ServerConfigV1) Normalize(args cfgstore.NormalizeArgs) (err error) {
 	c.Schema = ServerConfigV1Schema
 	c.Version = ServerConfigV1Version
-	c.SourceFile = string(sourceFile)
+	c.SourceFile = string(args.SourceFile)
 	if c.Host == "" {
 		c.Host = common.DefaultServerHost
 	}
 	if c.Port == 0 {
 		c.Port = common.DefaultServerPort
 	}
-	err = c.APIConfig.Normalize(sourceFile, opts)
+	err = c.APIConfig.Normalize(args)
 	return err
 }
 

@@ -1,7 +1,7 @@
 package cfgldr
 
 import (
-	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-cfgstore"
 )
 
 var _ DatabaseConfig = (*PostgresConfigV1)(nil)
@@ -66,7 +66,7 @@ func (c *PostgresConfigV1) DBExtensions() []DBExtensionConfig {
 	panic("implement me")
 }
 
-func (c *PostgresConfigV1) Normalize(sourceFile dt.Filepath, opts *Options) (err error) {
+func (c *PostgresConfigV1) Normalize(cfgstore.NormalizeArgs) (err error) {
 	return err
 }
 

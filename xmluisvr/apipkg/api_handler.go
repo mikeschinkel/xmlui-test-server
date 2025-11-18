@@ -81,9 +81,6 @@ func (api *API) HandleAPIFunc(db dbpkg.Database) http.HandlerFunc {
 	}
 }
 
-var ErrMissingQueryParameters = errors.New("missing query parameters")
-var ErrUnhandledParameterError = errors.New("unhandled parameter error")
-
 func (api *API) getQueryValues(args HandlerHelperArgs) (queryValues []any, err error) {
 	var missing []apiresp.MissingParameter
 	var r *http.Request

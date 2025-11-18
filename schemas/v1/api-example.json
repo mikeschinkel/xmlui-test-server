@@ -1,7 +1,7 @@
 {
   "apiVersion": "1.0",
-  "name": "xmlui-test-server-demo-api",
-  "description": "Demo API for xmlui-test-server",
+  "name": "xmlui-localsvr-demo-api",
+  "description": "Demo API for xmlui-localsvr",
   "basePath": "/api",
   "endpoints": [
     {

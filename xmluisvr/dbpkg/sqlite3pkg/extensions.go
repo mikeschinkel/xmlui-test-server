@@ -13,7 +13,6 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
 
@@ -54,20 +53,20 @@ func NewExtension(filePath dt.Filepath, args ExtensionArgs) *Extension {
 	name = name[:len(name)-len(filepath.Ext(name))]
 	return &Extension{
 		id:           common.ExtensionId(name),
-		version:      cfgldr.UnknownVersion,
+		version:      common.UnknownVersion,
 		name:         name,
 		downloadURLs: make([]common.FullURL, 0),
 		filePath:     filePath,
 		loadOrder:    0,
-		entryPoint:   cfgldr.DefaultSQLite3ExtensionEntryPoint,
+		entryPoint:   common.DefaultSQLite3ExtensionEntryPoint,
 		dependsOn:    make([]DependsOn, 0),
 		sha256s:      make(map[common.OSArch]common.SHA256),
-		onFailure:    cfgldr.DefaultOnFailurePolicy,
+		onFailure:    common.DefaultOnFailurePolicy,
 		preLoadSQL:   make([]SQLQuery, 0),
 		postLoadSQL:  make([]SQLQuery, 0),
 		envVars:      make(common.EnvironmentVars),
 		allowVTable:  false,
-		varScope:     cfgldr.DefaultVarScope,
+		varScope:     common.DefaultVarScope,
 	}
 }
 

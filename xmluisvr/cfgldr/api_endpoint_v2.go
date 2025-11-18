@@ -3,13 +3,12 @@ package cfgldr
 import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 
-	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 
@@ -105,7 +104,7 @@ func NewAPIEndpointV2(method, path string, args APIEndpointV2Args) *APIEndpointV
 	}
 }
 
-func (ep *APIEndpointV2) Normalize(sourceFile dt.Filepath, opts *Options) {
+func (ep *APIEndpointV2) Normalize(args cfgstore.NormalizeArgs) {
 	if ep.Description == "" {
 		ep.Description = ep.Endpoint()
 	}
@@ -122,7 +121,18 @@ func (ep *APIEndpointV2) Normalize(sourceFile dt.Filepath, opts *Options) {
 		ep.paramsType = reflect.TypeOf(([]APIParamV1)(nil))
 	}
 	if ep.configDir == "" {
-		ep.configDir = filepath.Dir(string(sourceFile))
+		// Example SourceFile:
+		// 		Project Config: /Users/mikeschinkel/.config/xmlui/demos/xmlui-invoice/.xmlui/localsvr.json
+		// 		CLI Config: /Users/mikeschinkel/.config/xmlui/localsvr.json
+		dir := args.SourceFile.Dir()
+		switch args.DirType {
+		case cfgstore.ProjectConfigDir:
+			// Example /Users/mikeschinkel/.config/xmlui/demos/xmlui-invoice
+			ep.configDir = string(dir.Dir())
+		default:
+			// Example /Users/mikeschinkel/.config/xmlui
+			ep.configDir = string(dir)
+		}
 	}
 }
 
@@ -229,10 +239,6 @@ end:
 	return err
 }
 
-// ErrFailedToReadQueryFile indicates that an SQL file referenced by an endpoint could not be read.
-var ErrFailedToReadQueryFile = errors.New("failed to read query file")
-var ErrEitherQueryOrQueryFile = errors.New("both query file and query cannot have values")
-
 func (ep *APIEndpointV2) GetQuery() (q string, err error) {
 	var queryBytes []byte
 
@@ -251,8 +257,7 @@ func (ep *APIEndpointV2) GetQuery() (q string, err error) {
 		goto end
 	}
 	ep.queryFilepath = ep.GetQueryFilepath()
-	if err != nil {
-	}
+
 	// Determine the APIConfig description file's directory to make relative paths work
 
 	// Read the SQL file
@@ -280,7 +285,7 @@ func (ep *APIEndpointV2) GetQueryFilepath() string {
 		goto end
 	}
 	// Build the SQL file path relative to the APIConfig description file
-	ep.queryFilepath = filepath.Join(ep.configDir, string(ep.QueryFile))
+	ep.queryFilepath = filepath.Join(ep.configDir, ep.QueryFile)
 end:
 	return ep.queryFilepath
 }
