@@ -3,8 +3,6 @@ package cfgldr
 import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
-	"fmt"
-	"strings"
 
 	"github.com/mikeschinkel/go-cfgstore"
 	. "github.com/mikeschinkel/go-doterr"
@@ -19,6 +17,7 @@ const (
 )
 
 var _ Config = (*RootConfigV1)(nil)
+var _ cfgstore.RootConfig = (*RootConfigV1)(nil)
 
 // RootConfigV1 represents the root configuration structure as defined in ADR-001
 type RootConfigV1 struct {
@@ -26,14 +25,26 @@ type RootConfigV1 struct {
 	DBConfig         DatabaseConfig `json:"database"`
 }
 
+func (c *RootConfigV1) Merge(rc cfgstore.RootConfig) cfgstore.RootConfig {
+	// TODO: We are currently just taking the latest one but we need to actually
+	//  merge rc into c (and it should probably be immutable)
+	switch t := rc.(type) {
+	case *RootConfigV1:
+		return t
+	case *RootConfigV1Wrapper:
+		return t
+	}
+	return c
+}
+
 func (c *RootConfigV1) RootConfig() {}
 
 // Base struct with non-polymorphic fields
 type rootConfigV1Base struct {
-	Schema         string           `json:"$schema"`
-	Version        int              `json:"version"`
-	ServerConfig   *ServerConfigV1  `json:"server"`
-	PrimaryDirType cfgstore.DirType `json:"-"`
+	Schema       string           `json:"$schema"`
+	Version      int              `json:"version"`
+	ServerConfig *ServerConfigV1  `json:"server"`
+	DirType      cfgstore.DirType `json:"-"`
 }
 
 type RootConfigV1Args struct {
@@ -70,6 +81,7 @@ func (c *RootConfigV1) Normalize(args cfgstore.NormalizeArgs) error {
 	var errs []error
 	c.Schema = RootConfigV1Schema
 	c.Version = RootConfigV1Version
+	c.DirType = args.DirType
 	if c.ServerConfig == nil {
 		c.ServerConfig = NewServerConfigV1(common.DefaultServerHost, ServerConfigV1Args{
 			Port: common.DefaultServerPort,
@@ -185,38 +197,6 @@ func (w *RootConfigV1Wrapper) UnmarshalJSON(b []byte) error {
 	return jsonv2.Unmarshal(b, &w.RootConfigV1)
 }
 
-// mergeRootConfig is a Hacky, Hacky, Hacky way to get demos loading quickly.
-// TODO: Revisit this to actually merge the configurations properly
-func mergeRootConfig(rcm cfgstore.RootConfigMap) (rc cfgstore.RootConfig) {
-	var ok bool
-	var rcV1w *RootConfigV1Wrapper
-
-	marker := fmt.Sprintf("/%s/%s/", common.ConfigSlug, common.DemosPath)
-	rc, ok = rcm[cfgstore.ProjectConfigDir]
-	if !ok {
-		panic("Unexpected missing Project Config directory")
-	}
-	rcV1, ok := rc.(*RootConfigV1)
-	if !ok {
-		rcV1w, ok = rc.(*RootConfigV1Wrapper)
-		if ok {
-			rcV1 = &rcV1w.RootConfigV1
-		}
-	}
-	rcV1.PrimaryDirType = cfgstore.ProjectConfigDir
-	if !ok {
-		panic("Unexpected Project Config is not a RootConfigV1 or RootConfigV1Wrapper")
-	}
-	if !strings.Contains(rcV1.ServerConfig.SourceFile, marker) {
-		rcV1.PrimaryDirType = cfgstore.CLIConfigDir
-		rc, ok = rcm[cfgstore.CLIConfigDir]
-		if !ok {
-			panic("Unexpected missing Project Config directory")
-		}
-	}
-	return rc
-}
-
 func LoadRootConfigV1(args LoadRootConfigV1Args) (_ *RootConfigV1, err error) {
 	var lrc *RootConfigV1Wrapper
 	var rc RootConfigV1
@@ -224,7 +204,6 @@ func LoadRootConfigV1(args LoadRootConfigV1Args) (_ *RootConfigV1, err error) {
 	configStores := args.ConfigStores
 	if configStores == nil {
 		configStores = cfgstore.NewConfigStores(cfgstore.ConfigStoresArgs{
-			MergeRootConfigsFunc: mergeRootConfig,
 			ConfigStoreArgs: cfgstore.ConfigStoreArgs{
 				ConfigSlug:   args.AppInfo.ConfigSlug(),
 				RelFilepath:  args.AppInfo.ConfigFile(),
@@ -256,8 +235,8 @@ end:
 
 type GenerateConfigArgs struct {
 	Webroot     string   // Path to webroot directory (default: ".")
-	DBPath      string   // Path to database file (default: "dbroot/data.db")
-	DBBootstrap string   // Path to bootstrap SQL file (default: "dbroot/bootstrap.sql")
+	DBPath      string   // Path to database file (default: "db/data.db")
+	DBBootstrap string   // Path to bootstrap SQL file (default: "db/bootstrap.sql")
 	Port        int      // HTTP port (default: 8080)
 	Host        string   // HTTP host (default: "127.0.0.1")
 	OnOpenSQL   []string // SQL statements to run on database open

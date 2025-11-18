@@ -101,7 +101,7 @@ var (
 const (
 	DemosPath         dt.PathSegment = "demos"
 	WebrootPath       dt.PathSegment = "."
-	DBRootPath        dt.PathSegment = "./dbroot"
+	DBRootPath        dt.PathSegment = "./db"
 	DBFilename        dt.Filename    = "data.db"
 	BootstrapFilename dt.Filename    = "bootstrap.sql"
 )

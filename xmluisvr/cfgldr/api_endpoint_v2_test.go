@@ -389,7 +389,10 @@ func TestAPIEndpointV2_Normalize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.endpoint.Normalize(cfgstore.NormalizeArgs{})
+			err := tt.endpoint.Normalize(cfgstore.NormalizeArgs{})
+			if err != nil {
+				t.Errorf("enpoint failed to normalize: %v", err)
+			}
 			tt.check(t, tt.endpoint)
 		})
 	}

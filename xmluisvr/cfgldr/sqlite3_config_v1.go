@@ -7,6 +7,7 @@ import (
 
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 
@@ -151,7 +152,30 @@ end:
 	return err
 }
 
+func (c *SQLite3ConfigV1) normalizeConnectString2(opts *Options) (err error) {
+	var cs string
+	if opts.ConnectString == "" {
+		cs = string(dt.FilepathJoin(opts.Webroot, common.DefaultSQLite3Database))
+		goto end
+	}
+	if !dt.DirPath(opts.ConnectString).IsAbs() {
+		cs = filepath.Join(opts.Webroot, opts.ConnectString)
+	}
+	c.SetConnectString(cs)
+end:
+	return err
+}
+
+func (c *SQLite3ConfigV1) normalizeConnectString(opts *Options) (err error) {
+	cs := opts.appendToWebroot(opts.ConnectString, common.DefaultSQLite3Database)
+	c.SetConnectString(cs)
+	return err
+}
+
 func (c *SQLite3ConfigV1) Normalize(args cfgstore.NormalizeArgs) (err error) {
+	var errs []error
+	var opts *Options
+
 	c.sourceFile = string(args.SourceFile)
 	if c.Schema == "" {
 		c.Schema = SQLite3ConfigV1Schema
@@ -168,17 +192,9 @@ func (c *SQLite3ConfigV1) Normalize(args cfgstore.NormalizeArgs) (err error) {
 	if len(c.OnOpenSQL) == 0 {
 		c.OnOpenSQL = make([]string, 0)
 	}
-	opts := args.Options.(*Options)
-	if opts.ConnectString != "" {
-		// SourceFile = /Users/<user>/.config/xmlui/localsvr.json
-		dir := args.SourceFile.Dir()
-		// CLIConfigDir = ~/.config/xmlui/
-		if args.DirType == cfgstore.ProjectConfigDir {
-			// ProjectDir = <projectDir>/.xmlui
-			dir = dir.Dir()
-			// After = <projectDir>/
-		}
-		c.SetConnectString(filepath.Join(string(dir), string(opts.ConnectString)))
+	opts, err = dtx.AssertType[*Options](args.Options)
+	if err != nil {
+		goto end
 	}
 	if opts.DBAccessMode != int(dbqvars.UnspecifiedDBAccessMode) {
 		c.AccessMode = opts.DBAccessMode
@@ -186,7 +202,10 @@ func (c *SQLite3ConfigV1) Normalize(args cfgstore.NormalizeArgs) (err error) {
 	if c.AccessMode == int(dbqvars.UnspecifiedDBAccessMode) {
 		c.AccessMode = DefaultDBAccessMode
 	}
-	err = c.normalizeExtensions(args)
+	errs = AppendErr(errs, c.normalizeConnectString(opts))
+	errs = AppendErr(errs, c.normalizeExtensions(args))
+	err = CombineErrs(errs)
+end:
 	if err != nil {
 		err = WithErr(err,
 			ErrFailedToNormalize,

@@ -9,6 +9,8 @@ import (
 	"reflect"
 
 	"github.com/mikeschinkel/go-cfgstore"
+	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
 
@@ -104,7 +106,38 @@ func NewAPIEndpointV2(method, path string, args APIEndpointV2Args) *APIEndpointV
 	}
 }
 
-func (ep *APIEndpointV2) Normalize(args cfgstore.NormalizeArgs) {
+func (ep *APIEndpointV2) normalizeQueryFile(args cfgstore.NormalizeArgs) (err error) {
+	var exists bool
+	if ep.QueryFile == "" {
+		goto end
+	}
+	switch args.DirType {
+	case cfgstore.CLIConfigDir, cfgstore.AppConfigDir:
+		ep.queryFilepath = filepath.Join(ep.configDir, ep.QueryFile)
+	case cfgstore.ProjectConfigDir:
+		var opts *Options
+		opts, err = dtx.AssertType[*Options](args.Options)
+		if err != nil {
+			goto end
+		}
+		ep.queryFilepath = filepath.Join(opts.Webroot, ep.QueryFile)
+	case cfgstore.UnspecifiedConfigDir:
+		// Just here to stop GoLand from complaining about missing case statements
+	}
+	exists, _ = dt.Filepath(ep.queryFilepath).Exists()
+	// If not, remove it as this is an optional file (I think)
+	if !exists {
+		// TODO: Consider keeping track of QueryFiles that are specified but do not exist
+		//  in any of the config stores (project or CLI/App config store). We cannot throw
+		//  an error if missing unless we start tracking all config stores because if it
+		//  is found it should only be found in one config store.
+		ep.queryFilepath = ""
+	}
+end:
+	return err
+}
+
+func (ep *APIEndpointV2) Normalize(args cfgstore.NormalizeArgs) error {
 	if ep.Description == "" {
 		ep.Description = ep.Endpoint()
 	}
@@ -121,19 +154,9 @@ func (ep *APIEndpointV2) Normalize(args cfgstore.NormalizeArgs) {
 		ep.paramsType = reflect.TypeOf(([]APIParamV1)(nil))
 	}
 	if ep.configDir == "" {
-		// Example SourceFile:
-		// 		Project Config: /Users/mikeschinkel/.config/xmlui/demos/xmlui-invoice/.xmlui/localsvr.json
-		// 		CLI Config: /Users/mikeschinkel/.config/xmlui/localsvr.json
-		dir := args.SourceFile.Dir()
-		switch args.DirType {
-		case cfgstore.ProjectConfigDir:
-			// Example /Users/mikeschinkel/.config/xmlui/demos/xmlui-invoice
-			ep.configDir = string(dir.Dir())
-		default:
-			// Example /Users/mikeschinkel/.config/xmlui
-			ep.configDir = string(dir)
-		}
+		ep.configDir = string(args.SourceFile.Dir())
 	}
+	return ep.normalizeQueryFile(args)
 }
 
 func (ep *APIEndpointV2) IsMapFormat() bool {

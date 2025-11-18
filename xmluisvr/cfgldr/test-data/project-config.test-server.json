@@ -79,7 +79,7 @@
 	"database": {
 		"$schema": "https://xmlui.org/schemas/v1/localsvr/db/sqlite3-schema.json",
 		"$schemaVersion": 1,
-		"filepath": "./dbroot/data.db",
+		"filepath": "./db/data.db",
 		"type": "sqlite3",
 		"extensions": [
 			{

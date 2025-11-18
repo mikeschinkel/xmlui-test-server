@@ -125,13 +125,6 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 		goto end
 	}
 
-	if !isEmptyOrDot(args.Options.Webroot) {
-		// TODO: Review this to see is this works for the general use-case — CLIConfig
-		//  vs. project/demo config — and also if there is not a more appropriate place
-		//  set webroot
-		webroot = dt.DirPathJoin(args.Options.Webroot, webroot)
-	}
-
 	api = NewAPI(APIArgs{
 		Name:       cfgV2.Name,
 		Webroot:    webroot,
@@ -144,10 +137,6 @@ func CreateAPI(args CreateAPIArgs) (api *API, err error) {
 	})
 end:
 	return api, err
-}
-
-func isEmptyOrDot(path dt.DirPath) bool {
-	return path == "" || path == "."
 }
 
 // NewAPI creates a new API instance with the provided arguments.

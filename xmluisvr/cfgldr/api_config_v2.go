@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
 	"github.com/xmlui-org/localsvr/xmluisvr/common"
 
 	. "github.com/mikeschinkel/go-doterr"
@@ -66,6 +68,7 @@ func NewAPIConfigV2(webroot string) *APIConfigV2 {
 func (*APIConfigV2) Config() {}
 
 func (c *APIConfigV2) normalizeEndpoints(args cfgstore.NormalizeArgs) (err error) {
+	var errs []error
 	if c.Endpoints == nil {
 		c.Endpoints = make([]*APIEndpointV2, 0)
 	}
@@ -73,13 +76,31 @@ func (c *APIConfigV2) normalizeEndpoints(args cfgstore.NormalizeArgs) (err error
 		goto end
 	}
 	for _, ep := range c.Endpoints {
-		ep.Normalize(args)
+		errs = AppendErr(errs, ep.Normalize(args))
+	}
+	err = CombineErrs(errs)
+end:
+	return err
+}
+
+func (c *APIConfigV2) normalizeWebroot(args cfgstore.NormalizeArgs) (err error) {
+	var opts *Options
+	opts, err = dtx.AssertType[*Options](args.Options)
+	if err != nil {
+		goto end
+	}
+	switch {
+	case filepath.Clean(c.Webroot) == ".":
+		c.Webroot = opts.Webroot
+	case !filepath.IsAbs(c.Webroot):
+		c.Webroot = filepath.Join(opts.Webroot, c.Webroot)
 	}
 end:
 	return err
 }
 
 func (c *APIConfigV2) Normalize(args cfgstore.NormalizeArgs) (err error) {
+	var errs []error
 	c.SourceFile = string(args.SourceFile)
 	if c.Schema == "" {
 		c.Schema = APIConfigV2Schema
@@ -90,10 +111,10 @@ func (c *APIConfigV2) Normalize(args cfgstore.NormalizeArgs) (err error) {
 	if c.BasePath == "" {
 		c.BasePath = common.DefaultAPIBasePath
 	}
-	if c.Webroot == "" {
-		c.Webroot = common.DefaultWebroot
-	}
-	err = c.normalizeEndpoints(args)
+	errs = AppendErr(errs, c.normalizeWebroot(args))
+	errs = AppendErr(errs, c.normalizeEndpoints(args))
+
+	err = CombineErrs(errs)
 	return err
 }
 

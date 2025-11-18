@@ -10,14 +10,6 @@ import (
 	"github.com/mikeschinkel/go-testutil"
 )
 
-type ConfigStoreArgs = cfgstore.ConfigStoreArgs
-
-var NewConfigStores = cfgstore.NewConfigStores
-var NewConfigStore = cfgstore.NewConfigStore
-
-const LocalConfigDir = cfgstore.ProjectConfigDir
-const DotConfigDir = cfgstore.CLIConfigDir
-
 type SetupFixturesArgs struct {
 	TestDataDir dt.DirPath
 	UserFile    dt.Filename

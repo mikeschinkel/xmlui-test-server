@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mikeschinkel/go-cliutil"
@@ -54,6 +55,15 @@ type Options struct {
 }
 
 func (*Options) Options() {}
+func (opts *Options) appendToWebroot(value, defaultValue string) string {
+	switch {
+	case value == "":
+		value = filepath.Join(opts.Webroot, defaultValue)
+	case !filepath.IsAbs(value):
+		value = filepath.Join(opts.Webroot, value)
+	}
+	return value
+}
 
 type OptionsArgs struct {
 	Timeout               *int

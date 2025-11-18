@@ -164,11 +164,11 @@ end:
 }
 
 type ParseDatabaseArgs struct {
-	Options        *common.Options
-	Writer         CLIWriter
-	Logger         *slog.Logger
-	DirsProvider   *cfgstore.DirsProvider
-	PrimaryDirType cfgstore.DirType
+	Options      *common.Options
+	Writer       CLIWriter
+	Logger       *slog.Logger
+	DirsProvider *cfgstore.DirsProvider
+	DirType      cfgstore.DirType
 }
 
 var ErrNoDatabaseConnectString = errors.New("no database connection string")
@@ -214,7 +214,7 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 		BaseFilename:   "bootstrap",
 		ConfigSource:   sourceFile,
 		DirsProvider:   args.DirsProvider,
-		PrimaryDirType: args.PrimaryDirType,
+		PrimaryDirType: args.DirType,
 	})
 	if err != nil {
 		goto end
@@ -225,7 +225,7 @@ func ParseDatabase(ctx Context, cfg cfgldr.DatabaseConfig, args ParseDatabaseArg
 		BaseFilename:   "on_open",
 		ConfigSource:   sourceFile,
 		DirsProvider:   args.DirsProvider,
-		PrimaryDirType: args.PrimaryDirType,
+		PrimaryDirType: args.DirType,
 	})
 	if err != nil {
 		goto end
