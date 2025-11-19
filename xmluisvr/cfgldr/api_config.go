@@ -5,7 +5,6 @@ import (
 
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
-	"github.com/mikeschinkel/go-dt/de"
 	"github.com/mikeschinkel/go-dt/dtx"
 
 	. "github.com/mikeschinkel/go-doterr"
@@ -36,7 +35,7 @@ func LoadAPIFileIfExists(apiFile dt.Filepath) (api APIConfig, err error) {
 	case dt.IsSymlinkEntry:
 		target, err = apiFile.Readlink()
 		if err != nil {
-			err = NewErr(de.ErrFailedReadingSymlink, err)
+			err = NewErr(dt.ErrFailedReadingSymlink, err)
 			goto end
 		}
 		api, err = LoadAPIFileIfExists(target)
@@ -55,7 +54,7 @@ func LoadAPIFileIfExists(apiFile dt.Filepath) (api APIConfig, err error) {
 	apiV2, err = LoadAPIConfigV2(apiFile)
 	if err != nil {
 		err = NewErr(
-			de.ErrFailedToLoadFile,
+			dt.ErrFailedToLoadFile,
 			"config_version", "v2",
 			err,
 		)
@@ -67,7 +66,7 @@ func LoadAPIFileIfExists(apiFile dt.Filepath) (api APIConfig, err error) {
 	apiV1, err = LoadAPIDescriptionFromFile(apiFile)
 	if err != nil || apiV1 == nil {
 		err = NewErr(
-			de.ErrFailedToLoadFile,
+			dt.ErrFailedToLoadFile,
 			"config_version", "v1",
 			err,
 		)

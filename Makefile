@@ -100,6 +100,13 @@ deps:
 	cd xmluisvr && go mod download && go mod tidy
 	cd cmd && go mod download && go mod tidy
 
+## tidy: Run go mod tidy on all go.mod files in the project
+.PHONY: tidy
+tidy:
+	@echo "Running go mod tidy on all go.mod files..."
+	@find . -name go.mod -execdir go mod tidy \;
+	@echo "Done!"
+
 ## doterr: Sync doterr
 .PHONY: doterr
 doterr:
