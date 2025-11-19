@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

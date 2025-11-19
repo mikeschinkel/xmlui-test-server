@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvconstraints"
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvconstraints"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 
-	_ "github.com/xmlui-org/localsvr/xmluisvr/pathvars/dtclassifiers"
+	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/dtclassifiers"
 )
 
 var _ pvtypes.Constraint = (*pvconstraints.DecimalRangeConstraint)(nil)

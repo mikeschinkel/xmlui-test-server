@@ -2,7 +2,7 @@ module xmluisvr-cli
 
 go 1.25.3
 
-require github.com/xmlui-org/localsvr/xmluisvr v0.1.0
+require github.com/xmlui-org/xmlui-test-server/xmluisvr v0.1.0
 
 require (
 	github.com/lib/pq v1.10.9 // indirect
@@ -18,4 +18,4 @@ require (
 	github.com/mikeschinkel/go-rfc9457 v0.1.0 // indirect
 )
 
-replace github.com/xmlui-org/localsvr/xmluisvr => ../xmluisvr
+replace github.com/xmlui-org/xmlui-test-server/xmluisvr => ../xmluisvr

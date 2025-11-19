@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 type ParsedQuery struct {

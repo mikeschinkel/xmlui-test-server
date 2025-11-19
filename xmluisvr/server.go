@@ -9,9 +9,9 @@ import (
 
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localsvr/xmluisvr/apipkg"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 )
 
 // InboundProxyProtocol defines the protocol used for inbound proxy requests.

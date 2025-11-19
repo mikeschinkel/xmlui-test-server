@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 // noinspection SqlResolveForFile

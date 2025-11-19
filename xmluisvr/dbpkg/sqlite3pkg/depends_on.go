@@ -2,7 +2,7 @@ package sqlite3pkg
 
 import (
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 type DependsOn struct {

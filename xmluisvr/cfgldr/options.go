@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 const (

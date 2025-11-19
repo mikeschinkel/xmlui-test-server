@@ -11,8 +11,8 @@ import (
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-dt/dtglob"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // SiteInstaller handles the installation of a demo from a manifest

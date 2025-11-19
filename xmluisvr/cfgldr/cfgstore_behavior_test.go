@@ -5,7 +5,7 @@ import (
 
 	"github.com/mikeschinkel/go-dt"
 	"github.com/stretchr/testify/require"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 )
 
 // TestCfgStoreBehavior tests what cfgstore is actually doing

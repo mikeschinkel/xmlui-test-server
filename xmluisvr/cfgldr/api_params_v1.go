@@ -3,7 +3,7 @@ package cfgldr
 import (
 	"fmt"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 var _ APIParamsMapper = (*APIParamsV1)(nil)

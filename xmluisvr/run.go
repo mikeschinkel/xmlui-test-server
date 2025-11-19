@@ -1,8 +1,8 @@
 package xmluisvr
 
 import (
-	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 
 	"github.com/mikeschinkel/go-cliutil"
 

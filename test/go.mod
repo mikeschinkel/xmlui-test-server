@@ -9,7 +9,7 @@ require (
 	github.com/mikeschinkel/go-fsfix v0.2.0
 	github.com/mikeschinkel/go-rfc9457 v0.1.0
 	github.com/mikeschinkel/go-testutil v0.1.0
-	github.com/xmlui-org/localsvr/xmluisvr v0.1.0
+	github.com/xmlui-org/xmlui-test-server/xmluisvr v0.1.0
 )
 
 require (
@@ -22,4 +22,4 @@ require (
 	github.com/mikeschinkel/go-logutil v0.1.0 // indirect
 )
 
-replace github.com/xmlui-org/localsvr/xmluisvr => ../xmluisvr
+replace github.com/xmlui-org/xmlui-test-server/xmluisvr => ../xmluisvr

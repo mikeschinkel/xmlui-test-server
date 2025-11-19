@@ -15,12 +15,12 @@ import (
 
 	. "github.com/mikeschinkel/go-doterr"
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localsvr/xmluisvr/apipkg"
-	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 func (svr *Server) handleRootFunc() http.HandlerFunc {

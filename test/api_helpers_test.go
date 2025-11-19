@@ -25,10 +25,10 @@ import (
 	"github.com/mikeschinkel/go-fsfix"
 	"github.com/mikeschinkel/go-rfc9457"
 	"github.com/mikeschinkel/go-testutil"
-	"github.com/xmlui-org/localsvr/xmluisvr"
-	"github.com/xmlui-org/localsvr/xmluisvr/apiresp"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/apiresp"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 const (

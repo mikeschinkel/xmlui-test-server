@@ -1,7 +1,7 @@
 package pathvars
 
 import (
-	pvt "github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
+	pvt "github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 type ParameterError = pvt.ParameterError

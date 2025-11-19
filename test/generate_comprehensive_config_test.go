@@ -5,9 +5,9 @@ import (
 	jsonv2 "encoding/json/v2"
 	"os"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 // generateConfig generates the api__test.json configuration file.

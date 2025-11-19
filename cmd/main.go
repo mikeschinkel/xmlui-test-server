@@ -9,7 +9,7 @@
 package main
 
 import (
-	"github.com/xmlui-org/localsvr/xmluisvr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr"
 )
 
 // main is the application entry point that starts the xmlui-localsvr CLI.

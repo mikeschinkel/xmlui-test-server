@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 func TestSimplePathWithoutParameters(t *testing.T) {

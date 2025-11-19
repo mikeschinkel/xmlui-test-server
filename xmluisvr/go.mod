@@ -1,4 +1,4 @@
-module github.com/xmlui-org/localsvr/xmluisvr
+module github.com/xmlui-org/xmlui-test-server/xmluisvr
 
 go 1.25.3
 

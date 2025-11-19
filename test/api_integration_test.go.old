@@ -16,14 +16,14 @@ import (
 	"time"
 
 	"github.com/mikeschinkel/go-fsfix"
-	"github.com/xmlui-org/localsvr/xmluisvr"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 	"github.com/mikeschinkel/go-cfgstore"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 	"github.com/mikeschinkel/go-testutil"
 
-	_ "github.com/xmlui-org/localsvr/xmluisvr/apipkg"
-	_ "github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/apipkg"
+	_ "github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 )
 
 // testRequest represents a single HTTP request test case

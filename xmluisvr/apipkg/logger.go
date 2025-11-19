@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/mikeschinkel/go-rfc9457"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // logger provides package-level logging functionality using the common logger instance.

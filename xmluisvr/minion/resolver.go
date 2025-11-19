@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/mikeschinkel/go-dt"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 )
 
 // InputType represents the kind of input provided by the user

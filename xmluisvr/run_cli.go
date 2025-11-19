@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 // RunCLI is the main CLI entry point for the xmlui-localsvr application.

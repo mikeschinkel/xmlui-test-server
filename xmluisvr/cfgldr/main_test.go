@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	testutil "github.com/mikeschinkel/go-testutil"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
 )
 
 const testDataDir = "./test-data"

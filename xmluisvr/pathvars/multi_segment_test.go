@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars"
 )
 
 func TestMultiSegmentParameters(t *testing.T) {

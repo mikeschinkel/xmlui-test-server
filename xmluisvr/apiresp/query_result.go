@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/mikeschinkel/go-rfc9457"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 
 	. "github.com/mikeschinkel/go-doterr"
 )

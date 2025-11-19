@@ -5,7 +5,7 @@ import (
 
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-dt/dtglob"
-	"github.com/xmlui-org/localsvr/xmluisvr/cfgldr"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/cfgldr"
 )
 
 // ParseManifest converts raw cfgldr.Manifest to type-checked runpkg.Manifest

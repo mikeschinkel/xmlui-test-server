@@ -1,7 +1,7 @@
 package pvconstraints
 
 import (
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 // ParseRangeConstraint uses the registry to find and parse the appropriate range constraint based on data type

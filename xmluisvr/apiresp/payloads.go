@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/mikeschinkel/go-rfc9457"
-	"github.com/xmlui-org/localsvr/xmluisvr/common"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/common"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
 )
 
 func NoResultsPayload(req *http.Request, args PayloadArgs) (pr PayloadResult) {

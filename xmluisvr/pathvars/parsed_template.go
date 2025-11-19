@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xmlui-org/localsvr/xmluisvr/pathvars/pvtypes"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/pathvars/pvtypes"
 )
 
 // ParsedTemplate represents a parsed path template with parameters and compiled

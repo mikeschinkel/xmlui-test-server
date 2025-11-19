@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/mattn/go-sqlite3"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbpkg/sqlite3pkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbpkg/sqlite3pkg"
 )
 
 // TestAccessMode_Allowed tests the SQLite3 operation authorization algorithm.

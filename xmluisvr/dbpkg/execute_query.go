@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/xmlui-org/localsvr/xmluisvr/dbqvars"
+	"github.com/xmlui-org/xmlui-test-server/xmluisvr/dbqvars"
 )
 
 var mutex sync.Mutex

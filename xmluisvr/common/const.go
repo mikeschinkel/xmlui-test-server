@@ -80,7 +80,7 @@ const (
 	LogPath dt.PathSegments = "logs"
 
 	// GitHubRepoURL provides the GitHub repo for this project for use in error messages
-	// TODO: Can we change this Github URL to be "https://github.com/xmlui-org/localsvr"?
+	// TODO: Can we change this Github URL to be "https://github.com/xmlui-org/xmlui-test-server"?
 	GitHubRepoURL = "https://github.com/xmlui-org/xmlui-test-server"
 )
 
